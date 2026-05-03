@@ -3,11 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XPSBatteryTray.Controls"
         Title="XPS Battery Tray"
-        Width="700"
+        Width="660"
         Height="900"
-        MinWidth="680"
+        MinWidth="640"
         MinHeight="860"
-        MaxWidth="720"
+        MaxWidth="680"
         MaxHeight="920"
         WindowStartupLocation="Manual"
         ShowInTaskbar="False"
@@ -26,10 +26,9 @@
                 <RowDefinition Height="46" />
                 <RowDefinition Height="42" />
                 <RowDefinition Height="182" />
-                <RowDefinition Height="142" />
-                <RowDefinition Height="142" />
-                <RowDefinition Height="142" />
-                <RowDefinition Height="168" />
+                <RowDefinition Height="220" />
+                <RowDefinition Height="220" />
+                <RowDefinition Height="*" />
                 <RowDefinition Height="28" />
             </Grid.RowDefinitions>
 
@@ -125,10 +124,10 @@
                         <TextBlock Text="Battery" Foreground="{StaticResource AccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="88" />
+                                <ColumnDefinition Width="76" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <controls:BatteryGaugeControl Grid.Column="0" Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="58" Height="88" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,12,0,0" />
+                            <controls:BatteryGaugeControl Grid.Column="0" Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="52" Height="80" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,16,0,0" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding BatteryPercentText}" FontSize="40" FontWeight="Bold" LineHeight="44" />
                                 <TextBlock Text="{Binding PowerStateText}" Foreground="{StaticResource AccentBrush}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
@@ -143,12 +142,12 @@
 
                     <Grid Grid.Column="2" Margin="16,0,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="96" />
+                            <ColumnDefinition Width="84" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Grid Width="80" Height="80" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <Grid Width="72" Height="72" VerticalAlignment="Center" HorizontalAlignment="Left">
                             <controls:RingGaugeControl Value="{Binding CpuGaugeValue}" Accent="{StaticResource AccentBrush}" />
-                            <TextBlock Text="{Binding CpuUsageText}" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding CpuUsageText}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{Binding CpuTemperatureDisplay}" FontSize="15" Margin="0,0,0,9" Foreground="{StaticResource ThermalAccentBrush}" />
@@ -174,7 +173,7 @@
                         <TextBlock Text="⚡  Battery watts" Foreground="{StaticResource BatteryAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="{Binding BatteryWattsGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" Height="94" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" Height="166" />
                 </Grid>
             </Border>
 
@@ -190,33 +189,14 @@
                             <ColumnDefinition Width="16" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="⚡  CPU package power" Foreground="{StaticResource ThermalAccentBrush}" FontSize="15" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="2" Text="{Binding CpuPowerGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                    </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding CpuPowerGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#33FF6F87" Height="94" />
-                </Grid>
-            </Border>
-
-            <Border Grid.Row="5" Style="{StaticResource CardStyle}" Margin="10,0,10,8">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="30" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="16" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
                         <TextBlock Text="♨  CPU temperature" Foreground="{StaticResource ThermalAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="{Binding TemperatureGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#2AFF6F87" Height="94" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#2AFF6F87" Height="166" />
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="6" Margin="10,0,10,8">
+            <Grid Grid.Row="5" Margin="10,0,10,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="10" />
