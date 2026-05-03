@@ -222,8 +222,11 @@
                         <ItemsControl Grid.Row="2" ItemsSource="{Binding TopCpuProcesses}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Height="20" Margin="0,1,0,0">
-                                        <ProgressBar Grid.ColumnSpan="2" Style="{StaticResource MiniBarStyle}" Value="{Binding CpuPercent}" Maximum="100" Foreground="#3F82CB" Opacity="0.45" VerticalAlignment="Center" />
+                                    <Grid Height="21" Margin="0,1,0,0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="3" />
+                                        </Grid.RowDefinitions>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -231,6 +234,10 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="{Binding CpuText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid Grid.Row="1" Margin="0,0,0,1">
+                                            <Border Background="#2B3036" Height="1" VerticalAlignment="Center" />
+                                            <ProgressBar Style="{StaticResource MiniLineBarStyle}" Value="{Binding CpuPercent}" Maximum="100" Foreground="#4AA8FF" />
                                         </Grid>
                                     </Grid>
                                 </DataTemplate>
@@ -258,8 +265,11 @@
                         <ItemsControl Grid.Row="2" ItemsSource="{Binding EnergyImpactProcesses}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Height="20" Margin="0,1,0,0">
-                                        <ProgressBar Grid.ColumnSpan="2" Style="{StaticResource MiniBarStyle}" Value="{Binding EstimatedEnergyImpactBarPercent}" Maximum="100" Foreground="#4E9C52" Opacity="0.42" VerticalAlignment="Center" />
+                                    <Grid Height="21" Margin="0,1,0,0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="3" />
+                                        </Grid.RowDefinitions>
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -267,6 +277,10 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="{Binding EnergyText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid Grid.Row="1" Margin="0,0,0,1">
+                                            <Border Background="#2B3036" Height="1" VerticalAlignment="Center" />
+                                            <ProgressBar Style="{StaticResource MiniLineBarStyle}" Value="{Binding EstimatedEnergyImpactBarPercent}" Maximum="100" Foreground="{StaticResource GoodAccentBrush}" />
                                         </Grid>
                                     </Grid>
                                 </DataTemplate>
