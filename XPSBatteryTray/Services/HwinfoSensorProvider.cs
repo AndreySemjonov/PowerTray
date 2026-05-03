@@ -10,6 +10,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
 {
     private const string MappingName = @"Global\HWiNFO_SENS_SM2";
     private const string MutexName = @"Global\HWiNFO_SM2_MUTEX";
+    private static DateTimeOffset _lastDiagnosticLog = DateTimeOffset.MinValue;
 
     public string Name => "HWiNFO";
 
@@ -76,14 +77,13 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             return Unavailable("HWiNFO sensors detected but no readings were exposed");
         }
 
-        _ = sensorOffset;
-        _ = sensorElementSize;
-        _ = sensorCount;
+        Dictionary<uint, SensorInfo> sensors = ReadSensors(accessor, sensorOffset, sensorElementSize, sensorCount);
 
         double? cpuTemp = null;
         double? cpuPower = null;
         double? batteryPower = null;
         var fans = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        var diagnostics = new List<string>();
 
         for (uint i = 0; i < readingCount; i++)
         {
@@ -100,25 +100,36 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             }
 
             string name = reading.Name;
-            string haystack = $"{name} {reading.Unit}";
+            sensors.TryGetValue(reading.SensorIndex, out SensorInfo sensor);
+            string sensorName = sensor.DisplayName;
+            string haystack = $"{sensorName} {name} {reading.Unit}";
+            diagnostics.Add($"{reading.Type}: {sensorName} / {name} = {reading.Value:N2} {reading.Unit}");
 
-            if (cpuTemp is null && ContainsAny(haystack, "CPU Package", "Core Max", "Core Temperatures") && IsTemperature(reading.Unit))
+            if (cpuTemp is null && reading.Type == ReadingType.Temperature &&
+                (ContainsAny(haystack, "CPU Package", "Core Max", "Core Temperatures") ||
+                 ContainsAny(sensorName, "CPU", "Intel Core", "Core Ultra", "Processor")))
             {
                 cpuTemp = reading.Value;
             }
-            else if (cpuPower is null && ContainsAny(haystack, "CPU Package Power", "Package Power") && IsPower(reading.Unit))
+            else if (cpuPower is null && reading.Type == ReadingType.Power &&
+                     (ContainsAny(haystack, "CPU Package Power", "Package Power", "IA Cores Power", "Processor Power") ||
+                      (ContainsAny(sensorName, "CPU", "Intel Core", "Core Ultra", "Processor") && ContainsAny(haystack, "Power"))))
             {
                 cpuPower = Math.Abs(reading.Value);
             }
-            else if (batteryPower is null && ContainsAny(haystack, "Charge Rate", "Discharge Rate", "Battery Power") && IsPower(reading.Unit))
+            else if (batteryPower is null && reading.Type == ReadingType.Power &&
+                     (ContainsAny(haystack, "Charge Rate", "Discharge Rate", "Battery Power", "Charge Power") ||
+                      ContainsAny(sensorName, "Battery", "Smart Battery")))
             {
                 batteryPower = reading.Value;
             }
-            else if (ContainsAny(haystack, "Fan") && ContainsAny(haystack, "RPM"))
+            else if (reading.Type == ReadingType.Fan || ContainsAny(haystack, "Fan", "RPM"))
             {
                 fans[name] = reading.Value;
             }
         }
+
+        LogDiagnosticsIfNeeded(cpuTemp, cpuPower, batteryPower, fans.Count, diagnostics);
 
         return new SensorReadings
         {
@@ -133,14 +144,41 @@ public sealed class HwinfoSensorProvider : ISensorProvider
 
     private static Reading TryReadReading(MemoryMappedViewAccessor accessor, long baseOffset, uint elementSize)
     {
-        // HWiNFO has used fixed-size reading records. The offsets below are intentionally guarded
-        // so layout changes degrade to "no matching sensor" instead of a crash.
-        string original = ReadString(accessor, baseOffset + 16, Math.Min(128, (int)Math.Max(0, elementSize - 16)));
-        string user = elementSize >= 272 ? ReadString(accessor, baseOffset + 144, 128) : string.Empty;
-        string unit = elementSize >= 288 ? ReadString(accessor, baseOffset + 272, 16) : string.Empty;
-        double value = elementSize >= 296 ? accessor.ReadDouble(baseOffset + 288) : double.NaN;
+        // Packed HWiNFO_SENSORS_READING_ELEMENT:
+        // DWORD type, DWORD sensor index, DWORD reading id, 128 label orig, 128 label user, 16 unit, 4 doubles.
+        var type = elementSize >= 4 ? (ReadingType)accessor.ReadInt32(baseOffset) : ReadingType.None;
+        uint sensorIndex = elementSize >= 8 ? accessor.ReadUInt32(baseOffset + 4) : 0;
+        string original = elementSize >= 140 ? ReadString(accessor, baseOffset + 12, 128) : string.Empty;
+        string user = elementSize >= 268 ? ReadString(accessor, baseOffset + 140, 128) : string.Empty;
+        string unit = elementSize >= 284 ? ReadString(accessor, baseOffset + 268, 16) : string.Empty;
+        double value = elementSize >= 292 ? accessor.ReadDouble(baseOffset + 284) : double.NaN;
         string name = string.IsNullOrWhiteSpace(user) ? original : user;
-        return new Reading(name.Trim(), unit.Trim(), value);
+        return new Reading(sensorIndex, type, name.Trim(), unit.Trim(), value);
+    }
+
+    private static Dictionary<uint, SensorInfo> ReadSensors(MemoryMappedViewAccessor accessor, uint sensorOffset, uint sensorElementSize, uint sensorCount)
+    {
+        var sensors = new Dictionary<uint, SensorInfo>();
+        if (sensorOffset == 0 || sensorElementSize < 264 || sensorCount == 0)
+        {
+            return sensors;
+        }
+
+        for (uint i = 0; i < sensorCount; i++)
+        {
+            long baseOffset = sensorOffset + (long)i * sensorElementSize;
+            if (baseOffset < 0 || baseOffset + sensorElementSize > accessor.Capacity)
+            {
+                break;
+            }
+
+            string original = ReadString(accessor, baseOffset + 8, 128);
+            string user = ReadString(accessor, baseOffset + 136, 128);
+            string name = string.IsNullOrWhiteSpace(user) ? original : user;
+            sensors[i] = new SensorInfo(name.Trim());
+        }
+
+        return sensors;
     }
 
     private static string ReadString(MemoryMappedViewAccessor accessor, long offset, int maxLength)
@@ -159,19 +197,46 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             length = terminator;
         }
 
-        return Encoding.UTF8.GetString(buffer, 0, length).Trim();
+        return Encoding.Latin1.GetString(buffer, 0, length).Trim();
     }
 
     private static bool ContainsAny(string value, params string[] terms) =>
         terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
 
-    private static bool IsTemperature(string unit) =>
-        unit.Contains("C", StringComparison.OrdinalIgnoreCase) || unit.Contains("°", StringComparison.OrdinalIgnoreCase);
+    private static void LogDiagnosticsIfNeeded(double? cpuTemp, double? cpuPower, double? batteryPower, int fanCount, IReadOnlyList<string> diagnostics)
+    {
+        if (cpuTemp is not null && cpuPower is not null && batteryPower is not null && fanCount > 0)
+        {
+            return;
+        }
 
-    private static bool IsPower(string unit) =>
-        unit.Contains("W", StringComparison.OrdinalIgnoreCase);
+        DateTimeOffset now = DateTimeOffset.Now;
+        if (now - _lastDiagnosticLog < TimeSpan.FromMinutes(1))
+        {
+            return;
+        }
+
+        _lastDiagnosticLog = now;
+        string sample = string.Join(Environment.NewLine, diagnostics.Take(80));
+        LogService.Info($"HWiNFO detected but some expected sensors were not matched. CPU temp={cpuTemp?.ToString("N1") ?? "none"}, CPU power={cpuPower?.ToString("N1") ?? "none"}, battery power={batteryPower?.ToString("N1") ?? "none"}, fans={fanCount}.{Environment.NewLine}{sample}");
+    }
 
     private static SensorReadings Unavailable(string status) => new() { IsAvailable = false, Status = status };
 
-    private readonly record struct Reading(string Name, string Unit, double Value);
+    private readonly record struct SensorInfo(string DisplayName);
+
+    private readonly record struct Reading(uint SensorIndex, ReadingType Type, string Name, string Unit, double Value);
+
+    private enum ReadingType
+    {
+        None = 0,
+        Temperature = 1,
+        Voltage = 2,
+        Fan = 3,
+        Current = 4,
+        Power = 5,
+        Clock = 6,
+        Usage = 7,
+        Other = 8
+    }
 }
