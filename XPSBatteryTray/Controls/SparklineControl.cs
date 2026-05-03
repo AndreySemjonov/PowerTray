@@ -18,6 +18,10 @@ public sealed class SparklineControl : FrameworkElement
         DependencyProperty.Register(nameof(Stroke), typeof(MediaBrush), typeof(SparklineControl),
             new FrameworkPropertyMetadata(MediaBrushes.DeepSkyBlue, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty MaxPointsProperty =
+        DependencyProperty.Register(nameof(MaxPoints), typeof(int), typeof(SparklineControl),
+            new FrameworkPropertyMetadata(120, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public IEnumerable<double?> Values
     {
         get => (IEnumerable<double?>)GetValue(ValuesProperty);
@@ -30,13 +34,20 @@ public sealed class SparklineControl : FrameworkElement
         set => SetValue(StrokeProperty, value);
     }
 
+    public int MaxPoints
+    {
+        get => (int)GetValue(MaxPointsProperty);
+        set => SetValue(MaxPointsProperty, value);
+    }
+
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
         var rect = new Rect(0, 0, ActualWidth, ActualHeight);
         drawingContext.DrawRectangle(new SolidColorBrush(MediaColor.FromRgb(23, 27, 33)), null, rect);
 
-        double[] values = Values?.Where(v => v.HasValue).Select(v => v!.Value).ToArray() ?? [];
+        int maxPoints = Math.Max(2, MaxPoints);
+        double[] values = Values?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
         if (values.Length < 2 || ActualWidth <= 1 || ActualHeight <= 1)
         {
             var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
@@ -56,7 +67,8 @@ public sealed class SparklineControl : FrameworkElement
         {
             for (int i = 0; i < values.Length; i++)
             {
-                double x = i * (ActualWidth - 1) / (values.Length - 1);
+                int slot = maxPoints - values.Length + i;
+                double x = slot * (ActualWidth - 1) / (maxPoints - 1);
                 double y = ActualHeight - 3 - ((values[i] - min) / (max - min) * (ActualHeight - 6));
                 if (i == 0)
                 {

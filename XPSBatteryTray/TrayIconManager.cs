@@ -15,6 +15,7 @@ public sealed class TrayIconManager : IDisposable
     private readonly NotifyIcon _notifyIcon;
     private DashboardWindow? _dashboardWindow;
     private SettingsWindow? _settingsWindow;
+    private BatteryModesWindow? _batteryModesWindow;
     private bool _disposed;
 
     public TrayIconManager(MainViewModel viewModel, Func<SettingsWindow> settingsWindowFactory)
@@ -22,6 +23,7 @@ public sealed class TrayIconManager : IDisposable
         _viewModel = viewModel;
         _settingsWindowFactory = settingsWindowFactory;
         _viewModel.OpenSettingsRequested += (_, _) => ShowSettings();
+        _viewModel.OpenBatteryModesRequested += (_, _) => ShowBatteryModes();
         _notifyIcon = CreateNotifyIcon();
     }
 
@@ -56,6 +58,25 @@ public sealed class TrayIconManager : IDisposable
             _settingsWindow.Owner = _dashboardWindow;
             _settingsWindow.Show();
             _settingsWindow.Activate();
+        });
+    }
+
+    public void ShowBatteryModes()
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (_batteryModesWindow is { IsVisible: true })
+            {
+                _batteryModesWindow.Activate();
+                return;
+            }
+
+            _batteryModesWindow = new BatteryModesWindow(_viewModel)
+            {
+                Owner = _dashboardWindow
+            };
+            _batteryModesWindow.Show();
+            _batteryModesWindow.Activate();
         });
     }
 

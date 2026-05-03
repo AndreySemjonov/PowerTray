@@ -30,6 +30,9 @@ public sealed class MainViewModel : ObservableObject
     private IReadOnlyList<double?> _temperatureGraphValues = [];
     private IReadOnlyList<double?> _batteryWattsGraphValues = [];
     private IReadOnlyList<double?> _fanGraphValues = [];
+    private string _cpuGraphSummary = "Current -- / Min -- / Max --";
+    private string _batteryWattsGraphSummary = "Current -- / Min -- / Max --";
+    private string _temperatureGraphSummary = "Current -- / Min -- / Max --";
 
     public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService)
     {
@@ -47,11 +50,13 @@ public sealed class MainViewModel : ObservableObject
         RefreshDellChargeCommand = new RelayCommand(async () => await RefreshDellChargeAsync());
         ApplyBatteryPresetCommand = new RelayCommand(async parameter => await ApplyBatteryPresetAsync(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
+        OpenBatteryModesCommand = new RelayCommand(() => OpenBatteryModesRequested?.Invoke(this, EventArgs.Empty));
 
         ConfigureTimer();
     }
 
     public event EventHandler? OpenSettingsRequested;
+    public event EventHandler? OpenBatteryModesRequested;
 
     public BatteryStatus Battery
     {
@@ -169,6 +174,24 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _fanGraphValues, value);
     }
 
+    public string CpuGraphSummary
+    {
+        get => _cpuGraphSummary;
+        private set => SetProperty(ref _cpuGraphSummary, value);
+    }
+
+    public string BatteryWattsGraphSummary
+    {
+        get => _batteryWattsGraphSummary;
+        private set => SetProperty(ref _batteryWattsGraphSummary, value);
+    }
+
+    public string TemperatureGraphSummary
+    {
+        get => _temperatureGraphSummary;
+        private set => SetProperty(ref _temperatureGraphSummary, value);
+    }
+
     public ObservableCollection<ProcessUsageInfo> TopCpuProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> TopMemoryProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> EnergyImpactProcesses { get; }
@@ -177,6 +200,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand RefreshDellChargeCommand { get; }
     public ICommand ApplyBatteryPresetCommand { get; }
     public ICommand OpenSettingsCommand { get; }
+    public ICommand OpenBatteryModesCommand { get; }
 
     public string BatterySummary => Battery.Percentage > 0
         ? $"{Battery.Percentage}% - {(Battery.IsPluggedIn ? "Plugged in" : "On battery")}"
@@ -286,7 +310,7 @@ public sealed class MainViewModel : ObservableObject
                 CpuUsagePercent = overallCpu,
                 CpuTemperatureCelsius = sensors.CpuTemperatureCelsius,
                 CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,
-                BatteryPowerWatts = sensors.BatteryPowerWatts,
+                BatteryPowerWatts = Battery.ChargeRateWatts,
                 FanRpm = sensors.FanRpm.Values.FirstOrDefault()
             });
         }
@@ -308,6 +332,9 @@ public sealed class MainViewModel : ObservableObject
         TemperatureGraphValues = _samples.Select(s => s.CpuTemperatureCelsius).ToArray();
         BatteryWattsGraphValues = _samples.Select(s => s.BatteryPowerWatts).ToArray();
         FanGraphValues = _samples.Select(s => s.FanRpm).ToArray();
+        CpuGraphSummary = FormatGraphSummary(CpuGraphValues, "N1", "%");
+        BatteryWattsGraphSummary = FormatGraphSummary(BatteryWattsGraphValues, "N1", " W");
+        TemperatureGraphSummary = FormatGraphSummary(TemperatureGraphValues, "N0", " C");
     }
 
     private static void Replace<T>(ObservableCollection<T> collection, IEnumerable<T> values)
@@ -323,5 +350,19 @@ public sealed class MainViewModel : ObservableObject
     {
         string cleaned = output.Trim();
         return string.IsNullOrWhiteSpace(cleaned) ? "No output from cctk.exe" : cleaned;
+    }
+
+    private static string FormatGraphSummary(IEnumerable<double?> values, string format, string unit)
+    {
+        double[] visible = values.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(120).ToArray();
+        if (visible.Length == 0)
+        {
+            return $"Current -- / Min -- / Max --";
+        }
+
+        string current = visible[^1].ToString(format);
+        string min = visible.Min().ToString(format);
+        string max = visible.Max().ToString(format);
+        return $"Current {current}{unit} / Min {min}{unit} / Max {max}{unit}";
     }
 }

@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XPSBatteryTray.Controls"
         Title="XPS Battery Tray"
-        Width="520"
-        Height="720"
+        Width="500"
+        Height="640"
         MinWidth="440"
-        MinHeight="540"
+        MinHeight="500"
         WindowStartupLocation="Manual"
         ShowInTaskbar="False"
         WindowStyle="None"
@@ -41,30 +41,33 @@
         </Border>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Background="{StaticResource WindowBg}">
-        <StackPanel Margin="16" Background="{StaticResource WindowBg}">
-            <DockPanel Margin="0,0,0,12" LastChildFill="True">
-                <StackPanel DockPanel.Dock="Left" MaxWidth="390">
+        <StackPanel Margin="12" Background="{StaticResource WindowBg}">
+            <DockPanel Margin="0,0,0,10" LastChildFill="True">
+                <StackPanel DockPanel.Dock="Left" MaxWidth="300">
                     <TextBlock Text="XPS Battery Tray" FontSize="21" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
                 </StackPanel>
-                <Button DockPanel.Dock="Right" Content="Settings" Command="{Binding OpenSettingsCommand}" HorizontalAlignment="Right" Margin="12,0,0,0" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Modes" Command="{Binding OpenBatteryModesCommand}" Margin="8,0,0,0" />
+                    <Button Content="Settings" Command="{Binding OpenSettingsCommand}" Margin="8,0,0,0" />
+                </StackPanel>
             </DockPanel>
 
             <UniformGrid Columns="2">
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
                         <TextBlock Text="Battery" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                        <TextBlock Text="{Binding BatterySummary}" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding BatterySummary}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0" />
                         <TextBlock Text="{Binding BatteryTimeText}" Foreground="{StaticResource MutedTextBrush}" />
                         <TextBlock Text="{Binding BatteryPowerText}" Foreground="{StaticResource MutedTextBrush}" />
-                        <TextBlock Text="{Binding DellChargeSetting}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                        <TextBlock Text="{Binding DellChargeSetting}" TextWrapping="Wrap" Margin="0,6,0,0" />
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
                         <TextBlock Text="CPU" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                        <TextBlock Text="{Binding CpuUsageText}" FontSize="22" FontWeight="SemiBold" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding CpuUsageText}" FontSize="20" FontWeight="SemiBold" Margin="0,5,0,0" />
                         <TextBlock Text="{Binding CpuTemperatureText}" Foreground="{StaticResource MutedTextBrush}" />
                         <TextBlock Text="{Binding CpuPowerText}" Foreground="{StaticResource MutedTextBrush}" />
                         <ProgressBar Value="{Binding CpuUsagePercent, Mode=OneWay}" Maximum="100" Height="7" Margin="0,10,0,0" />
@@ -74,7 +77,7 @@
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel>
                         <TextBlock Text="Memory" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                        <TextBlock Text="{Binding MemoryText}" FontSize="17" FontWeight="SemiBold" Margin="0,6,0,0" />
+                        <TextBlock Text="{Binding MemoryText}" FontSize="16" FontWeight="SemiBold" Margin="0,5,0,0" />
                     </StackPanel>
                 </Border>
 
@@ -89,31 +92,22 @@
 
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,8" LastChildFill="False">
-                        <TextBlock Text="Battery Modes" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                        <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshDellChargeCommand}" Margin="8,0,0,0" />
-                    </DockPanel>
-                    <WrapPanel>
-                        <Button Content="Health 50-80" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
-                        <Button Content="Balanced 70-90" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Balanced" />
-                        <Button Content="Standard" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Standard" />
-                        <Button Content="Primarily AC" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="PrimarilyAcUse" />
-                        <Button Content="Adaptive" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Adaptive" />
-                    </WrapPanel>
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel>
                     <TextBlock Text="Graphs" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,8" />
-                    <TextBlock Text="CPU usage" Foreground="{StaticResource MutedTextBrush}" />
-                    <controls:SparklineControl Values="{Binding CpuGraphValues}" Stroke="{StaticResource AccentBrush}" Height="46" Margin="0,4,0,8" />
-                    <TextBlock Text="Battery watts" Foreground="{StaticResource MutedTextBrush}" />
-                    <controls:SparklineControl Values="{Binding BatteryWattsGraphValues}" Stroke="#E7B05B" Height="46" Margin="0,4,0,8" />
-                    <TextBlock Text="CPU temperature" Foreground="{StaticResource MutedTextBrush}" />
-                    <controls:SparklineControl Values="{Binding TemperatureGraphValues}" Stroke="#E26473" Height="46" Margin="0,4,0,8" />
-                    <TextBlock Text="Fan RPM" Foreground="{StaticResource MutedTextBrush}" />
-                    <controls:SparklineControl Values="{Binding FanGraphValues}" Stroke="#82D173" Height="46" Margin="0,4,0,0" />
+                    <DockPanel LastChildFill="False">
+                        <TextBlock Text="CPU usage" Foreground="{StaticResource MutedTextBrush}" />
+                        <TextBlock Text="{Binding CpuGraphSummary}" DockPanel.Dock="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
+                    </DockPanel>
+                    <controls:SparklineControl Values="{Binding CpuGraphValues}" Stroke="{StaticResource AccentBrush}" Height="38" Margin="0,4,0,8" />
+                    <DockPanel LastChildFill="False">
+                        <TextBlock Text="Battery watts" Foreground="{StaticResource MutedTextBrush}" />
+                        <TextBlock Text="{Binding BatteryWattsGraphSummary}" DockPanel.Dock="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
+                    </DockPanel>
+                    <controls:SparklineControl Values="{Binding BatteryWattsGraphValues}" Stroke="#E7B05B" Height="38" Margin="0,4,0,8" />
+                    <DockPanel LastChildFill="False">
+                        <TextBlock Text="CPU temperature" Foreground="{StaticResource MutedTextBrush}" />
+                        <TextBlock Text="{Binding TemperatureGraphSummary}" DockPanel.Dock="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
+                    </DockPanel>
+                    <controls:SparklineControl Values="{Binding TemperatureGraphValues}" Stroke="#E26473" Height="38" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
 
@@ -167,18 +161,6 @@
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel>
-                    <TextBlock Text="Thermal / Fans" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                    <ItemsControl ItemsSource="{Binding FanReadings}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" Margin="0,7,0,0" Foreground="{StaticResource MutedTextBrush}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
         </StackPanel>
     </ScrollViewer>
     </Grid>
