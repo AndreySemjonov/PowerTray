@@ -58,6 +58,19 @@ The app does not repeatedly write BIOS settings. It writes only when you manuall
 
 The custom ranges can be changed in Settings.
 
+## Dashboard Layout
+
+The dashboard is a compact fixed-size dark window designed to show the key tray-utility information without scrolling:
+
+- Header with app title, Modes flyout, Settings, and window controls
+- Status chips for current Dell charge mode, HWiNFO state, and AC/battery power state
+- Battery and CPU summary cards with friendly labels instead of raw `cctk.exe` output
+- Three rolling 10-minute chart strips: battery watts, CPU package power, and CPU temperature
+- Current / average / minimum / maximum stats in each chart header
+- Two compact process tables for top CPU processes and estimated energy impact
+
+Memory, fan, and raw sensor details are intentionally kept out of the main dashboard so the tray popup stays dense and readable.
+
 ## HWiNFO
 
 Advanced sensors such as CPU temperature, CPU package power, fan RPM, and battery charge/discharge watts generally require HWiNFO. Enable HWiNFO Shared Memory Support and keep the HWiNFO sensors window active.
@@ -70,7 +83,7 @@ If HWiNFO shared memory is unavailable, the app keeps running with Windows fallb
 - Memory totals
 - Top CPU and memory processes
 
-The app does not fake missing temperature, fan, or watt values.
+The app does not fake missing temperature, fan, package-power, or watt values. Unavailable chart panels show unavailable stats until HWiNFO or Windows exposes the relevant sensor.
 
 ## Settings And Data
 

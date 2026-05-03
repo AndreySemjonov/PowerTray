@@ -33,4 +33,15 @@ public partial class DashboardWindow : Window
     private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Hide();
+
+    private void ModesButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (ModesButton.ContextMenu is null)
+        {
+            return;
+        }
+
+        ModesButton.ContextMenu.PlacementTarget = ModesButton;
+        ModesButton.ContextMenu.IsOpen = true;
+    }
 }

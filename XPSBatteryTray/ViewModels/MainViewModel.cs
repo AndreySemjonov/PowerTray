@@ -29,10 +29,12 @@ public sealed class MainViewModel : ObservableObject
     private IReadOnlyList<double?> _cpuGraphValues = [];
     private IReadOnlyList<double?> _temperatureGraphValues = [];
     private IReadOnlyList<double?> _batteryWattsGraphValues = [];
+    private IReadOnlyList<double?> _cpuPowerGraphValues = [];
     private IReadOnlyList<double?> _fanGraphValues = [];
-    private string _cpuGraphSummary = "Current -- / Min -- / Max --";
-    private string _batteryWattsGraphSummary = "Current -- / Min -- / Max --";
-    private string _temperatureGraphSummary = "Current -- / Min -- / Max --";
+    private string _cpuGraphSummary = "Current -- | Avg -- | Min -- | Max --";
+    private string _batteryWattsGraphSummary = "Current -- | Avg -- | Min -- | Max --";
+    private string _temperatureGraphSummary = "Current -- | Avg -- | Min -- | Max --";
+    private string _cpuPowerGraphSummary = "Current -- | Avg -- | Min -- | Max --";
 
     public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService)
     {
@@ -50,13 +52,11 @@ public sealed class MainViewModel : ObservableObject
         RefreshDellChargeCommand = new RelayCommand(async () => await RefreshDellChargeAsync());
         ApplyBatteryPresetCommand = new RelayCommand(async parameter => await ApplyBatteryPresetAsync(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
-        OpenBatteryModesCommand = new RelayCommand(() => OpenBatteryModesRequested?.Invoke(this, EventArgs.Empty));
 
         ConfigureTimer();
     }
 
     public event EventHandler? OpenSettingsRequested;
-    public event EventHandler? OpenBatteryModesRequested;
 
     public BatteryStatus Battery
     {
@@ -66,6 +66,10 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _battery, value))
             {
                 OnPropertyChanged(nameof(BatterySummary));
+                OnPropertyChanged(nameof(BatteryPercentText));
+                OnPropertyChanged(nameof(BatteryLevelPercent));
+                OnPropertyChanged(nameof(PowerStateText));
+                OnPropertyChanged(nameof(PowerStateChipText));
                 OnPropertyChanged(nameof(BatteryTimeText));
                 OnPropertyChanged(nameof(BatteryPowerText));
             }
@@ -75,7 +79,14 @@ public sealed class MainViewModel : ObservableObject
     public string DellChargeSetting
     {
         get => _dellChargeSetting;
-        private set => SetProperty(ref _dellChargeSetting, value);
+        private set
+        {
+            if (SetProperty(ref _dellChargeSetting, value))
+            {
+                OnPropertyChanged(nameof(FriendlyChargeMode));
+                OnPropertyChanged(nameof(ModeChipText));
+            }
+        }
     }
 
     public string StatusMessage
@@ -87,7 +98,13 @@ public sealed class MainViewModel : ObservableObject
     public string HwinfoStatus
     {
         get => _hwinfoStatus;
-        private set => SetProperty(ref _hwinfoStatus, value);
+        private set
+        {
+            if (SetProperty(ref _hwinfoStatus, value))
+            {
+                OnPropertyChanged(nameof(HwinfoChipText));
+            }
+        }
     }
 
     public double CpuUsagePercent
@@ -98,6 +115,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _cpuUsagePercent, value))
             {
                 OnPropertyChanged(nameof(CpuUsageText));
+                OnPropertyChanged(nameof(CpuGaugeValue));
             }
         }
     }
@@ -110,6 +128,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _cpuTemperatureCelsius, value))
             {
                 OnPropertyChanged(nameof(CpuTemperatureText));
+                OnPropertyChanged(nameof(CpuTemperatureDisplay));
             }
         }
     }
@@ -122,6 +141,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _cpuPackagePowerWatts, value))
             {
                 OnPropertyChanged(nameof(CpuPowerText));
+                OnPropertyChanged(nameof(CpuPackagePowerDisplay));
             }
         }
     }
@@ -168,6 +188,12 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _batteryWattsGraphValues, value);
     }
 
+    public IReadOnlyList<double?> CpuPowerGraphValues
+    {
+        get => _cpuPowerGraphValues;
+        private set => SetProperty(ref _cpuPowerGraphValues, value);
+    }
+
     public IReadOnlyList<double?> FanGraphValues
     {
         get => _fanGraphValues;
@@ -186,6 +212,12 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _batteryWattsGraphSummary, value);
     }
 
+    public string CpuPowerGraphSummary
+    {
+        get => _cpuPowerGraphSummary;
+        private set => SetProperty(ref _cpuPowerGraphSummary, value);
+    }
+
     public string TemperatureGraphSummary
     {
         get => _temperatureGraphSummary;
@@ -200,11 +232,18 @@ public sealed class MainViewModel : ObservableObject
     public ICommand RefreshDellChargeCommand { get; }
     public ICommand ApplyBatteryPresetCommand { get; }
     public ICommand OpenSettingsCommand { get; }
-    public ICommand OpenBatteryModesCommand { get; }
 
     public string BatterySummary => Battery.Percentage > 0
         ? $"{Battery.Percentage}% - {(Battery.IsPluggedIn ? "Plugged in" : "On battery")}"
         : Battery.IsPluggedIn ? "Plugged in" : "Battery status unavailable";
+
+    public string BatteryPercentText => Battery.Percentage > 0 ? $"{Battery.Percentage}%" : "--%";
+    public double BatteryLevelPercent => Math.Clamp(Battery.Percentage, 0, 100);
+    public string PowerStateText => Battery.IsPluggedIn ? "Plugged in" : "On battery";
+    public string PowerStateChipText => PowerStateText;
+    public string ModeChipText => FriendlyChargeMode.Replace("Mode: ", string.Empty);
+    public string HwinfoChipText => HwinfoStatus.Contains("detected", StringComparison.OrdinalIgnoreCase) ? "HWiNFO OK" : "HWiNFO unavailable";
+    public string FriendlyChargeMode => FormatFriendlyChargeMode(DellChargeSetting);
 
     public string BatteryTimeText => Battery.EstimatedTimeRemaining is { } remaining
         ? $"{remaining.Hours + remaining.Days * 24}h {remaining.Minutes}m remaining"
@@ -215,8 +254,14 @@ public sealed class MainViewModel : ObservableObject
         : "Watts unavailable";
 
     public string CpuUsageText => $"{CpuUsagePercent:N1}%";
+    public double CpuGaugeValue => Math.Clamp(CpuUsagePercent, 0, 100);
     public string CpuTemperatureText => CpuTemperatureCelsius is { } value ? $"{value:N0} C" : "Temp unavailable";
+    public string CpuTemperatureDisplay => CpuTemperatureCelsius is { } value ? $"{value:N0} °C" : "-- °C";
     public string CpuPowerText => CpuPackagePowerWatts is { } value ? $"{value:N1} W" : "Power unavailable";
+    public string CpuPackagePowerDisplay => CpuPackagePowerWatts is { } value ? $"{value:N1} W pkg" : "-- W pkg";
+    public string TopCpuProcessText => TopCpuProcesses.FirstOrDefault() is { } process
+        ? $"Top proc: {process.Name} {process.CpuPercent:N1}%"
+        : "Top proc: --";
     public string MemoryText => $"{Memory.UsedText} / {Memory.TotalText} ({Memory.UsedPercent:N0}%)";
     public bool IsAdministrator => CctkService.IsAdministrator();
 
@@ -300,6 +345,7 @@ public sealed class MainViewModel : ObservableObject
             Replace(TopCpuProcesses, topCpu);
             Replace(TopMemoryProcesses, topMemory);
             Replace(EnergyImpactProcesses, energyImpact);
+            OnPropertyChanged(nameof(TopCpuProcessText));
             Replace(FanReadings, sensors.FanRpm.Count == 0
                 ? ["Fan RPM unavailable"]
                 : sensors.FanRpm.Select(f => $"{f.Key}: {f.Value:N0} RPM"));
@@ -331,9 +377,11 @@ public sealed class MainViewModel : ObservableObject
         CpuGraphValues = _samples.Select(s => (double?)s.CpuUsagePercent).ToArray();
         TemperatureGraphValues = _samples.Select(s => s.CpuTemperatureCelsius).ToArray();
         BatteryWattsGraphValues = _samples.Select(s => s.BatteryPowerWatts).ToArray();
+        CpuPowerGraphValues = _samples.Select(s => s.CpuPackagePowerWatts).ToArray();
         FanGraphValues = _samples.Select(s => s.FanRpm).ToArray();
         CpuGraphSummary = FormatGraphSummary(CpuGraphValues, "N1", "%");
         BatteryWattsGraphSummary = FormatGraphSummary(BatteryWattsGraphValues, "N1", " W");
+        CpuPowerGraphSummary = FormatGraphSummary(CpuPowerGraphValues, "N1", " W");
         TemperatureGraphSummary = FormatGraphSummary(TemperatureGraphValues, "N0", " C");
     }
 
@@ -357,12 +405,48 @@ public sealed class MainViewModel : ObservableObject
         double[] visible = values.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(120).ToArray();
         if (visible.Length == 0)
         {
-            return $"Current -- / Min -- / Max --";
+            return "Current -- | Avg -- | Min -- | Max --";
         }
 
         string current = visible[^1].ToString(format);
+        string avg = visible.Average().ToString(format);
         string min = visible.Min().ToString(format);
         string max = visible.Max().ToString(format);
-        return $"Current {current}{unit} / Min {min}{unit} / Max {max}{unit}";
+        return $"Current {current}{unit} | Avg {avg}{unit} | Min {min}{unit} | Max {max}{unit}";
+    }
+
+    private static string FormatFriendlyChargeMode(string raw)
+    {
+        if (raw.Contains("Custom:50-80", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Mode: Battery Health (50-80)";
+        }
+
+        if (raw.Contains("Custom:70-90", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Mode: Balanced (70-90)";
+        }
+
+        if (raw.Contains("Standard", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Mode: Standard";
+        }
+
+        if (raw.Contains("PrimAcUse", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Mode: Primarily AC Use";
+        }
+
+        if (raw.Contains("Adaptive", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Mode: Adaptive";
+        }
+
+        if (raw.Equals("Unavailable", StringComparison.OrdinalIgnoreCase) || raw.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Mode: Unavailable";
+        }
+
+        return "Mode: Dell custom";
     }
 }
