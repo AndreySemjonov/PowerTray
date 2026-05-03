@@ -58,7 +58,7 @@ public sealed class SparklineControl : FrameworkElement
         const double leftPadding = 10;
         const double rightAxisWidth = 44;
         const double topPadding = 4;
-        const double bottomLabelHeight = 16;
+        const double bottomLabelHeight = 22;
         double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomLabelHeight);
         double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightAxisWidth);
         var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(80, 88, 92, 98)), 1);
@@ -70,7 +70,7 @@ public sealed class SparklineControl : FrameworkElement
 
         int maxPoints = Math.Max(2, MaxPoints);
         double[] values = Values?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
-        DrawTimeLabels(drawingContext, leftPadding, plotWidth, ActualHeight - bottomLabelHeight + 1);
+        DrawTimeLabels(drawingContext, leftPadding, plotWidth, topPadding + plotHeight + 5);
         if (values.Length < 2 || ActualWidth <= 1 || ActualHeight <= 1)
         {
             var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
