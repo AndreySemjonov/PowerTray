@@ -10,7 +10,35 @@ public sealed class ProcessStatsService
 {
     private const double MaxProcessAttributedDrainShare = 0.85;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly Dictionary<string, string> KnownProcessNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Code"] = "Visual Studio Code",
+        ["Codex"] = "Codex",
+        ["conhost"] = "Console Window Host",
+        ["devenv"] = "Visual Studio",
+        ["dotnet"] = ".NET",
+        ["dwm"] = "Desktop Window Manager",
+        ["explorer"] = "File Explorer",
+        ["HWiNFO64"] = "HWiNFO",
+        ["Idle"] = "System Idle",
+        ["msedge"] = "Microsoft Edge",
+        ["msedgewebview2"] = "Edge WebView2",
+        ["MsMpEng"] = "Microsoft Defender",
+        ["powershell"] = "PowerShell",
+        ["pwsh"] = "PowerShell",
+        ["SearchHost"] = "Windows Search",
+        ["SecurityHealthService"] = "Windows Security",
+        ["ShellHost"] = "Windows Shell",
+        ["StartMenuExperienceHost"] = "Start Menu",
+        ["svchost"] = "Windows Service Host",
+        ["System"] = "System",
+        ["Taskmgr"] = "Task Manager",
+        ["TextInputHost"] = "Text Input",
+        ["WmiPrvSE"] = "WMI Provider Host"
+    };
+
     private readonly Dictionary<int, ProcessCpuSnapshot> _previousCpu = new();
+    private readonly Dictionary<string, string> _friendlyNameCache = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset _previousSample = DateTimeOffset.Now;
     private DateTimeOffset _lastEnergySave = DateTimeOffset.MinValue;
     private EnergyHistoryState _energyState = new();
@@ -49,7 +77,7 @@ public sealed class ProcessStatsService
                 usage.Add(new ProcessUsageInfo
                 {
                     ProcessId = process.Id,
-                    Name = string.IsNullOrWhiteSpace(process.ProcessName) ? $"PID {process.Id}" : process.ProcessName,
+                    Name = GetFriendlyProcessName(process),
                     CpuPercent = cpuPercent,
                     WorkingSetBytes = process.WorkingSet64,
                     RunTime = runTime,
@@ -189,6 +217,7 @@ public sealed class ProcessStatsService
             {
                 _energyState = JsonSerializer.Deserialize<EnergyHistoryState>(File.ReadAllText(EnergyHistoryPath), JsonOptions) ?? new EnergyHistoryState();
                 _energyState.ProcessTotals = new Dictionary<string, double>(_energyState.ProcessTotals, StringComparer.OrdinalIgnoreCase);
+                NormalizeEnergyHistoryProcessNames();
             }
         }
         catch (Exception ex)
@@ -242,6 +271,92 @@ public sealed class ProcessStatsService
             ? $"{(int)age.TotalHours}h {age.Minutes}m"
             : $"{Math.Max(1, age.Minutes)}m";
         return $"Energy Since Charge ({ageText})";
+    }
+
+    private string GetFriendlyProcessName(Process process)
+    {
+        string rawName = string.IsNullOrWhiteSpace(process.ProcessName) ? $"PID {process.Id}" : process.ProcessName;
+        if (TryGetKnownProcessName(rawName, out string friendlyName))
+        {
+            return friendlyName;
+        }
+
+        if (_friendlyNameCache.TryGetValue(rawName, out string? cached))
+        {
+            return cached;
+        }
+
+        friendlyName = TryGetVersionName(process) ?? NormalizeProcessName(rawName);
+        _friendlyNameCache[rawName] = friendlyName;
+        return friendlyName;
+    }
+
+    private static bool TryGetKnownProcessName(string rawName, out string friendlyName)
+    {
+        string normalized = NormalizeProcessName(rawName);
+        return KnownProcessNames.TryGetValue(normalized, out friendlyName!);
+    }
+
+    private static string? TryGetVersionName(Process process)
+    {
+        try
+        {
+            FileVersionInfo? versionInfo = process.MainModule?.FileVersionInfo;
+            string? candidate = FirstUsefulVersionString(versionInfo?.ProductName, versionInfo?.FileDescription);
+            return candidate is null ? null : NormalizeProcessName(candidate);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? FirstUsefulVersionString(params string?[] values)
+    {
+        foreach (string? value in values)
+        {
+            string normalized = NormalizeProcessName(value);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                continue;
+            }
+
+            if (normalized.Equals("Application", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return normalized;
+        }
+
+        return null;
+    }
+
+    private static string NormalizeProcessName(string? value)
+    {
+        string normalized = value?.Trim() ?? string.Empty;
+        return normalized.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? normalized[..^4]
+            : normalized;
+    }
+
+    private void NormalizeEnergyHistoryProcessNames()
+    {
+        if (_energyState.ProcessTotals.Count == 0)
+        {
+            return;
+        }
+
+        var normalizedTotals = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach ((string name, double score) in _energyState.ProcessTotals)
+        {
+            string displayName = TryGetKnownProcessName(name, out string friendlyName)
+                ? friendlyName
+                : NormalizeProcessName(name);
+            normalizedTotals[displayName] = normalizedTotals.GetValueOrDefault(displayName) + score;
+        }
+
+        _energyState.ProcessTotals = normalizedTotals;
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
