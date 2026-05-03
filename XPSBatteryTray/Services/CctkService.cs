@@ -40,20 +40,28 @@ public sealed class CctkService
 
     public Task<CommandResult> ShowCurrentAsync() => ExecuteAsync(QueryArgument, requiresAdmin: false);
 
-    public Task<CommandResult> ApplyPresetAsync(BatteryPreset preset)
+    public async Task<CommandResult> ApplyPresetAsync(BatteryPreset preset)
     {
         AppSettings settings = _settingsService.Current;
+        if (preset == BatteryPreset.Health)
+        {
+            return await ApplyCustomPresetAsync(settings.HealthStart, settings.HealthStop, "Battery Health");
+        }
+
+        if (preset == BatteryPreset.Balanced)
+        {
+            return await ApplyCustomPresetAsync(settings.BalancedStart, settings.BalancedStop, "Balanced");
+        }
+
         string argument = preset switch
         {
-            BatteryPreset.Health => $"--PrimaryBattChargeCfg=Custom:{settings.HealthStart}-{settings.HealthStop}",
-            BatteryPreset.Balanced => $"--PrimaryBattChargeCfg=Custom:{settings.BalancedStart}-{settings.BalancedStop}",
             BatteryPreset.Standard => "--PrimaryBattChargeCfg=Standard",
             BatteryPreset.PrimarilyAcUse => "--PrimaryBattChargeCfg=PrimAcUse",
             BatteryPreset.Adaptive => "--PrimaryBattChargeCfg=Adaptive",
             _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, null)
         };
 
-        return ExecuteAsync(argument, requiresAdmin: true);
+        return await ExecuteAsync(argument, requiresAdmin: true);
     }
 
     public async Task<CommandResult> ExecuteAsync(string argument, bool requiresAdmin)
@@ -98,7 +106,7 @@ public sealed class CctkService
                 message = process.ExitCode == 0 ? "Command completed." : $"Command failed with exit code {process.ExitCode}.";
             }
 
-            return new CommandResult
+            var result = new CommandResult
             {
                 Success = process.ExitCode == 0,
                 ExitCode = process.ExitCode,
@@ -106,6 +114,8 @@ public sealed class CctkService
                 StandardError = stderr,
                 Message = message
             };
+            LogService.Info($"cctk {argument} -> exit {result.ExitCode}. stdout: {stdout.Trim()} stderr: {stderr.Trim()}");
+            return result;
         }
         catch (Exception ex)
         {
@@ -159,8 +169,10 @@ public sealed class CctkService
             {
                 string json = await File.ReadAllTextAsync(outputPath);
                 File.Delete(outputPath);
-                return JsonSerializer.Deserialize<CommandResult>(json) ??
+                CommandResult result = JsonSerializer.Deserialize<CommandResult>(json) ??
                        new CommandResult { Success = false, ExitCode = process.ExitCode, Message = "Elevated command returned no readable result." };
+                LogService.Info($"elevated cctk {argument} -> exit {result.ExitCode}. stdout: {result.StandardOutput.Trim()} stderr: {result.StandardError.Trim()}");
+                return result;
             }
 
             return new CommandResult
@@ -184,6 +196,121 @@ public sealed class CctkService
     }
 
     private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
+
+    private async Task<CommandResult> ApplyCustomPresetAsync(int start, int stop, string label)
+    {
+        if (start < 50 || start > 95 || stop < 55 || stop > 100 || stop - start < 5)
+        {
+            return new CommandResult
+            {
+                Success = false,
+                ExitCode = -1,
+                Message = $"{label} range is invalid. Custom start must be 50-95, stop must be 55-100, and stop-start must be at least 5."
+            };
+        }
+
+        string expected = $"Custom:{start}-{stop}";
+        string directArgument = $"--PrimaryBattChargeCfg={expected}";
+        CommandResult direct = await ExecuteAsync(directArgument, requiresAdmin: true);
+
+        if (direct.Success && IsCustomVerified(CombineOutput(direct), start, stop))
+        {
+            return new CommandResult
+            {
+                Success = true,
+                ExitCode = direct.ExitCode,
+                StandardOutput = direct.StandardOutput,
+                StandardError = direct.StandardError,
+                Message = $"{label} applied: {expected}"
+            };
+        }
+
+        CommandResult? verification = null;
+        if (direct.Success && IsAdministrator())
+        {
+            verification = await QueryCustomChargeAsync();
+            if (IsCustomVerified(CombineOutput(verification), start, stop))
+            {
+                return new CommandResult
+                {
+                    Success = true,
+                    ExitCode = direct.ExitCode,
+                    StandardOutput = verification.StandardOutput,
+                    StandardError = direct.StandardError,
+                    Message = $"{label} applied: {expected}"
+                };
+            }
+        }
+
+        LogService.Info($"{label} direct custom command did not verify. Direct: {direct.Message}. Verification: {CombineOutput(verification).Trim()}");
+
+        string fallbackArgument = $"--PrimaryBattChargeCfg=Custom --CustomChargeStart={start} --CustomChargeStop={stop}";
+        CommandResult fallback = await ExecuteAsync(fallbackArgument, requiresAdmin: true);
+
+        if (fallback.Success && IsCustomVerified(CombineOutput(fallback), start, stop))
+        {
+            return new CommandResult
+            {
+                Success = true,
+                ExitCode = fallback.ExitCode,
+                StandardOutput = fallback.StandardOutput,
+                StandardError = fallback.StandardError,
+                Message = $"{label} applied: {expected}"
+            };
+        }
+
+        CommandResult? fallbackVerification = null;
+        if (fallback.Success && IsAdministrator())
+        {
+            fallbackVerification = await QueryCustomChargeAsync();
+            if (IsCustomVerified(CombineOutput(fallbackVerification), start, stop))
+            {
+                return new CommandResult
+                {
+                    Success = true,
+                    ExitCode = fallback.ExitCode,
+                    StandardOutput = fallbackVerification.StandardOutput,
+                    StandardError = fallback.StandardError,
+                    Message = $"{label} applied: {expected}"
+                };
+            }
+        }
+
+        string message = fallback.Success
+            ? $"{label} command completed, but Dell did not report {expected}. Current: {CombineOutput(fallbackVerification).Trim()}"
+            : $"{label} failed. Dell output: {fallback.Message}";
+
+        return new CommandResult
+        {
+            Success = false,
+            ExitCode = fallback.ExitCode,
+            StandardOutput = $"{direct.StandardOutput}{Environment.NewLine}{verification?.StandardOutput}{Environment.NewLine}{fallback.StandardOutput}{Environment.NewLine}{fallbackVerification?.StandardOutput}",
+            StandardError = $"{direct.StandardError}{Environment.NewLine}{verification?.StandardError}{Environment.NewLine}{fallback.StandardError}{Environment.NewLine}{fallbackVerification?.StandardError}",
+            Message = message
+        };
+    }
+
+    private Task<CommandResult> QueryCustomChargeAsync() =>
+        ExecuteAsync("--PrimaryBattChargeCfg --CustomChargeStart --CustomChargeStop", requiresAdmin: false);
+
+    private static bool IsCustomVerified(string output, int start, int stop)
+    {
+        string normalized = string.Concat(output.Where(c => !char.IsWhiteSpace(c)));
+        return normalized.Contains($"PrimaryBattChargeCfg=Custom:{start}-{stop}", StringComparison.OrdinalIgnoreCase) ||
+               (normalized.Contains("PrimaryBattChargeCfg=Custom", StringComparison.OrdinalIgnoreCase) &&
+                normalized.Contains($"CustomChargeStart={start}", StringComparison.OrdinalIgnoreCase) &&
+                normalized.Contains($"CustomChargeStop={stop}", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string CombineOutput(CommandResult? result)
+    {
+        if (result is null)
+        {
+            return string.Empty;
+        }
+
+        return $"{result.StandardOutput}{Environment.NewLine}{result.StandardError}{Environment.NewLine}{result.Message}";
+    }
 
     private static (string FileName, string PrefixArguments) GetSelfLaunchInfo()
     {
