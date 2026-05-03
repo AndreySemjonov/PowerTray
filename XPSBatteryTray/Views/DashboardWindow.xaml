@@ -9,9 +9,32 @@
         MinHeight="540"
         WindowStartupLocation="Manual"
         ShowInTaskbar="False"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
         Background="{StaticResource WindowBg}"
         Foreground="{StaticResource TextBrush}">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Background="{StaticResource WindowBg}">
+    <Grid Background="{StaticResource WindowBg}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="38" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Background="{StaticResource TopBarBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <DockPanel LastChildFill="True">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <Border Background="#512BD4" CornerRadius="3" Width="20" Height="20" Margin="0,0,8,0">
+                        <TextBlock Text=".NET" FontSize="7" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="XPS Battery Tray" FontSize="13" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Content="-" Style="{StaticResource TitleBarButtonStyle}" Click="MinimizeButton_Click" />
+                    <Button Content="x" Style="{StaticResource TitleCloseButtonStyle}" Click="CloseButton_Click" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Background="{StaticResource WindowBg}">
         <StackPanel Margin="16" Background="{StaticResource WindowBg}">
             <DockPanel Margin="0,0,0,12" LastChildFill="True">
                 <StackPanel DockPanel.Dock="Left" MaxWidth="390">
@@ -152,4 +175,5 @@
             </Border>
         </StackPanel>
     </ScrollViewer>
+    </Grid>
 </Window>
