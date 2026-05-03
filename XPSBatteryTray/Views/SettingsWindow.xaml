@@ -5,9 +5,11 @@
         Width="560"
         Height="560"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="16">
+        ShowInTaskbar="False"
+        Background="{StaticResource WindowBg}"
+        Foreground="{StaticResource TextBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Background="{StaticResource WindowBg}">
+        <StackPanel Margin="16" Background="{StaticResource WindowBg}">
             <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,14" />
 
             <TextBlock Text="cctk.exe path" Foreground="{StaticResource MutedTextBrush}" />
@@ -16,8 +18,8 @@
                 <TextBox Text="{Binding CctkPath, UpdateSourceTrigger=PropertyChanged}" />
             </DockPanel>
 
-            <CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}" Margin="0,0,0,8" />
-            <CheckBox Content="Start minimized to tray" IsChecked="{Binding StartMinimized}" Margin="0,0,0,8" />
+            <CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}" />
+            <CheckBox Content="Start minimized to tray" IsChecked="{Binding StartMinimized}" />
             <CheckBox Content="Enable HWiNFO shared-memory sensors" IsChecked="{Binding EnableHwinfoIntegration}" Margin="0,0,0,16" />
 
             <Grid Margin="0,0,0,14">

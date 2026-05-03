@@ -8,15 +8,17 @@
         MinWidth="440"
         MinHeight="540"
         WindowStartupLocation="Manual"
-        ShowInTaskbar="False">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="14">
-            <DockPanel Margin="0,0,0,10">
-                <StackPanel DockPanel.Dock="Left">
-                    <TextBlock Text="XPS Battery Tray" FontSize="20" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+        ShowInTaskbar="False"
+        Background="{StaticResource WindowBg}"
+        Foreground="{StaticResource TextBrush}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Background="{StaticResource WindowBg}">
+        <StackPanel Margin="16" Background="{StaticResource WindowBg}">
+            <DockPanel Margin="0,0,0,12" LastChildFill="True">
+                <StackPanel DockPanel.Dock="Left" MaxWidth="390">
+                    <TextBlock Text="XPS Battery Tray" FontSize="21" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Margin="0,3,0,0" />
                 </StackPanel>
-                <Button DockPanel.Dock="Right" Content="Settings" Command="{Binding OpenSettingsCommand}" HorizontalAlignment="Right" />
+                <Button DockPanel.Dock="Right" Content="Settings" Command="{Binding OpenSettingsCommand}" HorizontalAlignment="Right" Margin="12,0,0,0" />
             </DockPanel>
 
             <UniformGrid Columns="2">
@@ -58,9 +60,9 @@
 
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel>
-                    <DockPanel Margin="0,0,0,8">
+                    <DockPanel Margin="0,0,0,8" LastChildFill="False">
                         <TextBlock Text="Battery Modes" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}" />
-                        <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshDellChargeCommand}" />
+                        <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshDellChargeCommand}" Margin="8,0,0,0" />
                     </DockPanel>
                     <WrapPanel>
                         <Button Content="Health 50-80" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
