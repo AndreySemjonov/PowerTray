@@ -171,7 +171,7 @@
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="14" />
+        <Setter Property="Padding" Value="12" />
     </Style>
 
     <Style x:Key="ChipStyle" TargetType="Border">
