@@ -103,12 +103,12 @@
                 <Border Grid.Column="0" Style="{StaticResource CardStyle}">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="128" />
+                            <ColumnDefinition Width="112" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Text="Battery" Style="{StaticResource SmallHeaderStyle}" />
-                            <controls:BatteryGaugeControl Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="92" Height="126" Margin="4,12,0,0" HorizontalAlignment="Left" />
+                            <controls:BatteryGaugeControl Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="72" Height="98" Margin="4,18,0,0" HorizontalAlignment="Left" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="{Binding BatteryPercentText}" FontSize="34" FontWeight="Bold" />
