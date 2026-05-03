@@ -30,7 +30,11 @@ public partial class DashboardWindow : Window
         DragMove();
     }
 
-    private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Normal;
+        Hide();
+    }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Hide();
 
@@ -43,5 +47,16 @@ public partial class DashboardWindow : Window
 
         ModesButton.ContextMenu.PlacementTarget = ModesButton;
         ModesButton.ContextMenu.IsOpen = true;
+    }
+
+    private void PowerButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (PowerButton.ContextMenu is null)
+        {
+            return;
+        }
+
+        PowerButton.ContextMenu.PlacementTarget = PowerButton;
+        PowerButton.ContextMenu.IsOpen = true;
     }
 }

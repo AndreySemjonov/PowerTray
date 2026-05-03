@@ -178,7 +178,7 @@ public sealed class ProcessStatsService
             .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.CpuPercent).First(), StringComparer.OrdinalIgnoreCase);
 
-        var totals = _energyState.ProcessTotals
+        var allTotals = _energyState.ProcessTotals
             .Select(pair => new
             {
                 Name = pair.Key,
@@ -186,11 +186,16 @@ public sealed class ProcessStatsService
                 Current = currentByName.TryGetValue(pair.Key, out ProcessUsageInfo? current) ? current : null
             })
             .Where(item => item.Score > 0.05)
+            .ToArray();
+
+        var totals = allTotals
             .OrderByDescending(item => item.Score)
             .Take(5)
             .ToArray();
 
         double maxScore = totals.Length == 0 ? 1 : Math.Max(1, totals.Max(item => item.Score));
+        double totalScore = Math.Max(0.001, allTotals.Sum(item => item.Score));
+        double observedBatteryUsedPercent = Math.Max(0, _energyState.StartBatteryPercent - _energyState.LastBatteryPercent);
         return totals.Select(item => new ProcessUsageInfo
         {
             ProcessId = item.Current?.ProcessId ?? 0,
@@ -199,7 +204,8 @@ public sealed class ProcessStatsService
             WorkingSetBytes = item.Current?.WorkingSetBytes ?? 0,
             RunTime = item.Current?.RunTime ?? TimeSpan.Zero,
             EstimatedEnergyImpact = item.Score,
-            EstimatedEnergyImpactBarPercent = Math.Clamp(item.Score / maxScore * 100d, 0, 100)
+            EstimatedEnergyImpactBarPercent = Math.Clamp(item.Score / maxScore * 100d, 0, 100),
+            EstimatedEnergyPercent = Math.Clamp(item.Score / totalScore * observedBatteryUsedPercent, 0, 100)
         }).ToArray();
     }
 

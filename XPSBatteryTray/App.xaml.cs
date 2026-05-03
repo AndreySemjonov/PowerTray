@@ -29,8 +29,10 @@ public partial class App : System.Windows.Application
         var batteryService = new BatteryService();
         var processStatsService = new ProcessStatsService();
         var sensorService = new SensorService(settingsService);
+        var windowsPowerModeService = new WindowsPowerModeService();
+        var batteryUsageService = new BatteryUsageService();
 
-        _mainViewModel = new MainViewModel(settingsService, cctkService, batteryService, sensorService, processStatsService);
+        _mainViewModel = new MainViewModel(settingsService, cctkService, batteryService, sensorService, processStatsService, windowsPowerModeService, batteryUsageService);
         _trayIconManager = new TrayIconManager(_mainViewModel, () =>
         {
             var settingsViewModel = new SettingsViewModel(settingsService, startupService);

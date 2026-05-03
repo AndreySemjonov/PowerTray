@@ -13,6 +13,8 @@ public sealed class MainViewModel : ObservableObject
     private readonly BatteryService _batteryService;
     private readonly SensorService _sensorService;
     private readonly ProcessStatsService _processStatsService;
+    private readonly WindowsPowerModeService _windowsPowerModeService;
+    private readonly BatteryUsageService _batteryUsageService;
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
     private bool _isRefreshing;
@@ -37,14 +39,18 @@ public sealed class MainViewModel : ObservableObject
     private string _cpuPowerGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
     private string _energyImpactTitle = "Energy Since Charge";
     private string _energyImpactColumnHeader = "est. mWh";
+    private WindowsPowerMode? _currentWindowsPowerMode;
+    private BatteryUsageSnapshot _batteryUsage = new();
 
-    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService)
+    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService)
     {
         _settingsService = settingsService;
         _cctkService = cctkService;
         _batteryService = batteryService;
         _sensorService = sensorService;
         _processStatsService = processStatsService;
+        _windowsPowerModeService = windowsPowerModeService;
+        _batteryUsageService = batteryUsageService;
 
         TopCpuProcesses = new ObservableCollection<ProcessUsageInfo>();
         TopMemoryProcesses = new ObservableCollection<ProcessUsageInfo>();
@@ -53,6 +59,7 @@ public sealed class MainViewModel : ObservableObject
 
         RefreshDellChargeCommand = new RelayCommand(async () => await RefreshDellChargeAsync());
         ApplyBatteryPresetCommand = new RelayCommand(async parameter => await ApplyBatteryPresetAsync(parameter));
+        ApplyWindowsPowerModeCommand = new RelayCommand(parameter => ApplyWindowsPowerMode(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
 
         ConfigureTimer();
@@ -74,6 +81,9 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(PowerStateChipText));
                 OnPropertyChanged(nameof(BatteryTimeText));
                 OnPropertyChanged(nameof(BatteryPowerText));
+                OnPropertyChanged(nameof(PowerModeTargetText));
+                OnPropertyChanged(nameof(PowerModeButtonToolTip));
+                OnPropertyChanged(nameof(FooterStatusText));
             }
         }
     }
@@ -105,6 +115,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _hwinfoStatus, value))
             {
                 OnPropertyChanged(nameof(HwinfoChipText));
+                OnPropertyChanged(nameof(FooterStatusText));
             }
         }
     }
@@ -238,6 +249,41 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _energyImpactColumnHeader, value);
     }
 
+    public WindowsPowerMode? CurrentWindowsPowerMode
+    {
+        get => _currentWindowsPowerMode;
+        private set
+        {
+            if (SetProperty(ref _currentWindowsPowerMode, value))
+            {
+                OnPropertyChanged(nameof(PowerModeText));
+                OnPropertyChanged(nameof(PowerModeButtonText));
+                OnPropertyChanged(nameof(PowerModeButtonToolTip));
+                OnPropertyChanged(nameof(PowerEfficiencyMenuText));
+                OnPropertyChanged(nameof(BalancedPowerModeMenuText));
+                OnPropertyChanged(nameof(PerformancePowerModeMenuText));
+                OnPropertyChanged(nameof(FooterStatusText));
+            }
+        }
+    }
+
+    public BatteryUsageSnapshot BatteryUsage
+    {
+        get => _batteryUsage;
+        private set
+        {
+            if (SetProperty(ref _batteryUsage, value))
+            {
+                OnPropertyChanged(nameof(BatteryUsageTitle));
+                OnPropertyChanged(nameof(BatteryUsageSessionText));
+                OnPropertyChanged(nameof(BatteryUsageActiveText));
+                OnPropertyChanged(nameof(BatteryUsageIdleText));
+                OnPropertyChanged(nameof(BatteryUsageEstimatedDrainText));
+                OnPropertyChanged(nameof(BatteryUsageBuckets));
+            }
+        }
+    }
+
     public ObservableCollection<ProcessUsageInfo> TopCpuProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> TopMemoryProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> EnergyImpactProcesses { get; }
@@ -245,6 +291,7 @@ public sealed class MainViewModel : ObservableObject
 
     public ICommand RefreshDellChargeCommand { get; }
     public ICommand ApplyBatteryPresetCommand { get; }
+    public ICommand ApplyWindowsPowerModeCommand { get; }
     public ICommand OpenSettingsCommand { get; }
 
     public string BatterySummary => Battery.Percentage > 0
@@ -281,8 +328,24 @@ public sealed class MainViewModel : ObservableObject
     public string AdminChipText => IsAdministrator ? "Admin" : "User";
     public string CctkStatusText => _cctkService.IsConfigured ? "OK" : "missing";
     public string SampleIntervalText => $"Sample {_settingsService.Current.SensorSampleIntervalSeconds}s";
-    public string FooterStatusText => $"{AdminChipText} | {HwinfoChipText} | {SampleIntervalText} | Window 10 min | cctk: {CctkStatusText}";
+    public string PowerModeText => CurrentWindowsPowerMode is { } mode
+        ? WindowsPowerModeService.ToDisplayName(mode)
+        : "Unavailable";
+    public string PowerModeTargetText => Battery.IsPluggedIn ? "plugged in" : "on battery";
+    public string PowerModeButtonText => $"Power: {PowerModeText}";
+    public string PowerModeButtonToolTip => $"Windows power mode for {PowerModeTargetText}: {PowerModeText}";
+    public string PowerEfficiencyMenuText => FormatPowerModeMenuText(WindowsPowerMode.BestPowerEfficiency);
+    public string BalancedPowerModeMenuText => FormatPowerModeMenuText(WindowsPowerMode.Balanced);
+    public string PerformancePowerModeMenuText => FormatPowerModeMenuText(WindowsPowerMode.BestPerformance);
+    public string FooterStatusText => $"{AdminChipText} | {HwinfoChipText} | {SampleIntervalText} | Window 10 min | power: {PowerModeText} | cctk: {CctkStatusText}";
     public string FriendlyChargeMode => FormatFriendlyChargeMode(DellChargeSetting);
+    public string BatteryUsageTitle => BatteryUsage.Title;
+    public string BatteryUsageSessionText => BatteryUsage.SessionText;
+    public string BatteryUsageActiveText => BatteryUsage.ActiveText;
+    public string BatteryUsageIdleText => BatteryUsage.IdleText;
+    public string BatteryUsageEstimatedDrainText => BatteryUsage.EstimatedDrainText;
+    public IReadOnlyList<BatteryUsageBucket> BatteryUsageBuckets => BatteryUsage.Buckets;
+    public string TopAppUsageEmptyText => EnergyImpactProcesses.Count == 0 ? "No app usage data yet" : string.Empty;
 
     public string BatteryTimeText => Battery.EstimatedTimeRemaining is { } remaining
         ? $"{remaining.Hours + remaining.Days * 24}h {remaining.Minutes}m remaining"
@@ -360,6 +423,33 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    private void ApplyWindowsPowerMode(object? parameter)
+    {
+        if (parameter is not WindowsPowerMode mode)
+        {
+            if (parameter is string value && Enum.TryParse(value, out WindowsPowerMode parsed))
+            {
+                mode = parsed;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        bool pluggedIn = Battery.IsPluggedIn;
+        try
+        {
+            StatusMessage = _windowsPowerModeService.SetConfiguredMode(pluggedIn, mode);
+            RefreshWindowsPowerMode(pluggedIn);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to apply Windows power mode.");
+            StatusMessage = ex.Message;
+        }
+    }
+
     private Task RefreshAsync()
     {
         if (_isRefreshing)
@@ -385,13 +475,16 @@ public sealed class MainViewModel : ObservableObject
             CpuPackagePowerWatts = sensors.CpuPackagePowerWatts;
             Battery = battery;
             BatteryPowerWatts = Battery.ChargeRateWatts;
+            RefreshWindowsPowerMode(Battery.IsPluggedIn);
+            BatteryUsage = _batteryUsageService.Record(Battery);
             Memory = _processStatsService.GetMemoryInfo();
             EnergyImpactTitle = energyImpactTitle;
-            EnergyImpactColumnHeader = energyImpactColumnHeader;
+            EnergyImpactColumnHeader = "% used";
 
             Replace(TopCpuProcesses, topCpu);
             Replace(TopMemoryProcesses, topMemory);
             Replace(EnergyImpactProcesses, energyImpact);
+            OnPropertyChanged(nameof(TopAppUsageEmptyText));
             OnPropertyChanged(nameof(TopCpuProcessText));
             Replace(FanReadings, sensors.FanRpm.Count == 0
                 ? ["Fan RPM unavailable"]
@@ -430,6 +523,19 @@ public sealed class MainViewModel : ObservableObject
         BatteryWattsGraphSummary = FormatGraphSummary(BatteryWattsGraphValues, "N1", " W");
         CpuPowerGraphSummary = FormatGraphSummary(CpuPowerGraphValues, "N1", " W");
         TemperatureGraphSummary = FormatGraphSummary(TemperatureGraphValues, "N0", " C");
+    }
+
+    private void RefreshWindowsPowerMode(bool pluggedIn)
+    {
+        try
+        {
+            CurrentWindowsPowerMode = _windowsPowerModeService.GetConfiguredMode(pluggedIn);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to read Windows power mode.");
+            CurrentWindowsPowerMode = null;
+        }
     }
 
     private static void Replace<T>(ObservableCollection<T> collection, IEnumerable<T> values)
@@ -495,5 +601,11 @@ public sealed class MainViewModel : ObservableObject
         }
 
         return "Mode: Dell custom";
+    }
+
+    private string FormatPowerModeMenuText(WindowsPowerMode mode)
+    {
+        string prefix = CurrentWindowsPowerMode == mode ? "✓ " : string.Empty;
+        return prefix + WindowsPowerModeService.ToDisplayName(mode);
     }
 }

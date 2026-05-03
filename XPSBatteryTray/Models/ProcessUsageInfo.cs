@@ -9,8 +9,9 @@ public sealed class ProcessUsageInfo
     public TimeSpan RunTime { get; init; }
     public double EstimatedEnergyImpact { get; init; }
     public double EstimatedEnergyImpactBarPercent { get; init; }
+    public double EstimatedEnergyPercent { get; init; }
 
     public string MemoryText => $"{WorkingSetBytes / 1024d / 1024d:N0} MB";
     public string CpuText => $"{CpuPercent:N1}%";
-    public string EnergyText => EstimatedEnergyImpact >= 10 ? $"{EstimatedEnergyImpact:N0}" : $"{EstimatedEnergyImpact:N1}";
+    public string EnergyText => $"{EstimatedEnergyPercent:N1}%";
 }

@@ -3,12 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XPSBatteryTray.Controls"
         Title="XPS Battery Tray"
-        Width="620"
-        Height="900"
-        MinWidth="600"
-        MinHeight="860"
+        Width="520"
+        Height="1160"
+        MinWidth="450"
+        MinHeight="1000"
         MaxWidth="640"
-        MaxHeight="920"
+        MaxHeight="1200"
         WindowStartupLocation="Manual"
         ShowInTaskbar="False"
         WindowStyle="None"
@@ -26,8 +26,8 @@
                 <RowDefinition Height="46" />
                 <RowDefinition Height="42" />
                 <RowDefinition Height="182" />
-                <RowDefinition Height="220" />
-                <RowDefinition Height="220" />
+                <RowDefinition Height="200" />
+                <RowDefinition Height="200" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="28" />
             </Grid.RowDefinitions>
@@ -36,7 +36,6 @@
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
@@ -47,24 +46,7 @@
                         <TextBlock Text="XPS Battery Tray" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
-                        <Button x:Name="ModesButton" Content="Modes" Click="ModesButton_Click" MinWidth="66" Height="32" Margin="0,0,8,0">
-                            <Button.ContextMenu>
-                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                    <MenuItem Header="Battery Health: Custom 50-80" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
-                                    <MenuItem Header="Balanced: Custom 70-90" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Balanced" />
-                                    <MenuItem Header="Charge to Full: Standard" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Standard" />
-                                    <MenuItem Header="Primarily AC Use" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="PrimarilyAcUse" />
-                                    <MenuItem Header="Adaptive" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Adaptive" />
-                                    <Separator />
-                                    <MenuItem Header="Show Current Setting" Command="{Binding RefreshDellChargeCommand}" />
-                                </ContextMenu>
-                            </Button.ContextMenu>
-                        </Button>
-                        <Button Content="⚙" Command="{Binding OpenSettingsCommand}" Width="34" Height="32" MinWidth="34" FontSize="15" ToolTip="Settings" />
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
                         <Button Content="−" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" Click="MinimizeButton_Click" />
                         <Button Content="□" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" IsEnabled="False" Opacity="0.55" />
                         <Button Content="X" Style="{StaticResource TitleCloseButtonStyle}" Width="36" MinWidth="36" Click="CloseButton_Click" />
@@ -72,40 +54,39 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="1" Margin="10,8,10,6">
+            <Grid Grid.Row="1" Margin="10,7,10,5">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="8" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="8" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="8" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="44" />
                 </Grid.ColumnDefinitions>
-                <Border Grid.Column="0" Style="{StaticResource ChipStyle}" ToolTip="{Binding DellChargeSetting}">
-                    <DockPanel>
-                        <TextBlock Text="↯" Foreground="{StaticResource AccentBrush}" FontSize="14" DockPanel.Dock="Left" Margin="0,0,7,0" />
-                        <TextBlock Text="{Binding ModeChipText}" FontSize="13" TextTrimming="CharacterEllipsis" />
-                    </DockPanel>
-                </Border>
-                <Border Grid.Column="2" Style="{StaticResource ChipStyle}">
-                    <DockPanel>
-                        <TextBlock Text="✓" Foreground="{StaticResource GoodAccentBrush}" FontSize="14" DockPanel.Dock="Left" Margin="0,0,7,0" />
-                        <TextBlock Text="{Binding HwinfoChipText}" FontSize="13" TextTrimming="CharacterEllipsis" />
-                    </DockPanel>
-                </Border>
-                <Border Grid.Column="4" Style="{StaticResource ChipStyle}">
-                    <DockPanel>
-                        <TextBlock Text="▭" Foreground="{StaticResource AccentBrush}" FontSize="14" DockPanel.Dock="Left" Margin="0,0,7,0" />
-                        <TextBlock Text="{Binding PowerStateChipText}" FontSize="13" TextTrimming="CharacterEllipsis" />
-                    </DockPanel>
-                </Border>
-                <Border Grid.Column="6" Style="{StaticResource ChipStyle}">
-                    <DockPanel>
-                        <TextBlock Text="▣" Foreground="{StaticResource GoodAccentBrush}" FontSize="14" DockPanel.Dock="Left" Margin="0,0,7,0" />
-                        <TextBlock Text="{Binding AdminChipText}" FontSize="13" />
-                    </DockPanel>
-                </Border>
+                <Button x:Name="PowerButton" Grid.Column="0" Content="{Binding PowerModeButtonText}" ToolTip="{Binding PowerModeButtonToolTip}" Click="PowerButton_Click" Height="30" Padding="8,3" FontSize="12" HorizontalContentAlignment="Center">
+                    <Button.ContextMenu>
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="{Binding PowerModeButtonToolTip}" IsEnabled="False" />
+                            <Separator />
+                            <MenuItem Header="{Binding PowerEfficiencyMenuText}" Command="{Binding ApplyWindowsPowerModeCommand}" CommandParameter="BestPowerEfficiency" />
+                            <MenuItem Header="{Binding BalancedPowerModeMenuText}" Command="{Binding ApplyWindowsPowerModeCommand}" CommandParameter="Balanced" />
+                            <MenuItem Header="{Binding PerformancePowerModeMenuText}" Command="{Binding ApplyWindowsPowerModeCommand}" CommandParameter="BestPerformance" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                <Button x:Name="ModesButton" Grid.Column="2" Content="{Binding ModeChipText}" ToolTip="{Binding DellChargeSetting}" Click="ModesButton_Click" Height="30" Padding="8,3" FontSize="12" HorizontalContentAlignment="Center">
+                    <Button.ContextMenu>
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="Battery Health: Custom 50-80" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
+                            <MenuItem Header="Balanced: Custom 70-90" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Balanced" />
+                            <MenuItem Header="Charge to Full: Standard" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Standard" />
+                            <MenuItem Header="Primarily AC Use" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="PrimarilyAcUse" />
+                            <MenuItem Header="Adaptive" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Adaptive" />
+                            <Separator />
+                            <MenuItem Header="Show Current Setting" Command="{Binding RefreshDellChargeCommand}" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+                <Button Grid.Column="4" Content="⚙" Command="{Binding OpenSettingsCommand}" Width="42" Height="30" MinWidth="42" Padding="0" FontSize="14" ToolTip="Settings" />
             </Grid>
 
             <Border Grid.Row="2" Style="{StaticResource CardStyle}" Margin="10,0,10,8">
@@ -129,9 +110,9 @@
                             </Grid.ColumnDefinitions>
                             <controls:BatteryGaugeControl Grid.Column="0" Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="48" Height="74" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,18,0,0" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding BatteryPercentText}" FontSize="40" FontWeight="Bold" LineHeight="44" />
-                                <TextBlock Text="{Binding PowerStateText}" Foreground="{StaticResource AccentBrush}" FontSize="16" FontWeight="SemiBold" Margin="0,2,0,0" />
-                                <TextBlock Text="{Binding BatteryPowerText}" FontSize="15" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,7,0,0" />
+                                <TextBlock Text="{Binding BatteryPercentText}" FontSize="25" FontWeight="Bold" LineHeight="35" Height="31" />
+                                <TextBlock Text="{Binding PowerStateText}" Foreground="{StaticResource AccentBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding BatteryPowerText}" FontSize="12" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,7,0,0" />
                                 <TextBlock Text="{Binding BatteryTimeText}" Style="{StaticResource MutedStyle}" Margin="0,7,0,0" />
                                 <TextBlock Text="{Binding FriendlyChargeMode}" Style="{StaticResource MutedStyle}" Margin="0,8,0,0" TextWrapping="Wrap" ToolTip="{Binding DellChargeSetting}" />
                             </StackPanel>
@@ -146,7 +127,16 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Grid Width="66" Height="66" VerticalAlignment="Center" HorizontalAlignment="Left">
-                            <controls:RingGaugeControl Value="{Binding CpuGaugeValue}" Accent="{StaticResource AccentBrush}" />
+                            <controls:RingGaugeControl Value="{Binding CpuGaugeValue}" Accent="{StaticResource AccentBrush}" RenderTransformOrigin="0.5,0.5" >
+                                <controls:RingGaugeControl.RenderTransform>
+                                    <TransformGroup>
+                                        <ScaleTransform/>
+                                        <SkewTransform AngleX="-0.674"/>
+                                        <RotateTransform/>
+                                        <TranslateTransform X="0.388"/>
+                                    </TransformGroup>
+                                </controls:RingGaugeControl.RenderTransform>
+                            </controls:RingGaugeControl>
                             <TextBlock Text="{Binding CpuUsageText}" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -173,7 +163,7 @@
                         <TextBlock Text="⚡  Battery watts" Foreground="{StaticResource BatteryAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="{Binding BatteryWattsGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" Height="166" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" />
                 </Grid>
             </Border>
 
@@ -192,103 +182,123 @@
                         <TextBlock Text="♨  CPU temperature" Foreground="{StaticResource ThermalAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="{Binding TemperatureGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#2AFF6F87" Height="166" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#2AFF6F87" />
                 </Grid>
             </Border>
 
             <Grid Grid.Row="5" Margin="10,0,10,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="280" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="156" />
+                </Grid.RowDefinitions>
 
-                <Border Grid.Column="0" Style="{StaticResource CardStyle}">
-                    <Grid>
+                <Border Grid.Row="0" Style="{StaticResource CardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="32" />
+                        <RowDefinition Height="72" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="{Binding BatteryUsageTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+
+                    <Grid Grid.Row="1" Margin="0,2,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Background="#1D2227" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Padding="6,6">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Session" Foreground="{StaticResource MutedTextBrush}" FontSize="12" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding BatteryUsageSessionText}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="2" Background="#1D2227" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Padding="6,6">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Active" Foreground="{StaticResource MutedTextBrush}" FontSize="12" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding BatteryUsageActiveText}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="4" Background="#1D2227" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Padding="6,6">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Idle" Foreground="{StaticResource MutedTextBrush}" FontSize="12" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding BatteryUsageIdleText}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Column="6" Background="#1D2227" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Padding="6,6">
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Estimated drain" Foreground="{StaticResource MutedTextBrush}" FontSize="12" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding BatteryUsageEstimatedDrainText}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="2">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="24" />
-                            <RowDefinition Height="20" />
+                            <RowDefinition Height="21" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="▣  Top CPU Processes" Style="{StaticResource SmallHeaderStyle}" FontSize="14" />
-                        <Grid Grid.Row="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="80" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Process" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                            <TextBlock Grid.Column="1" Text="CPU %" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
-                        </Grid>
-                        <ItemsControl Grid.Row="2" ItemsSource="{Binding TopCpuProcesses}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Height="21" Margin="0,1,0,0">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*" />
-                                            <RowDefinition Height="3" />
-                                        </Grid.RowDefinitions>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="80" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="1" Text="{Binding CpuText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
-                                        </Grid>
-                                        <Grid Grid.Row="1" Margin="0,0,0,1">
-                                            <Border Background="#2B3036" Height="1" VerticalAlignment="Center" />
-                                            <ProgressBar Style="{StaticResource MiniLineBarStyle}" Value="{Binding CpuPercent}" Maximum="100" Foreground="#4AA8FF" />
-                                        </Grid>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Fill="{StaticResource AccentBrush}" Width="7" Height="7" Margin="2,0,7,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Battery level %" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,0,18,0" />
+                            <Ellipse Fill="{StaticResource BatteryAccentBrush}" Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Activity" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,0,18,0" />
+                            <Ellipse Fill="{StaticResource GoodAccentBrush}" Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Charging" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
+                        </StackPanel>
+                        <controls:BatteryUsageCombinedControl Grid.Row="1" Buckets="{Binding BatteryUsageBuckets}" />
                     </Grid>
+                </Grid>
                 </Border>
 
-                <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <Border Grid.Row="2" Style="{StaticResource CardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="24" />
-                            <RowDefinition Height="20" />
+                            <RowDefinition Height="25" />
+                            <RowDefinition Height="22" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="{Binding EnergyImpactTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="Estimated from accumulated CPU activity and battery discharge rate when available; not measured process watts." />
+                        <TextBlock Text="Top app usage" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="92" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="64" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Process" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                            <TextBlock Grid.Column="1" Text="{Binding EnergyImpactColumnHeader}" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
+                            <TextBlock Grid.Column="2" Text="% used" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
                         </Grid>
-                        <ItemsControl Grid.Row="2" ItemsSource="{Binding EnergyImpactProcesses}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Height="21" Margin="0,1,0,0">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*" />
-                                            <RowDefinition Height="3" />
-                                        </Grid.RowDefinitions>
-                                        <Grid>
+                        <Grid Grid.Row="2">
+                            <TextBlock Text="{Binding TopAppUsageEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,0,0" />
+                            <ItemsControl ItemsSource="{Binding EnergyImpactProcesses}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Height="22">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="92" />
+                                                <ColumnDefinition Width="180" />
+                                                <ColumnDefinition Width="64" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="1" Text="{Binding EnergyText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
+                                            <Grid Grid.Column="1" Margin="8,0,12,0" VerticalAlignment="Center">
+                                                <Border Background="#232A31" Height="5" CornerRadius="2.5" />
+                                                <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding EstimatedEnergyImpactBarPercent}" Maximum="100" Height="5" Foreground="#6A9DFF" />
+                                            </Grid>
+                                            <TextBlock Grid.Column="2" Text="{Binding EnergyText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
                                         </Grid>
-                                        <Grid Grid.Row="1" Margin="0,0,0,1">
-                                            <Border Background="#2B3036" Height="1" VerticalAlignment="Center" />
-                                            <ProgressBar Style="{StaticResource MiniLineBarStyle}" Value="{Binding EstimatedEnergyImpactBarPercent}" Maximum="100" Foreground="{StaticResource GoodAccentBrush}" />
-                                        </Grid>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>
+
 
             <Border Grid.Row="6" Background="{StaticResource TopBarBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,1,0,0" CornerRadius="0,0,11,11">
                 <TextBlock Text="{Binding FooterStatusText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" Margin="14,0" />

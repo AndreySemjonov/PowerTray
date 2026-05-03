@@ -1,7 +1,10 @@
 using System.Drawing;
+using System.IO;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Resources;
 using XPSBatteryTray.Models;
+using XPSBatteryTray.Services;
 using XPSBatteryTray.ViewModels;
 using XPSBatteryTray.Views;
 using Application = System.Windows.Application;
@@ -32,6 +35,11 @@ public sealed class TrayIconManager : IDisposable
         Application.Current.Dispatcher.Invoke(() =>
         {
             _dashboardWindow ??= new DashboardWindow(_viewModel);
+            if (_dashboardWindow.WindowState == WindowState.Minimized)
+            {
+                _dashboardWindow.WindowState = WindowState.Normal;
+            }
+
             if (!_dashboardWindow.IsVisible)
             {
                 PositionDashboardNearTray(_dashboardWindow);
@@ -82,6 +90,12 @@ public sealed class TrayIconManager : IDisposable
         contextMenu.Items.Add("Primarily AC Use", null, (_, _) => ApplyPreset(BatteryPreset.PrimarilyAcUse));
         contextMenu.Items.Add("Adaptive", null, (_, _) => ApplyPreset(BatteryPreset.Adaptive));
         contextMenu.Items.Add(new ToolStripSeparator());
+        var powerModeMenu = new ToolStripMenuItem("Windows Power Mode");
+        powerModeMenu.DropDownItems.Add("Power efficiency", null, (_, _) => ApplyWindowsPowerMode(WindowsPowerMode.BestPowerEfficiency));
+        powerModeMenu.DropDownItems.Add("Balanced", null, (_, _) => ApplyWindowsPowerMode(WindowsPowerMode.Balanced));
+        powerModeMenu.DropDownItems.Add("Performance", null, (_, _) => ApplyWindowsPowerMode(WindowsPowerMode.BestPerformance));
+        contextMenu.Items.Add(powerModeMenu);
+        contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add("Show Current Dell Charge Setting", null, async (_, _) => await _viewModel.RefreshDellChargeAsync());
         contextMenu.Items.Add("Settings", null, (_, _) => ShowSettings());
         contextMenu.Items.Add(new ToolStripSeparator());
@@ -89,7 +103,7 @@ public sealed class TrayIconManager : IDisposable
 
         var icon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = LoadTrayIcon(),
             Text = "XPS Battery Tray",
             ContextMenuStrip = contextMenu,
             Visible = false
@@ -106,10 +120,36 @@ public sealed class TrayIconManager : IDisposable
         return icon;
     }
 
+    private static Icon LoadTrayIcon()
+    {
+        try
+        {
+            StreamResourceInfo? resource = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/AppIcon.ico", UriKind.Absolute));
+            if (resource?.Stream is null)
+            {
+                return SystemIcons.Application;
+            }
+
+            using Stream stream = resource.Stream;
+            return new Icon(stream);
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to load tray icon.");
+            return SystemIcons.Application;
+        }
+    }
+
     private void ApplyPreset(BatteryPreset preset)
     {
         Application.Current.Dispatcher.Invoke(() => _viewModel.ApplyBatteryPresetCommand.Execute(preset));
         _notifyIcon.ShowBalloonTip(2500, "XPS Battery Tray", "Battery mode command started.", ToolTipIcon.Info);
+    }
+
+    private void ApplyWindowsPowerMode(WindowsPowerMode mode)
+    {
+        Application.Current.Dispatcher.Invoke(() => _viewModel.ApplyWindowsPowerModeCommand.Execute(mode));
+        _notifyIcon.ShowBalloonTip(2000, "XPS Battery Tray", "Windows power mode updated.", ToolTipIcon.Info);
     }
 
     private static void PositionDashboardNearTray(Window window)
