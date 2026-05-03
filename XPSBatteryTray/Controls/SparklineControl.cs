@@ -58,7 +58,7 @@ public sealed class SparklineControl : FrameworkElement
         const double leftPadding = 10;
         const double rightAxisWidth = 44;
         const double topPadding = 4;
-        const double bottomLabelHeight = 22;
+        const double bottomLabelHeight = 28;
         double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomLabelHeight);
         double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightAxisWidth);
         var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(80, 88, 92, 98)), 1);
@@ -70,7 +70,7 @@ public sealed class SparklineControl : FrameworkElement
 
         int maxPoints = Math.Max(2, MaxPoints);
         double[] values = Values?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
-        DrawTimeLabels(drawingContext, leftPadding, plotWidth, topPadding + plotHeight + 5);
+        DrawTimeLabels(drawingContext, leftPadding, plotWidth, topPadding + plotHeight + 7);
         if (values.Length < 2 || ActualWidth <= 1 || ActualHeight <= 1)
         {
             var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
@@ -204,7 +204,7 @@ public sealed class SparklineControl : FrameworkElement
     private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)
     {
         string[] labels = ["10m", "8m", "6m", "4m", "2m", "Now"];
-        var brush = new SolidColorBrush(MediaColor.FromRgb(132, 138, 145));
+        var brush = new SolidColorBrush(MediaColor.FromRgb(165, 171, 178));
         for (int i = 0; i < labels.Length; i++)
         {
             double x = left + i * width / (labels.Length - 1);
@@ -213,7 +213,7 @@ public sealed class SparklineControl : FrameworkElement
                 System.Globalization.CultureInfo.CurrentCulture,
                 System.Windows.FlowDirection.LeftToRight,
                 new Typeface("Segoe UI"),
-                9,
+                10,
                 brush,
                 1.0);
             if (i == labels.Length - 1)
