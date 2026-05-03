@@ -3,11 +3,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XPSBatteryTray.Controls"
         Title="XPS Battery Tray"
-        Width="800"
+        Width="740"
         Height="900"
-        MinWidth="760"
+        MinWidth="720"
         MinHeight="860"
-        MaxWidth="820"
+        MaxWidth="760"
         MaxHeight="920"
         WindowStartupLocation="Manual"
         ShowInTaskbar="False"
@@ -25,11 +25,11 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="46" />
                 <RowDefinition Height="42" />
-                <RowDefinition Height="126" />
-                <RowDefinition Height="126" />
-                <RowDefinition Height="126" />
-                <RowDefinition Height="126" />
-                <RowDefinition Height="*" />
+                <RowDefinition Height="148" />
+                <RowDefinition Height="150" />
+                <RowDefinition Height="150" />
+                <RowDefinition Height="150" />
+                <RowDefinition Height="178" />
                 <RowDefinition Height="28" />
             </Grid.RowDefinitions>
 
@@ -112,20 +112,26 @@
             <Border Grid.Row="2" Style="{StaticResource CardStyle}" Margin="10,0,10,8">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="1.08*" />
                         <ColumnDefinition Width="1" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="0.92*" />
                     </Grid.ColumnDefinitions>
 
                     <Grid Grid.Column="0" Margin="0,0,14,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="26" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Battery" Foreground="{StaticResource AccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                        <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="70" />
-                            <ColumnDefinition Width="92" />
+                            <ColumnDefinition Width="58" />
+                            <ColumnDefinition Width="104" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <controls:BatteryGaugeControl Grid.Column="0" Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="45" Height="70" Margin="4,22,0,0" HorizontalAlignment="Left" />
+                        <controls:BatteryGaugeControl Grid.Column="0" Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="42" Height="66" HorizontalAlignment="Left" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding BatteryPercentText}" FontSize="36" FontWeight="Bold" />
+                            <TextBlock Text="{Binding BatteryPercentText}" FontSize="38" FontWeight="Bold" />
                             <TextBlock Text="{Binding BatteryPowerText}" FontSize="15" Foreground="{StaticResource BatteryAccentBrush}" />
                         </StackPanel>
                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
@@ -133,16 +139,17 @@
                             <TextBlock Text="{Binding BatteryTimeText}" Style="{StaticResource MutedStyle}" Margin="0,5,0,0" />
                             <TextBlock Text="{Binding FriendlyChargeMode}" Style="{StaticResource MutedStyle}" Margin="0,7,0,0" TextWrapping="Wrap" ToolTip="{Binding DellChargeSetting}" />
                         </StackPanel>
+                        </Grid>
                     </Grid>
 
                     <Border Grid.Column="1" Background="{StaticResource PanelBorder}" Margin="0,12" />
 
-                    <Grid Grid.Column="2" Margin="18,0,0,0">
+                    <Grid Grid.Column="2" Margin="16,0,0,0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="118" />
+                            <ColumnDefinition Width="108" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Grid Width="92" Height="92" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <Grid Width="88" Height="88" VerticalAlignment="Center" HorizontalAlignment="Left">
                             <controls:RingGaugeControl Value="{Binding CpuGaugeValue}" Accent="{StaticResource AccentBrush}" />
                             <TextBlock Text="{Binding CpuUsageText}" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Grid>
@@ -170,7 +177,7 @@
                         <TextBlock Text="⚡  Battery watts" Foreground="{StaticResource BatteryAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="{Binding BatteryWattsGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" Height="78" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" Height="102" />
                 </Grid>
             </Border>
 
@@ -189,7 +196,7 @@
                         <TextBlock Text="⚡  CPU package power" Foreground="{StaticResource ThermalAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="{Binding CpuPowerGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding CpuPowerGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#33FF6F87" Height="78" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding CpuPowerGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#33FF6F87" Height="102" />
                 </Grid>
             </Border>
 
@@ -208,7 +215,7 @@
                         <TextBlock Text="♨  CPU temperature" Foreground="{StaticResource ThermalAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="{Binding TemperatureGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#2AFF6F87" Height="78" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#2AFF6F87" Height="102" />
                 </Grid>
             </Border>
 
@@ -222,8 +229,8 @@
                 <Border Grid.Column="0" Style="{StaticResource CardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="26" />
-                            <RowDefinition Height="22" />
+                            <RowDefinition Height="24" />
+                            <RowDefinition Height="20" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <TextBlock Text="▣  Top CPU Processes" Style="{StaticResource SmallHeaderStyle}" FontSize="14" />
@@ -238,7 +245,7 @@
                         <ItemsControl Grid.Row="2" ItemsSource="{Binding TopCpuProcesses}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Height="22" Margin="0,1,0,0">
+                                    <Grid Height="20" Margin="0,1,0,0">
                                         <ProgressBar Grid.ColumnSpan="2" Style="{StaticResource MiniBarStyle}" Value="{Binding CpuPercent}" Maximum="100" Foreground="#3F82CB" Opacity="0.45" VerticalAlignment="Center" />
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -258,24 +265,24 @@
                 <Border Grid.Column="2" Style="{StaticResource CardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="26" />
-                            <RowDefinition Height="22" />
+                            <RowDefinition Height="24" />
+                            <RowDefinition Height="20" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="♧  Estimated Energy Impact" Foreground="{StaticResource GoodAccentBrush}" FontSize="14" FontWeight="SemiBold" ToolTip="Relative estimate based on CPU activity and runtime, not measured process watts." />
+                        <TextBlock Text="♧  Energy Impact (10m)" Foreground="{StaticResource GoodAccentBrush}" FontSize="14" FontWeight="SemiBold" ToolTip="Rolling 10-minute relative estimate based on accumulated CPU activity, not measured process watts." />
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="92" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Process" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                            <TextBlock Grid.Column="1" Text="Est. impact" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
+                            <TextBlock Grid.Column="1" Text="10m score" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
                         </Grid>
                         <ItemsControl Grid.Row="2" ItemsSource="{Binding EnergyImpactProcesses}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Height="22" Margin="0,1,0,0">
-                                        <ProgressBar Grid.ColumnSpan="2" Style="{StaticResource MiniBarStyle}" Value="{Binding EstimatedEnergyImpact}" Maximum="5" Foreground="#4E9C52" Opacity="0.42" VerticalAlignment="Center" />
+                                    <Grid Height="20" Margin="0,1,0,0">
+                                        <ProgressBar Grid.ColumnSpan="2" Style="{StaticResource MiniBarStyle}" Value="{Binding EstimatedEnergyImpactBarPercent}" Maximum="100" Foreground="#4E9C52" Opacity="0.42" VerticalAlignment="Center" />
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />

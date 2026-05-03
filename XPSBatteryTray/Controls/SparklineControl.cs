@@ -80,13 +80,15 @@ public sealed class SparklineControl : FrameworkElement
 
         double min = values.Min();
         double max = values.Max();
-        if (Math.Abs(max - min) < 0.001)
+        bool isFlat = Math.Abs(max - min) < 0.001;
+        if (isFlat)
         {
             max = min + 1;
         }
 
         var geometry = new StreamGeometry();
         var areaGeometry = new StreamGeometry();
+        var points = new List<(WindowsPoint Point, double Value)>(values.Length);
         using (StreamGeometryContext context = geometry.Open())
         using (StreamGeometryContext area = areaGeometry.Open())
         {
@@ -95,16 +97,18 @@ public sealed class SparklineControl : FrameworkElement
                 int slot = maxPoints - values.Length + i;
                 double x = leftPadding + slot * (plotWidth - 1) / (maxPoints - 1);
                 double y = topPadding + plotHeight - ((values[i] - min) / (max - min) * (plotHeight - 4));
+                var point = new WindowsPoint(x, y);
+                points.Add((point, values[i]));
                 if (i == 0)
                 {
-                    context.BeginFigure(new WindowsPoint(x, y), false, false);
+                    context.BeginFigure(point, false, false);
                     area.BeginFigure(new WindowsPoint(x, topPadding + plotHeight), true, true);
-                    area.LineTo(new WindowsPoint(x, y), true, false);
+                    area.LineTo(point, true, false);
                 }
                 else
                 {
-                    context.LineTo(new WindowsPoint(x, y), true, false);
-                    area.LineTo(new WindowsPoint(x, y), true, false);
+                    context.LineTo(point, true, false);
+                    area.LineTo(point, true, false);
                 }
             }
 
@@ -130,6 +134,27 @@ public sealed class SparklineControl : FrameworkElement
         DrawLabel(drawingContext, max, textBrush, leftPadding + plotWidth + 7, topPadding - 1);
         DrawLabel(drawingContext, (max + min) / 2d, textBrush, leftPadding + plotWidth + 7, topPadding + plotHeight / 2d - 7);
         DrawLabel(drawingContext, min, textBrush, leftPadding + plotWidth + 7, topPadding + plotHeight - 14);
+
+        if (points.Count > 2 && !isFlat)
+        {
+            int maxIndex = 0;
+            int minIndex = 0;
+            for (int i = 1; i < points.Count; i++)
+            {
+                if (points[i].Value > points[maxIndex].Value)
+                {
+                    maxIndex = i;
+                }
+
+                if (points[i].Value < points[minIndex].Value)
+                {
+                    minIndex = i;
+                }
+            }
+
+            DrawPeakLabel(drawingContext, points[maxIndex].Point, points[maxIndex].Value, Stroke, rect, preferAbove: true);
+            DrawPeakLabel(drawingContext, points[minIndex].Point, points[minIndex].Value, Stroke, rect, preferAbove: false);
+        }
     }
 
     private static void DrawLabel(DrawingContext context, double value, MediaBrush brush, double x, double y)
@@ -144,6 +169,36 @@ public sealed class SparklineControl : FrameworkElement
             brush,
             1.0);
         context.DrawText(formatted, new WindowsPoint(x, y));
+    }
+
+    private static void DrawPeakLabel(DrawingContext context, WindowsPoint point, double value, MediaBrush accent, Rect bounds, bool preferAbove)
+    {
+        string text = Math.Abs(value) >= 10 ? value.ToString("N0") : value.ToString("N1");
+        var formatted = new FormattedText(
+            text,
+            System.Globalization.CultureInfo.CurrentCulture,
+            System.Windows.FlowDirection.LeftToRight,
+            new Typeface("Segoe UI Semibold"),
+            10,
+            new SolidColorBrush(MediaColor.FromRgb(235, 238, 242)),
+            1.0);
+
+        double width = formatted.Width + 10;
+        double height = formatted.Height + 4;
+        double x = Math.Clamp(point.X - width / 2d, 4, Math.Max(4, bounds.Width - width - 46));
+        double y = preferAbove ? point.Y - height - 5 : point.Y + 5;
+        if (y < 2)
+        {
+            y = point.Y + 5;
+        }
+        else if (y + height > bounds.Height - 16)
+        {
+            y = point.Y - height - 5;
+        }
+
+        var labelRect = new Rect(x, y, width, height);
+        context.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromArgb(220, 24, 27, 31)), new MediaPen(accent, 1), labelRect, 4, 4);
+        context.DrawText(formatted, new WindowsPoint(x + 5, y + 1));
     }
 
     private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)

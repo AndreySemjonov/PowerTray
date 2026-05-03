@@ -68,7 +68,7 @@ The dashboard is a compact fixed-size dark window designed to show the key tray-
 - Battery and CPU summary cards with friendly labels instead of raw `cctk.exe` output
 - Three rolling 10-minute chart strips: battery watts, CPU package power, and CPU temperature
 - Current / average / minimum / maximum stats in each chart header
-- Two compact process tables for top CPU processes and estimated energy impact
+- Two compact process tables for top CPU processes and rolling 10-minute estimated energy impact
 
 Memory, fan, and raw sensor details are intentionally kept out of the main dashboard so the tray popup stays dense and readable.
 

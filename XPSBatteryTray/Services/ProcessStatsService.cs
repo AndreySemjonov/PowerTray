@@ -7,8 +7,10 @@ namespace XPSBatteryTray.Services;
 public sealed class ProcessStatsService
 {
     private readonly Dictionary<int, ProcessCpuSnapshot> _previousCpu = new();
+    private readonly Dictionary<string, Queue<EnergySample>> _energyHistory = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset _previousSample = DateTimeOffset.Now;
     private double _lastOverallCpu;
+    private static readonly TimeSpan EnergyWindow = TimeSpan.FromMinutes(10);
 
     public (double OverallCpuPercent, IReadOnlyList<ProcessUsageInfo> TopCpu, IReadOnlyList<ProcessUsageInfo> TopMemory, IReadOnlyList<ProcessUsageInfo> EnergyImpact) Sample()
     {
@@ -42,7 +44,7 @@ public sealed class ProcessStatsService
                     CpuPercent = cpuPercent,
                     WorkingSetBytes = process.WorkingSet64,
                     RunTime = runTime,
-                    EstimatedEnergyImpact = EstimateEnergyImpact(cpuPercent, runTime)
+                    EstimatedEnergyImpact = 0
                 });
 
                 _previousCpu[process.Id] = new ProcessCpuSnapshot(totalProcessorTime);
@@ -64,10 +66,11 @@ public sealed class ProcessStatsService
 
         _previousSample = now;
         _lastOverallCpu = Math.Clamp(totalCpu, 0, 100);
+        UpdateEnergyHistory(usage, elapsedSeconds, now);
 
         IReadOnlyList<ProcessUsageInfo> topCpu = usage.OrderByDescending(p => p.CpuPercent).Take(5).ToArray();
         IReadOnlyList<ProcessUsageInfo> topMemory = usage.OrderByDescending(p => p.WorkingSetBytes).Take(5).ToArray();
-        IReadOnlyList<ProcessUsageInfo> energy = usage.OrderByDescending(p => p.EstimatedEnergyImpact).Take(5).ToArray();
+        IReadOnlyList<ProcessUsageInfo> energy = BuildEnergyImpactList(usage).Take(5).ToArray();
         return (_lastOverallCpu, topCpu, topMemory, energy);
     }
 
@@ -80,10 +83,70 @@ public sealed class ProcessStatsService
             : new SystemMemoryInfo();
     }
 
-    private static double EstimateEnergyImpact(double cpuPercent, TimeSpan runTime)
+    private void UpdateEnergyHistory(IEnumerable<ProcessUsageInfo> usage, double elapsedSeconds, DateTimeOffset now)
     {
-        double runtimeFactor = Math.Clamp(runTime.TotalMinutes / 10d, 0.2, 1.5);
-        return cpuPercent * runtimeFactor;
+        DateTimeOffset cutoff = now - EnergyWindow;
+        foreach (ProcessUsageInfo process in usage)
+        {
+            if (process.CpuPercent <= 0.05)
+            {
+                continue;
+            }
+
+            if (!_energyHistory.TryGetValue(process.Name, out Queue<EnergySample>? samples))
+            {
+                samples = new Queue<EnergySample>();
+                _energyHistory[process.Name] = samples;
+            }
+
+            // CPU-percent minutes over the rolling window. A process using 10% CPU for 10 minutes scores 100.
+            samples.Enqueue(new EnergySample(now, process.CpuPercent * elapsedSeconds / 60d));
+        }
+
+        foreach (string name in _energyHistory.Keys.ToArray())
+        {
+            Queue<EnergySample> samples = _energyHistory[name];
+            while (samples.Count > 0 && samples.Peek().Timestamp < cutoff)
+            {
+                samples.Dequeue();
+            }
+
+            if (samples.Count == 0)
+            {
+                _energyHistory.Remove(name);
+            }
+        }
+    }
+
+    private IReadOnlyList<ProcessUsageInfo> BuildEnergyImpactList(IReadOnlyList<ProcessUsageInfo> currentUsage)
+    {
+        Dictionary<string, ProcessUsageInfo> currentByName = currentUsage
+            .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.CpuPercent).First(), StringComparer.OrdinalIgnoreCase);
+
+        var totals = _energyHistory
+            .Select(pair => new
+            {
+                Name = pair.Key,
+                Score = pair.Value.Sum(sample => sample.Score),
+                Current = currentByName.TryGetValue(pair.Key, out ProcessUsageInfo? current) ? current : null
+            })
+            .Where(item => item.Score > 0.05)
+            .OrderByDescending(item => item.Score)
+            .Take(5)
+            .ToArray();
+
+        double maxScore = totals.Length == 0 ? 1 : Math.Max(1, totals.Max(item => item.Score));
+        return totals.Select(item => new ProcessUsageInfo
+        {
+            ProcessId = item.Current?.ProcessId ?? 0,
+            Name = item.Name,
+            CpuPercent = item.Current?.CpuPercent ?? 0,
+            WorkingSetBytes = item.Current?.WorkingSetBytes ?? 0,
+            RunTime = item.Current?.RunTime ?? TimeSpan.Zero,
+            EstimatedEnergyImpact = item.Score,
+            EstimatedEnergyImpactBarPercent = Math.Clamp(item.Score / maxScore * 100d, 0, 100)
+        }).ToArray();
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -104,4 +167,6 @@ public sealed class ProcessStatsService
     }
 
     private readonly record struct ProcessCpuSnapshot(TimeSpan TotalProcessorTime);
+
+    private readonly record struct EnergySample(DateTimeOffset Timestamp, double Score);
 }
