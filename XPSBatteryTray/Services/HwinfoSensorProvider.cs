@@ -94,6 +94,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
         double? cpuTemp = null;
         double? cpuPower = null;
         double? batteryPower = null;
+        int batteryPowerScore = 0;
         var fans = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         var diagnostics = new List<string>();
 
@@ -129,20 +130,10 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             {
                 cpuPower = Math.Abs(reading.Value);
             }
-            else if (batteryPower is null &&
-                     (reading.Type == ReadingType.Power || reading.Type == ReadingType.Current || ContainsAny(haystack, "W", "mW")) &&
-                     ContainsAny(haystack,
-                         "Charge Rate",
-                         "Discharge Rate",
-                         "Battery Power",
-                         "Charge Power",
-                         "Battery Rate",
-                         "Power Rate",
-                         "Present Rate",
-                         "Smart Battery",
-                         "Battery"))
+            else if (TryGetBatteryPowerScore(reading, haystack, out int score) && score > batteryPowerScore)
             {
                 batteryPower = reading.Value;
+                batteryPowerScore = score;
             }
             else if (reading.Type == ReadingType.Fan || ContainsAny(haystack, "Fan", "RPM"))
             {
@@ -223,6 +214,41 @@ public sealed class HwinfoSensorProvider : ISensorProvider
 
     private static bool ContainsAny(string value, params string[] terms) =>
         terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
+
+    private static bool TryGetBatteryPowerScore(Reading reading, string haystack, out int score)
+    {
+        score = 0;
+        if (ContainsAny(haystack, "Remaining Capacity", "Full Charge Capacity", "Design Capacity", "Wear Level", "Charge Level", "Battery Voltage", "Estimated Remaining Time"))
+        {
+            return false;
+        }
+
+        bool isBattery = ContainsAny(haystack, "Battery", "Smart Battery", "Charge Rate", "Discharge Rate");
+        if (!isBattery)
+        {
+            return false;
+        }
+
+        if (ContainsAny(haystack, "Charge Rate", "Discharge Rate"))
+        {
+            score = 100;
+            return true;
+        }
+
+        if (ContainsAny(haystack, "Battery Power", "Charge Power", "Battery Rate", "Power Rate", "Present Rate") && reading.Type == ReadingType.Power)
+        {
+            score = 80;
+            return true;
+        }
+
+        if (reading.Type == ReadingType.Power && ContainsAny(haystack, "Battery"))
+        {
+            score = 60;
+            return true;
+        }
+
+        return false;
+    }
 
     private static void LogDiagnosticsIfNeeded(double? cpuTemp, double? cpuPower, double? batteryPower, int fanCount, IReadOnlyList<string> diagnostics)
     {

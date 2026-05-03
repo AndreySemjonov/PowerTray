@@ -97,17 +97,17 @@
                         <TextBlock Text="CPU usage" Foreground="{StaticResource MutedTextBrush}" />
                         <TextBlock Text="{Binding CpuGraphSummary}" DockPanel.Dock="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
                     </DockPanel>
-                    <controls:SparklineControl Values="{Binding CpuGraphValues}" Stroke="{StaticResource AccentBrush}" Height="38" Margin="0,4,0,8" />
+                    <controls:SparklineControl Values="{Binding CpuGraphValues}" Stroke="{StaticResource AccentBrush}" Height="58" Margin="0,4,0,10" />
                     <DockPanel LastChildFill="False">
                         <TextBlock Text="Battery watts" Foreground="{StaticResource MutedTextBrush}" />
                         <TextBlock Text="{Binding BatteryWattsGraphSummary}" DockPanel.Dock="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
                     </DockPanel>
-                    <controls:SparklineControl Values="{Binding BatteryWattsGraphValues}" Stroke="#E7B05B" Height="38" Margin="0,4,0,8" />
+                    <controls:SparklineControl Values="{Binding BatteryWattsGraphValues}" Stroke="#E7B05B" Height="58" Margin="0,4,0,10" />
                     <DockPanel LastChildFill="False">
                         <TextBlock Text="CPU temperature" Foreground="{StaticResource MutedTextBrush}" />
                         <TextBlock Text="{Binding TemperatureGraphSummary}" DockPanel.Dock="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
                     </DockPanel>
-                    <controls:SparklineControl Values="{Binding TemperatureGraphValues}" Stroke="#E26473" Height="38" Margin="0,4,0,0" />
+                    <controls:SparklineControl Values="{Binding TemperatureGraphValues}" Stroke="#E26473" Height="58" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
 
