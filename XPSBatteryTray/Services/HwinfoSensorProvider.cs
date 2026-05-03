@@ -60,20 +60,32 @@ public sealed class HwinfoSensorProvider : ISensorProvider
 
     private static SensorReadings ReadFromAccessor(MemoryMappedViewAccessor accessor)
     {
-        if (accessor.Capacity < 40)
+        if (accessor.Capacity < 44)
         {
             return Unavailable("HWiNFO shared memory header was too small");
         }
 
-        uint sensorOffset = accessor.ReadUInt32(16);
-        uint sensorElementSize = accessor.ReadUInt32(20);
-        uint sensorCount = accessor.ReadUInt32(24);
-        uint readingOffset = accessor.ReadUInt32(28);
-        uint readingElementSize = accessor.ReadUInt32(32);
-        uint readingCount = accessor.ReadUInt32(36);
+        string signature = ReadString(accessor, 0, 4);
+        if (!signature.Equals("HWiS", StringComparison.OrdinalIgnoreCase))
+        {
+            return Unavailable(signature.Equals("DEAD", StringComparison.OrdinalIgnoreCase)
+                ? "HWiNFO shared memory is inactive"
+                : "HWiNFO shared memory signature was not recognized");
+        }
+
+        // Packed HWiNFO_SENSORS_SHARED_MEM2:
+        // DWORD signature, DWORD version, DWORD revision, __time64_t poll_time,
+        // then the section descriptors. __time64_t is 8 bytes, so descriptors start at byte 20.
+        uint sensorOffset = accessor.ReadUInt32(20);
+        uint sensorElementSize = accessor.ReadUInt32(24);
+        uint sensorCount = accessor.ReadUInt32(28);
+        uint readingOffset = accessor.ReadUInt32(32);
+        uint readingElementSize = accessor.ReadUInt32(36);
+        uint readingCount = accessor.ReadUInt32(40);
 
         if (readingOffset == 0 || readingElementSize < 64 || readingCount == 0 || readingOffset + readingElementSize > accessor.Capacity)
         {
+            LogService.Info($"HWiNFO descriptors invalid. sensorOffset={sensorOffset}, sensorElementSize={sensorElementSize}, sensorCount={sensorCount}, readingOffset={readingOffset}, readingElementSize={readingElementSize}, readingCount={readingCount}, capacity={accessor.Capacity}.");
             return Unavailable("HWiNFO sensors detected but no readings were exposed");
         }
 
