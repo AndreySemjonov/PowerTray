@@ -7,6 +7,7 @@ public sealed class AppSettings
     public bool StartMinimized { get; set; } = true;
     public int SensorSampleIntervalSeconds { get; set; } = 2;
     public bool EnableHwinfoIntegration { get; set; } = true;
+    public bool EnableLibreHardwareMonitorIntegration { get; set; } = true;
     public int HealthStart { get; set; } = 50;
     public int HealthStop { get; set; } = 80;
     public int BalancedStart { get; set; } = 70;

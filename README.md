@@ -7,7 +7,8 @@ Lightweight Windows tray utility for a Dell XPS 14 DA14260. It lets you switch D
 - Windows 11 x64
 - .NET 8 Desktop Runtime or .NET 8 SDK
 - Dell Command | Configure for battery BIOS setting changes
-- Optional: HWiNFO with Shared Memory Support enabled for advanced sensors
+- Optional: HWiNFO with Shared Memory Support enabled for the most reliable advanced sensors
+- Optional: built-in LibreHardwareMonitor sensor provider for advanced sensors without running HWiNFO
 
 Default `cctk.exe` paths checked automatically:
 
@@ -71,9 +72,17 @@ The dashboard is a compact fixed-size dark window designed to show the key tray-
 
 Memory, fan, and raw sensor details are intentionally kept out of the main dashboard so the tray popup stays dense and readable.
 
-## HWiNFO
+## Advanced Sensors
 
-Advanced sensors such as CPU temperature, CPU package power, fan RPM, and battery charge/discharge watts generally require HWiNFO. Enable HWiNFO Shared Memory Support and keep the HWiNFO sensors window active.
+The dashboard tries advanced sensors in this order:
+
+1. HWiNFO shared memory, if enabled and available
+2. Built-in LibreHardwareMonitor provider, if enabled
+3. Windows fallback stats
+
+HWiNFO remains the most reliable source for this Dell laptop. Enable HWiNFO Shared Memory Support and keep the HWiNFO sensors window active when you want its exact sensor table.
+
+LibreHardwareMonitor runs inside this app, so you do not need a separate HWiNFO background process. It can expose CPU temperature, CPU package power, fan RPM, and sometimes battery charge/discharge watts depending on hardware and permissions. On some systems it may require administrator rights or may not expose every Dell sensor.
 
 If HWiNFO shared memory is unavailable, the app keeps running with Windows fallback stats:
 
@@ -83,7 +92,7 @@ If HWiNFO shared memory is unavailable, the app keeps running with Windows fallb
 - Memory totals
 - Top CPU and memory processes
 
-The app does not fake missing temperature, fan, package-power, or watt values. Unavailable chart panels show unavailable stats until HWiNFO or Windows exposes the relevant sensor.
+The app does not fake missing temperature, fan, package-power, or watt values. Unavailable chart panels show unavailable stats until HWiNFO, LibreHardwareMonitor, or Windows exposes the relevant sensor.
 
 ## Settings And Data
 
@@ -103,7 +112,7 @@ No telemetry, analytics, or network calls are used.
 
 ## Known Limitations
 
-- HWiNFO sensor names vary by machine; matching is flexible but should be validated on the target XPS 14.
+- HWiNFO and LibreHardwareMonitor sensor names vary by machine; matching is flexible but should be validated on the target XPS 14.
 - Per-process battery drain is not available from Windows as exact watts. The “Estimated Energy Impact” view is only a relative estimate based on CPU activity and runtime.
 - Windows usually does not expose fan RPM or CPU package temperature without vendor/third-party sensors.
 - The current tray icon uses the default application icon; a custom `.ico` would be a good polish pass.

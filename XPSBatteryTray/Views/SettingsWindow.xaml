@@ -44,7 +44,8 @@
 
             <CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}" />
             <CheckBox Content="Start minimized to tray" IsChecked="{Binding StartMinimized}" />
-            <CheckBox Content="Enable HWiNFO shared-memory sensors" IsChecked="{Binding EnableHwinfoIntegration}" Margin="0,0,0,16" />
+            <CheckBox Content="Enable HWiNFO shared-memory sensors" IsChecked="{Binding EnableHwinfoIntegration}" />
+            <CheckBox Content="Enable built-in LibreHardwareMonitor sensors" IsChecked="{Binding EnableLibreHardwareMonitorIntegration}" Margin="0,0,0,16" />
 
             <Grid Margin="0,0,0,14">
                 <Grid.ColumnDefinitions>

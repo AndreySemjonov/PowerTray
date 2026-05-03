@@ -242,7 +242,23 @@ public sealed class MainViewModel : ObservableObject
     public string PowerStateText => Battery.IsPluggedIn ? "Plugged in" : "On battery";
     public string PowerStateChipText => PowerStateText;
     public string ModeChipText => FriendlyChargeMode.Replace("Mode: ", string.Empty);
-    public string HwinfoChipText => HwinfoStatus.Contains("detected", StringComparison.OrdinalIgnoreCase) ? "HWiNFO OK" : "HWiNFO unavailable";
+    public string HwinfoChipText
+    {
+        get
+        {
+            if (HwinfoStatus.Contains("LibreHardwareMonitor", StringComparison.OrdinalIgnoreCase))
+            {
+                return HwinfoStatus.Contains("active", StringComparison.OrdinalIgnoreCase) ? "LHM OK" : "LHM unavailable";
+            }
+
+            if (HwinfoStatus.Contains("Windows fallback", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Windows fallback";
+            }
+
+            return HwinfoStatus.Contains("detected", StringComparison.OrdinalIgnoreCase) ? "HWiNFO OK" : "HWiNFO unavailable";
+        }
+    }
     public string AdminChipText => IsAdministrator ? "Admin" : "User";
     public string CctkStatusText => _cctkService.IsConfigured ? "OK" : "missing";
     public string SampleIntervalText => $"Sample {_settingsService.Current.SensorSampleIntervalSeconds}s";

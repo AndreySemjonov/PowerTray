@@ -14,6 +14,7 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _startMinimized;
     private int _sensorSampleIntervalSeconds;
     private bool _enableHwinfoIntegration;
+    private bool _enableLibreHardwareMonitorIntegration;
     private int _healthStart;
     private int _healthStop;
     private int _balancedStart;
@@ -31,6 +32,7 @@ public sealed class SettingsViewModel : ObservableObject
         _startMinimized = settings.StartMinimized;
         _sensorSampleIntervalSeconds = settings.SensorSampleIntervalSeconds;
         _enableHwinfoIntegration = settings.EnableHwinfoIntegration;
+        _enableLibreHardwareMonitorIntegration = settings.EnableLibreHardwareMonitorIntegration;
         _healthStart = settings.HealthStart;
         _healthStop = settings.HealthStop;
         _balancedStart = settings.BalancedStart;
@@ -73,6 +75,12 @@ public sealed class SettingsViewModel : ObservableObject
     {
         get => _enableHwinfoIntegration;
         set => SetProperty(ref _enableHwinfoIntegration, value);
+    }
+
+    public bool EnableLibreHardwareMonitorIntegration
+    {
+        get => _enableLibreHardwareMonitorIntegration;
+        set => SetProperty(ref _enableLibreHardwareMonitorIntegration, value);
     }
 
     public int HealthStart
@@ -145,6 +153,7 @@ public sealed class SettingsViewModel : ObservableObject
             StartMinimized = StartMinimized,
             SensorSampleIntervalSeconds = Math.Clamp(SensorSampleIntervalSeconds, 1, 60),
             EnableHwinfoIntegration = EnableHwinfoIntegration,
+            EnableLibreHardwareMonitorIntegration = EnableLibreHardwareMonitorIntegration,
             HealthStart = HealthStart,
             HealthStop = HealthStop,
             BalancedStart = BalancedStart,
