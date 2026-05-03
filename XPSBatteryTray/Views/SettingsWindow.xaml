@@ -7,21 +7,27 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         WindowStyle="None"
-        ResizeMode="CanResizeWithGrip"
-        Background="{StaticResource WindowBg}"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
         Foreground="{StaticResource TextBrush}">
-    <Grid Background="{StaticResource WindowBg}">
+    <Border Background="{StaticResource WindowBg}"
+            BorderBrush="{StaticResource PanelBorder}"
+            BorderThickness="1"
+            CornerRadius="8"
+            SnapsToDevicePixels="True">
+    <Grid Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="38" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="{StaticResource TopBarBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,0,1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-            <DockPanel LastChildFill="True">
+        <Border Grid.Row="0" Background="{StaticResource TopBarBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,0,1" CornerRadius="7,7,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <DockPanel LastChildFill="False">
                 <TextBlock Text="Settings" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="14,0,0,0" FontSize="13" />
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                     <Button Content="-" Style="{StaticResource TitleBarButtonStyle}" Click="MinimizeButton_Click" />
-                    <Button Content="x" Style="{StaticResource TitleCloseButtonStyle}" Click="CloseButton_Click" />
+                    <Button Content="X" Style="{StaticResource TitleCloseButtonStyle}" Click="CloseButton_Click" />
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -82,4 +88,5 @@
         </StackPanel>
     </ScrollViewer>
     </Grid>
+    </Border>
 </Window>
