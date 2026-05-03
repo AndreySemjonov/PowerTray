@@ -1,0 +1,14 @@
+.private/
+**/.private/
+
+.vs/
+.idea/
+*.user
+*.suo
+
+**/bin/
+**/obj/
+
+*.log
+*.tmp
+*.nupkg

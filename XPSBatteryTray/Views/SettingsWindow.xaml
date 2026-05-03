@@ -1,0 +1,64 @@
+<Window x:Class="XPSBatteryTray.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings"
+        Width="560"
+        Height="560"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="16">
+            <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,14" />
+
+            <TextBlock Text="cctk.exe path" Foreground="{StaticResource MutedTextBrush}" />
+            <DockPanel Margin="0,5,0,14">
+                <Button DockPanel.Dock="Right" Content="Browse" Command="{Binding BrowseCommand}" Margin="8,0,0,0" />
+                <TextBox Text="{Binding CctkPath, UpdateSourceTrigger=PropertyChanged}" />
+            </DockPanel>
+
+            <CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}" Margin="0,0,0,8" />
+            <CheckBox Content="Start minimized to tray" IsChecked="{Binding StartMinimized}" Margin="0,0,0,8" />
+            <CheckBox Content="Enable HWiNFO shared-memory sensors" IsChecked="{Binding EnableHwinfoIntegration}" Margin="0,0,0,16" />
+
+            <Grid Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Sample interval seconds" Foreground="{StaticResource MutedTextBrush}" Grid.Row="0" />
+                <TextBox Text="{Binding SensorSampleIntervalSeconds, UpdateSourceTrigger=PropertyChanged}" Grid.Row="0" Grid.Column="1" Width="80" HorizontalAlignment="Left" />
+
+                <TextBlock Text="Health preset start / stop" Foreground="{StaticResource MutedTextBrush}" Grid.Row="1" Margin="0,10,0,0" />
+                <StackPanel Orientation="Horizontal" Grid.Row="1" Grid.Column="1" Margin="0,10,0,0">
+                    <TextBox Text="{Binding HealthStart}" Width="54" />
+                    <TextBlock Text="-" Margin="8,4" />
+                    <TextBox Text="{Binding HealthStop}" Width="54" />
+                </StackPanel>
+
+                <TextBlock Text="Balanced preset start / stop" Foreground="{StaticResource MutedTextBrush}" Grid.Row="2" Margin="0,10,0,0" />
+                <StackPanel Orientation="Horizontal" Grid.Row="2" Grid.Column="1" Margin="0,10,0,0">
+                    <TextBox Text="{Binding BalancedStart}" Width="54" />
+                    <TextBlock Text="-" Margin="8,4" />
+                    <TextBox Text="{Binding BalancedStop}" Width="54" />
+                </StackPanel>
+
+                <TextBlock Text="Theme" Foreground="{StaticResource MutedTextBrush}" Grid.Row="3" Margin="0,10,0,0" />
+                <ComboBox ItemsSource="{Binding Themes}" SelectedItem="{Binding Theme}" Grid.Row="3" Grid.Column="1" Width="150" HorizontalAlignment="Left" Margin="0,10,0,0" />
+            </Grid>
+
+            <TextBlock Text="{Binding Status}" Foreground="{StaticResource AccentBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Save" Command="{Binding SaveCommand}" />
+                <Button Content="Close" Click="CloseButton_Click" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

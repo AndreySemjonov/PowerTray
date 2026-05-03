@@ -1,0 +1,52 @@
+<Application x:Class="XPSBatteryTray.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <Color x:Key="WindowBgColor">#101318</Color>
+        <Color x:Key="PanelBgColor">#171B21</Color>
+        <Color x:Key="PanelBorderColor">#2D3540</Color>
+        <Color x:Key="TextColor">#EEF2F7</Color>
+        <Color x:Key="MutedTextColor">#9AA6B2</Color>
+        <Color x:Key="AccentColor">#58C4DD</Color>
+
+        <SolidColorBrush x:Key="WindowBg" Color="{StaticResource WindowBgColor}" />
+        <SolidColorBrush x:Key="PanelBg" Color="{StaticResource PanelBgColor}" />
+        <SolidColorBrush x:Key="PanelBorder" Color="{StaticResource PanelBorderColor}" />
+        <SolidColorBrush x:Key="TextBrush" Color="{StaticResource TextColor}" />
+        <SolidColorBrush x:Key="MutedTextBrush" Color="{StaticResource MutedTextColor}" />
+        <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+
+        <Style TargetType="Window">
+            <Setter Property="Background" Value="{StaticResource WindowBg}" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+        </Style>
+
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#26313B" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+            <Setter Property="MinHeight" Value="30" />
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#0D1014" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
+            <Setter Property="Padding" Value="8,5" />
+        </Style>
+
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource PanelBg}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Margin" Value="0,0,8,8" />
+        </Style>
+    </Application.Resources>
+</Application>
