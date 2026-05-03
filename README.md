@@ -30,13 +30,15 @@ To publish a standalone x64 folder:
 dotnet publish .\XPSBatteryTray\XPSBatteryTray.csproj -c Release -r win-x64 --self-contained false
 ```
 
-This development machine has a preview .NET 10 SDK that currently fails during apphost `.exe` generation with a Windows file-locking error in the synced Google Drive folder. The source was verified with:
+This development machine has a preview .NET 10 SDK that currently fails during apphost `.exe` generation with a Windows file-locking error in the synced Google Drive folder. The project sets `UseAppHost=false` so Visual Studio and CLI builds produce `XPSBatteryTray.dll` without creating `XPSBatteryTray.exe`.
+
+Run from the build folder with:
 
 ```powershell
-dotnet build .\XPSBatteryTray\XPSBatteryTray.csproj -c Release /p:UseAppHost=false
+dotnet XPSBatteryTray.dll
 ```
 
-Use the stable .NET 8 SDK for normal builds/publish.
+For a normal `.exe` publish, use the stable .NET 8 SDK outside a synced-drive build folder and temporarily remove or override `UseAppHost=false`.
 
 ## Admin Behavior
 
