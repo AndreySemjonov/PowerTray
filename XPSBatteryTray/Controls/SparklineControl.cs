@@ -55,21 +55,26 @@ public sealed class SparklineControl : FrameworkElement
         base.OnRender(drawingContext);
         var rect = new Rect(0, 0, ActualWidth, ActualHeight);
         drawingContext.DrawRectangle(new SolidColorBrush(MediaColor.FromRgb(19, 22, 26)), null, rect);
-        double axisWidth = 36;
-        double plotWidth = Math.Max(1, ActualWidth - axisWidth);
+        const double leftPadding = 10;
+        const double rightAxisWidth = 44;
+        const double topPadding = 4;
+        const double bottomLabelHeight = 16;
+        double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomLabelHeight);
+        double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightAxisWidth);
         var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(80, 88, 92, 98)), 1);
         for (int i = 1; i <= 3; i++)
         {
-            double y = i * ActualHeight / 4d;
-            drawingContext.DrawLine(gridPen, new WindowsPoint(0, y), new WindowsPoint(plotWidth, y));
+            double y = topPadding + i * plotHeight / 4d;
+            drawingContext.DrawLine(gridPen, new WindowsPoint(leftPadding, y), new WindowsPoint(leftPadding + plotWidth, y));
         }
 
         int maxPoints = Math.Max(2, MaxPoints);
         double[] values = Values?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
+        DrawTimeLabels(drawingContext, leftPadding, plotWidth, ActualHeight - bottomLabelHeight + 1);
         if (values.Length < 2 || ActualWidth <= 1 || ActualHeight <= 1)
         {
             var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
-            drawingContext.DrawLine(pen, new WindowsPoint(0, rect.Height / 2), new WindowsPoint(plotWidth, rect.Height / 2));
+            drawingContext.DrawLine(pen, new WindowsPoint(leftPadding, topPadding + plotHeight / 2), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight / 2));
             return;
         }
 
@@ -88,12 +93,12 @@ public sealed class SparklineControl : FrameworkElement
             for (int i = 0; i < values.Length; i++)
             {
                 int slot = maxPoints - values.Length + i;
-                double x = slot * (plotWidth - 1) / (maxPoints - 1);
-                double y = ActualHeight - 3 - ((values[i] - min) / (max - min) * (ActualHeight - 6));
+                double x = leftPadding + slot * (plotWidth - 1) / (maxPoints - 1);
+                double y = topPadding + plotHeight - ((values[i] - min) / (max - min) * (plotHeight - 4));
                 if (i == 0)
                 {
                     context.BeginFigure(new WindowsPoint(x, y), false, false);
-                    area.BeginFigure(new WindowsPoint(x, ActualHeight - 2), true, true);
+                    area.BeginFigure(new WindowsPoint(x, topPadding + plotHeight), true, true);
                     area.LineTo(new WindowsPoint(x, y), true, false);
                 }
                 else
@@ -104,26 +109,27 @@ public sealed class SparklineControl : FrameworkElement
             }
 
             int lastSlot = maxPoints - 1;
-            double endX = lastSlot * (plotWidth - 1) / (maxPoints - 1);
-            area.LineTo(new WindowsPoint(endX, ActualHeight - 2), true, false);
+            double endX = leftPadding + lastSlot * (plotWidth - 1) / (maxPoints - 1);
+            area.LineTo(new WindowsPoint(endX, topPadding + plotHeight), true, false);
         }
 
         geometry.Freeze();
         areaGeometry.Freeze();
-        if (Fill is not null)
+        bool flatZero = values.All(v => Math.Abs(v) < 0.05);
+        if (Fill is not null && !flatZero)
         {
             drawingContext.DrawGeometry(Fill, null, areaGeometry);
         }
 
         var axisPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(47, 54, 64)), 1);
-        drawingContext.DrawLine(axisPen, new WindowsPoint(0, ActualHeight - 1), new WindowsPoint(plotWidth, ActualHeight - 1));
-        drawingContext.DrawLine(axisPen, new WindowsPoint(plotWidth, 0), new WindowsPoint(plotWidth, ActualHeight));
+        drawingContext.DrawLine(axisPen, new WindowsPoint(leftPadding, topPadding + plotHeight), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight));
+        drawingContext.DrawLine(axisPen, new WindowsPoint(leftPadding + plotWidth, topPadding), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight));
         drawingContext.DrawGeometry(null, new MediaPen(Stroke, 1.8), geometry);
 
         var textBrush = new SolidColorBrush(MediaColor.FromRgb(175, 178, 184));
-        DrawLabel(drawingContext, max, textBrush, plotWidth + 5, 0);
-        DrawLabel(drawingContext, (max + min) / 2d, textBrush, plotWidth + 5, ActualHeight / 2d - 8);
-        DrawLabel(drawingContext, min, textBrush, plotWidth + 5, ActualHeight - 17);
+        DrawLabel(drawingContext, max, textBrush, leftPadding + plotWidth + 7, topPadding - 1);
+        DrawLabel(drawingContext, (max + min) / 2d, textBrush, leftPadding + plotWidth + 7, topPadding + plotHeight / 2d - 7);
+        DrawLabel(drawingContext, min, textBrush, leftPadding + plotWidth + 7, topPadding + plotHeight - 14);
     }
 
     private static void DrawLabel(DrawingContext context, double value, MediaBrush brush, double x, double y)
@@ -138,5 +144,33 @@ public sealed class SparklineControl : FrameworkElement
             brush,
             1.0);
         context.DrawText(formatted, new WindowsPoint(x, y));
+    }
+
+    private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)
+    {
+        string[] labels = ["10m", "8m", "6m", "4m", "2m", "Now"];
+        var brush = new SolidColorBrush(MediaColor.FromRgb(132, 138, 145));
+        for (int i = 0; i < labels.Length; i++)
+        {
+            double x = left + i * width / (labels.Length - 1);
+            var formatted = new FormattedText(
+                labels[i],
+                System.Globalization.CultureInfo.CurrentCulture,
+                System.Windows.FlowDirection.LeftToRight,
+                new Typeface("Segoe UI"),
+                9,
+                brush,
+                1.0);
+            if (i == labels.Length - 1)
+            {
+                x -= formatted.Width;
+            }
+            else if (i > 0)
+            {
+                x -= formatted.Width / 2;
+            }
+
+            context.DrawText(formatted, new WindowsPoint(x, y));
+        }
     }
 }

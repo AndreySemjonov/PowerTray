@@ -31,10 +31,10 @@ public sealed class MainViewModel : ObservableObject
     private IReadOnlyList<double?> _batteryWattsGraphValues = [];
     private IReadOnlyList<double?> _cpuPowerGraphValues = [];
     private IReadOnlyList<double?> _fanGraphValues = [];
-    private string _cpuGraphSummary = "Current -- | Avg -- | Min -- | Max --";
-    private string _batteryWattsGraphSummary = "Current -- | Avg -- | Min -- | Max --";
-    private string _temperatureGraphSummary = "Current -- | Avg -- | Min -- | Max --";
-    private string _cpuPowerGraphSummary = "Current -- | Avg -- | Min -- | Max --";
+    private string _cpuGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+    private string _batteryWattsGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+    private string _temperatureGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+    private string _cpuPowerGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
 
     public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService)
     {
@@ -243,6 +243,10 @@ public sealed class MainViewModel : ObservableObject
     public string PowerStateChipText => PowerStateText;
     public string ModeChipText => FriendlyChargeMode.Replace("Mode: ", string.Empty);
     public string HwinfoChipText => HwinfoStatus.Contains("detected", StringComparison.OrdinalIgnoreCase) ? "HWiNFO OK" : "HWiNFO unavailable";
+    public string AdminChipText => IsAdministrator ? "Admin" : "User";
+    public string CctkStatusText => _cctkService.IsConfigured ? "OK" : "missing";
+    public string SampleIntervalText => $"Sample {_settingsService.Current.SensorSampleIntervalSeconds}s";
+    public string FooterStatusText => $"{AdminChipText} | {HwinfoChipText} | {SampleIntervalText} | Window 10 min | cctk: {CctkStatusText}";
     public string FriendlyChargeMode => FormatFriendlyChargeMode(DellChargeSetting);
 
     public string BatteryTimeText => Battery.EstimatedTimeRemaining is { } remaining
@@ -405,14 +409,14 @@ public sealed class MainViewModel : ObservableObject
         double[] visible = values.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(120).ToArray();
         if (visible.Length == 0)
         {
-            return "Current -- | Avg -- | Min -- | Max --";
+            return "Cur -- | Avg -- | Min -- | Max --";
         }
 
         string current = visible[^1].ToString(format);
         string avg = visible.Average().ToString(format);
         string min = visible.Min().ToString(format);
         string max = visible.Max().ToString(format);
-        return $"Current {current}{unit} | Avg {avg}{unit} | Min {min}{unit} | Max {max}{unit}";
+        return $"Cur {current}{unit} | Avg {avg}{unit} | Min {min}{unit} | Max {max}{unit}";
     }
 
     private static string FormatFriendlyChargeMode(string raw)
