@@ -34,14 +34,22 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
                 bool hasAnySensor = cpuTemp is not null || cpuPower is not null || batteryPower is not null || fans.Count > 0;
                 if (!hasAnySensor)
                 {
-                    LogDiagnosticsIfNeeded(diagnostics);
+                    LogDiagnosticsIfNeeded("no matching sensors", diagnostics);
                     return Unavailable("LibreHardwareMonitor available but no matching sensors were found");
+                }
+
+                bool isPartial = cpuTemp is null || cpuPower is null;
+                if (isPartial)
+                {
+                    LogDiagnosticsIfNeeded($"partial sensors: CPU temp={Format(cpuTemp)}, CPU power={Format(cpuPower)}, battery watts={Format(batteryPower)}, fans={fans.Count}", diagnostics);
                 }
 
                 return new SensorReadings
                 {
                     IsAvailable = true,
-                    Status = "LibreHardwareMonitor sensors active",
+                    Status = isPartial
+                        ? "LibreHardwareMonitor partial; CPU sensors may require administrator rights"
+                        : "LibreHardwareMonitor sensors active",
                     CpuTemperatureCelsius = cpuTemp,
                     CpuPackagePowerWatts = cpuPower,
                     BatteryPowerWatts = batteryPower,
@@ -101,6 +109,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
         Dictionary<string, double> fans)
     {
         hardware.Update();
+        diagnostics.Add($"{hardware.HardwareType}: {hardware.Name}");
 
         foreach (IHardware subHardware in hardware.SubHardware)
         {
@@ -111,6 +120,12 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
         {
             if (sensor.Value is not { } rawValue || double.IsNaN(rawValue) || double.IsInfinity(rawValue))
             {
+                if (hardware.HardwareType == HardwareType.Cpu ||
+                    sensor.SensorType is SensorType.Temperature or SensorType.Power)
+                {
+                    diagnostics.Add($"{hardware.HardwareType}: {hardware.Name} / {sensor.SensorType} / {sensor.Name} = unavailable");
+                }
+
                 continue;
             }
 
@@ -192,7 +207,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
     private static bool ContainsAny(string value, params string[] terms) =>
         terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
 
-    private static void LogDiagnosticsIfNeeded(IReadOnlyList<string> diagnostics)
+    private static void LogDiagnosticsIfNeeded(string reason, IReadOnlyList<string> diagnostics)
     {
         DateTimeOffset now = DateTimeOffset.Now;
         if (now - _lastDiagnosticLog < TimeSpan.FromMinutes(1))
@@ -202,8 +217,10 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
 
         _lastDiagnosticLog = now;
         string sample = string.Join(Environment.NewLine, diagnostics.Take(140));
-        LogService.Info($"LibreHardwareMonitor did not expose expected sensors.{Environment.NewLine}{sample}");
+        LogService.Info($"LibreHardwareMonitor diagnostics: {reason}.{Environment.NewLine}{sample}");
     }
+
+    private static string Format(double? value) => value?.ToString("N1") ?? "none";
 
     private static SensorReadings Unavailable(string status) => new() { IsAvailable = false, Status = status };
 }

@@ -82,7 +82,7 @@ The dashboard tries advanced sensors in this order:
 
 HWiNFO remains the most reliable source for this Dell laptop. Enable HWiNFO Shared Memory Support and keep the HWiNFO sensors window active when you want its exact sensor table.
 
-LibreHardwareMonitor runs inside this app, so you do not need a separate HWiNFO background process. It can expose CPU temperature, CPU package power, fan RPM, and sometimes battery charge/discharge watts depending on hardware and permissions. On some systems it may require administrator rights or may not expose every Dell sensor.
+LibreHardwareMonitor runs inside this app, so you do not need a separate HWiNFO background process. It can expose CPU temperature, CPU package power, fan RPM, and sometimes battery charge/discharge watts depending on hardware and permissions. On some systems it may require administrator rights or may not expose every Dell sensor. If only some sensors are available, the dashboard shows `LHM partial` and logs the visible sensor list for troubleshooting.
 
 If HWiNFO shared memory is unavailable, the app keeps running with Windows fallback stats:
 

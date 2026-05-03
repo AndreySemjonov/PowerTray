@@ -248,7 +248,12 @@ public sealed class MainViewModel : ObservableObject
         {
             if (HwinfoStatus.Contains("LibreHardwareMonitor", StringComparison.OrdinalIgnoreCase))
             {
-                return HwinfoStatus.Contains("active", StringComparison.OrdinalIgnoreCase) ? "LHM OK" : "LHM unavailable";
+                if (HwinfoStatus.Contains("active", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "LHM OK";
+                }
+
+                return HwinfoStatus.Contains("partial", StringComparison.OrdinalIgnoreCase) ? "LHM partial" : "LHM unavailable";
             }
 
             if (HwinfoStatus.Contains("Windows fallback", StringComparison.OrdinalIgnoreCase))
