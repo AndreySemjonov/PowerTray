@@ -129,9 +129,18 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             {
                 cpuPower = Math.Abs(reading.Value);
             }
-            else if (batteryPower is null && reading.Type == ReadingType.Power &&
-                     (ContainsAny(haystack, "Charge Rate", "Discharge Rate", "Battery Power", "Charge Power") ||
-                      ContainsAny(sensorName, "Battery", "Smart Battery")))
+            else if (batteryPower is null &&
+                     (reading.Type == ReadingType.Power || reading.Type == ReadingType.Current || ContainsAny(haystack, "W", "mW")) &&
+                     ContainsAny(haystack,
+                         "Charge Rate",
+                         "Discharge Rate",
+                         "Battery Power",
+                         "Charge Power",
+                         "Battery Rate",
+                         "Power Rate",
+                         "Present Rate",
+                         "Smart Battery",
+                         "Battery"))
             {
                 batteryPower = reading.Value;
             }
@@ -229,7 +238,13 @@ public sealed class HwinfoSensorProvider : ISensorProvider
         }
 
         _lastDiagnosticLog = now;
-        string sample = string.Join(Environment.NewLine, diagnostics.Take(80));
+        IEnumerable<string> priority = diagnostics.Where(d =>
+            d.Contains("battery", StringComparison.OrdinalIgnoreCase) ||
+            d.Contains("charge", StringComparison.OrdinalIgnoreCase) ||
+            d.Contains("discharge", StringComparison.OrdinalIgnoreCase) ||
+            d.Contains("power", StringComparison.OrdinalIgnoreCase) ||
+            d.Contains(" W", StringComparison.OrdinalIgnoreCase));
+        string sample = string.Join(Environment.NewLine, priority.Concat(diagnostics).Distinct().Take(140));
         LogService.Info($"HWiNFO detected but some expected sensors were not matched. CPU temp={cpuTemp?.ToString("N1") ?? "none"}, CPU power={cpuPower?.ToString("N1") ?? "none"}, battery power={batteryPower?.ToString("N1") ?? "none"}, fans={fanCount}.{Environment.NewLine}{sample}");
     }
 

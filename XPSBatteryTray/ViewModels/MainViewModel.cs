@@ -269,8 +269,8 @@ public sealed class MainViewModel : ObservableObject
             CpuUsagePercent = overallCpu;
             CpuTemperatureCelsius = sensors.CpuTemperatureCelsius;
             CpuPackagePowerWatts = sensors.CpuPackagePowerWatts;
-            BatteryPowerWatts = sensors.BatteryPowerWatts;
             Battery = _batteryService.GetStatus(sensors.BatteryPowerWatts);
+            BatteryPowerWatts = Battery.ChargeRateWatts;
             Memory = _processStatsService.GetMemoryInfo();
 
             Replace(TopCpuProcesses, topCpu);
