@@ -58,7 +58,7 @@ public sealed class SparklineControl : FrameworkElement
         const double leftPadding = 10;
         const double rightAxisWidth = 44;
         const double topPadding = 4;
-        const double bottomLabelHeight = 28;
+        const double bottomLabelHeight = 34;
         double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomLabelHeight);
         double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightAxisWidth);
         var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(80, 88, 92, 98)), 1);

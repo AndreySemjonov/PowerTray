@@ -1,19 +1,28 @@
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using XPSBatteryTray.Models;
 
 namespace XPSBatteryTray.Services;
 
 public sealed class ProcessStatsService
 {
+    private const double MaxProcessAttributedDrainShare = 0.85;
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly Dictionary<int, ProcessCpuSnapshot> _previousCpu = new();
-    private readonly Dictionary<string, Queue<EnergySample>> _energyHistory = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset _previousSample = DateTimeOffset.Now;
+    private DateTimeOffset _lastEnergySave = DateTimeOffset.MinValue;
+    private EnergyHistoryState _energyState = new();
+    private bool _energyStateLoaded;
+    private bool? _lastPluggedIn;
     private double _lastOverallCpu;
-    private static readonly TimeSpan EnergyWindow = TimeSpan.FromMinutes(10);
 
-    public (double OverallCpuPercent, IReadOnlyList<ProcessUsageInfo> TopCpu, IReadOnlyList<ProcessUsageInfo> TopMemory, IReadOnlyList<ProcessUsageInfo> EnergyImpact) Sample()
+    private string EnergyHistoryPath => Path.Combine(LogService.AppDataRoot, "energy-history.json");
+
+    public (double OverallCpuPercent, IReadOnlyList<ProcessUsageInfo> TopCpu, IReadOnlyList<ProcessUsageInfo> TopMemory, IReadOnlyList<ProcessUsageInfo> EnergyImpact, string EnergyImpactTitle, string EnergyImpactColumnHeader) Sample(BatteryStatus battery)
     {
+        EnsureEnergyStateLoaded();
         Process[] processes = Process.GetProcesses();
         DateTimeOffset now = DateTimeOffset.Now;
         double elapsedSeconds = Math.Max(0.1, (now - _previousSample).TotalSeconds);
@@ -66,12 +75,12 @@ public sealed class ProcessStatsService
 
         _previousSample = now;
         _lastOverallCpu = Math.Clamp(totalCpu, 0, 100);
-        UpdateEnergyHistory(usage, elapsedSeconds, now);
+        UpdateEnergyHistory(usage, elapsedSeconds, now, battery, totalCpu);
 
         IReadOnlyList<ProcessUsageInfo> topCpu = usage.OrderByDescending(p => p.CpuPercent).Take(5).ToArray();
         IReadOnlyList<ProcessUsageInfo> topMemory = usage.OrderByDescending(p => p.WorkingSetBytes).Take(5).ToArray();
         IReadOnlyList<ProcessUsageInfo> energy = BuildEnergyImpactList(usage).Take(5).ToArray();
-        return (_lastOverallCpu, topCpu, topMemory, energy);
+        return (_lastOverallCpu, topCpu, topMemory, energy, BuildEnergyImpactTitle(now), _energyState.UsesBatteryRate ? "est. mWh" : "score");
     }
 
     public SystemMemoryInfo GetMemoryInfo()
@@ -83,39 +92,56 @@ public sealed class ProcessStatsService
             : new SystemMemoryInfo();
     }
 
-    private void UpdateEnergyHistory(IEnumerable<ProcessUsageInfo> usage, double elapsedSeconds, DateTimeOffset now)
+    private void UpdateEnergyHistory(IReadOnlyList<ProcessUsageInfo> usage, double elapsedSeconds, DateTimeOffset now, BatteryStatus battery, double totalCpu)
     {
-        DateTimeOffset cutoff = now - EnergyWindow;
-        foreach (ProcessUsageInfo process in usage)
+        bool isDischarging = !battery.IsPluggedIn;
+        if (isDischarging && (!_energyState.IsActive || _lastPluggedIn == true))
         {
-            if (process.CpuPercent <= 0.05)
-            {
-                continue;
-            }
-
-            if (!_energyHistory.TryGetValue(process.Name, out Queue<EnergySample>? samples))
-            {
-                samples = new Queue<EnergySample>();
-                _energyHistory[process.Name] = samples;
-            }
-
-            // CPU-percent minutes over the rolling window. A process using 10% CPU for 10 minutes scores 100.
-            samples.Enqueue(new EnergySample(now, process.CpuPercent * elapsedSeconds / 60d));
+            StartNewEnergySession(now, battery.Percentage);
+        }
+        else if (!isDischarging && battery.ChargeRateWatts is > 1)
+        {
+            _energyState.IsActive = false;
         }
 
-        foreach (string name in _energyHistory.Keys.ToArray())
-        {
-            Queue<EnergySample> samples = _energyHistory[name];
-            while (samples.Count > 0 && samples.Peek().Timestamp < cutoff)
-            {
-                samples.Dequeue();
-            }
+        _lastPluggedIn = battery.IsPluggedIn;
+        _energyState.LastUpdated = now;
+        _energyState.LastBatteryPercent = battery.Percentage;
 
-            if (samples.Count == 0)
-            {
-                _energyHistory.Remove(name);
-            }
+        if (!isDischarging || !_energyState.IsActive)
+        {
+            SaveEnergyStateIfNeeded(now, force: false);
+            return;
         }
+
+        ProcessUsageInfo[] active = usage.Where(p => p.CpuPercent > 0.05).ToArray();
+        if (active.Length == 0)
+        {
+            SaveEnergyStateIfNeeded(now, force: false);
+            return;
+        }
+
+        double totalActiveCpu = Math.Max(0.1, active.Sum(p => p.CpuPercent));
+        double sampleScore;
+        if (battery.ChargeRateWatts is < -0.05)
+        {
+            double sampleMilliWattHours = Math.Abs(battery.ChargeRateWatts.Value) * elapsedSeconds / 3600d * 1000d;
+            double activeDrainShare = Math.Clamp(totalCpu / 50d, 0.05, MaxProcessAttributedDrainShare);
+            sampleScore = sampleMilliWattHours * activeDrainShare;
+            _energyState.UsesBatteryRate = true;
+        }
+        else
+        {
+            sampleScore = totalActiveCpu * elapsedSeconds / 60d;
+        }
+
+        foreach (ProcessUsageInfo process in active)
+        {
+            double share = process.CpuPercent / totalActiveCpu;
+            _energyState.ProcessTotals[process.Name] = _energyState.ProcessTotals.GetValueOrDefault(process.Name) + sampleScore * share;
+        }
+
+        SaveEnergyStateIfNeeded(now, force: false);
     }
 
     private IReadOnlyList<ProcessUsageInfo> BuildEnergyImpactList(IReadOnlyList<ProcessUsageInfo> currentUsage)
@@ -124,11 +150,11 @@ public sealed class ProcessStatsService
             .GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.CpuPercent).First(), StringComparer.OrdinalIgnoreCase);
 
-        var totals = _energyHistory
+        var totals = _energyState.ProcessTotals
             .Select(pair => new
             {
                 Name = pair.Key,
-                Score = pair.Value.Sum(sample => sample.Score),
+                Score = pair.Value,
                 Current = currentByName.TryGetValue(pair.Key, out ProcessUsageInfo? current) ? current : null
             })
             .Where(item => item.Score > 0.05)
@@ -147,6 +173,75 @@ public sealed class ProcessStatsService
             EstimatedEnergyImpact = item.Score,
             EstimatedEnergyImpactBarPercent = Math.Clamp(item.Score / maxScore * 100d, 0, 100)
         }).ToArray();
+    }
+
+    private void EnsureEnergyStateLoaded()
+    {
+        if (_energyStateLoaded)
+        {
+            return;
+        }
+
+        _energyStateLoaded = true;
+        try
+        {
+            if (File.Exists(EnergyHistoryPath))
+            {
+                _energyState = JsonSerializer.Deserialize<EnergyHistoryState>(File.ReadAllText(EnergyHistoryPath), JsonOptions) ?? new EnergyHistoryState();
+                _energyState.ProcessTotals = new Dictionary<string, double>(_energyState.ProcessTotals, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to load energy history; starting a new session.");
+            _energyState = new EnergyHistoryState();
+        }
+    }
+
+    private void StartNewEnergySession(DateTimeOffset now, int batteryPercent)
+    {
+        _energyState = new EnergyHistoryState
+        {
+            SessionStart = now,
+            LastUpdated = now,
+            StartBatteryPercent = batteryPercent,
+            LastBatteryPercent = batteryPercent,
+            IsActive = true
+        };
+        SaveEnergyStateIfNeeded(now, force: true);
+    }
+
+    private void SaveEnergyStateIfNeeded(DateTimeOffset now, bool force)
+    {
+        if (!force && now - _lastEnergySave < TimeSpan.FromSeconds(30))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(LogService.AppDataRoot);
+            File.WriteAllText(EnergyHistoryPath, JsonSerializer.Serialize(_energyState, JsonOptions));
+            _lastEnergySave = now;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to save energy history.");
+        }
+    }
+
+    private string BuildEnergyImpactTitle(DateTimeOffset now)
+    {
+        if (!_energyState.IsActive || _energyState.SessionStart == default)
+        {
+            return "Energy Since Charge";
+        }
+
+        TimeSpan age = now - _energyState.SessionStart;
+        string ageText = age.TotalHours >= 1
+            ? $"{(int)age.TotalHours}h {age.Minutes}m"
+            : $"{Math.Max(1, age.Minutes)}m";
+        return $"Energy Since Charge ({ageText})";
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -168,5 +263,14 @@ public sealed class ProcessStatsService
 
     private readonly record struct ProcessCpuSnapshot(TimeSpan TotalProcessorTime);
 
-    private readonly record struct EnergySample(DateTimeOffset Timestamp, double Score);
+    public sealed class EnergyHistoryState
+    {
+        public DateTimeOffset SessionStart { get; set; }
+        public DateTimeOffset LastUpdated { get; set; }
+        public int StartBatteryPercent { get; set; }
+        public int LastBatteryPercent { get; set; }
+        public bool IsActive { get; set; }
+        public bool UsesBatteryRate { get; set; }
+        public Dictionary<string, double> ProcessTotals { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
 }

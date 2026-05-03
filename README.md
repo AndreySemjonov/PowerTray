@@ -68,7 +68,7 @@ The dashboard is a compact fixed-size dark window designed to show the key tray-
 - Battery and CPU summary cards with friendly labels instead of raw `cctk.exe` output
 - Three rolling 10-minute chart strips: battery watts, CPU package power, and CPU temperature
 - Current / average / minimum / maximum stats in each chart header
-- Two compact process tables for top CPU processes and rolling 10-minute estimated energy impact
+- Two compact process tables for top CPU processes and estimated energy impact since the current battery session started
 
 Memory, fan, and raw sensor details are intentionally kept out of the main dashboard so the tray popup stays dense and readable.
 
@@ -113,6 +113,7 @@ No telemetry, analytics, or network calls are used.
 ## Known Limitations
 
 - HWiNFO and LibreHardwareMonitor sensor names vary by machine; matching is flexible but should be validated on the target XPS 14.
-- Per-process battery drain is not available from Windows as exact watts. The “Estimated Energy Impact” view is only a relative estimate based on CPU activity and runtime.
+- Per-process battery drain is not available from Windows as exact watts. The “Estimated Energy Impact” view is an estimate based on accumulated CPU activity and battery discharge rate when available.
+- The energy history is persisted to `%AppData%\DellBatteryTray\energy-history.json` and resets when a new discharging session begins.
 - Windows usually does not expose fan RPM or CPU package temperature without vendor/third-party sensors.
 - The current tray icon uses the default application icon; a custom `.ico` would be a good polish pass.

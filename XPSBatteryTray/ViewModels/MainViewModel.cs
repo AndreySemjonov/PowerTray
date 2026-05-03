@@ -35,6 +35,8 @@ public sealed class MainViewModel : ObservableObject
     private string _batteryWattsGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
     private string _temperatureGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
     private string _cpuPowerGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+    private string _energyImpactTitle = "Energy Since Charge";
+    private string _energyImpactColumnHeader = "est. mWh";
 
     public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService)
     {
@@ -224,6 +226,18 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _temperatureGraphSummary, value);
     }
 
+    public string EnergyImpactTitle
+    {
+        get => _energyImpactTitle;
+        private set => SetProperty(ref _energyImpactTitle, value);
+    }
+
+    public string EnergyImpactColumnHeader
+    {
+        get => _energyImpactColumnHeader;
+        private set => SetProperty(ref _energyImpactColumnHeader, value);
+    }
+
     public ObservableCollection<ProcessUsageInfo> TopCpuProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> TopMemoryProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> EnergyImpactProcesses { get; }
@@ -358,14 +372,22 @@ public sealed class MainViewModel : ObservableObject
         {
             SensorReadings sensors = _sensorService.Read();
             HwinfoStatus = sensors.Status;
-            (double overallCpu, IReadOnlyList<ProcessUsageInfo> topCpu, IReadOnlyList<ProcessUsageInfo> topMemory, IReadOnlyList<ProcessUsageInfo> energyImpact) = _processStatsService.Sample();
+            BatteryStatus battery = _batteryService.GetStatus(sensors.BatteryPowerWatts);
+            (double overallCpu,
+                IReadOnlyList<ProcessUsageInfo> topCpu,
+                IReadOnlyList<ProcessUsageInfo> topMemory,
+                IReadOnlyList<ProcessUsageInfo> energyImpact,
+                string energyImpactTitle,
+                string energyImpactColumnHeader) = _processStatsService.Sample(battery);
 
             CpuUsagePercent = overallCpu;
             CpuTemperatureCelsius = sensors.CpuTemperatureCelsius;
             CpuPackagePowerWatts = sensors.CpuPackagePowerWatts;
-            Battery = _batteryService.GetStatus(sensors.BatteryPowerWatts);
+            Battery = battery;
             BatteryPowerWatts = Battery.ChargeRateWatts;
             Memory = _processStatsService.GetMemoryInfo();
+            EnergyImpactTitle = energyImpactTitle;
+            EnergyImpactColumnHeader = energyImpactColumnHeader;
 
             Replace(TopCpuProcesses, topCpu);
             Replace(TopMemoryProcesses, topMemory);
