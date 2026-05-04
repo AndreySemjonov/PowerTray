@@ -4,7 +4,7 @@
         xmlns:controls="clr-namespace:XPSBatteryTray.Controls"
         Title="PowerTray"
         Width="520"
-        Height="940"
+        Height="910"
         MinWidth="450"
         MinHeight="820"
         MaxWidth="640"
@@ -24,8 +24,8 @@
         <Grid Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="46" />
-                <RowDefinition Height="252" />
-                <RowDefinition Height="255" />
+                <RowDefinition Height="290" />
+                <RowDefinition Height="200" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="28" />
             </Grid.RowDefinitions>
@@ -209,6 +209,12 @@
                             <RowDefinition Height="20" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="1*" />
+                        </Grid.ColumnDefinitions>
+
                         <TextBlock Text="Power Plan" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
                         <Border Grid.Row="1" Background="#182027" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="36" VerticalAlignment="Center">
                             <Grid>
@@ -226,6 +232,33 @@
                                 <Button Grid.Column="4" Content="{Binding PerformancePowerModeMenuText}" Command="{Binding ApplyWindowsPowerModeCommand}" CommandParameter="BestPerformance" Background="Transparent" BorderBrush="Transparent" FontSize="12" Padding="4,0" MinHeight="34" />
                             </Grid>
                         </Border>
+
+                        <TextBlock Grid.Column="2" Text="Mode" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                        <Button Grid.Row="1"
+                                Grid.Column="2"
+                                Height="36"
+                                MinHeight="36"
+                                Padding="10,0"
+                                FontSize="12"
+                                HorizontalContentAlignment="Left"
+                                ToolTip="{Binding DellChargeSetting}"
+                                Click="ChargeModeButton_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Width="13" Height="13" Stretch="Uniform" Fill="{StaticResource AccentBrush}" Data="M8,0 L8,5 L13,5 L6,16 L6,10 L1,10 Z" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding ModeChipText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <Button.ContextMenu>
+                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                    <MenuItem Header="Battery Health: Custom 50-80" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
+                                    <MenuItem Header="Balanced: Custom 70-90" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Balanced" />
+                                    <MenuItem Header="Charge to Full: Standard" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Standard" />
+                                    <MenuItem Header="Primarily AC Use" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="PrimarilyAcUse" />
+                                    <MenuItem Header="Adaptive" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Adaptive" />
+                                    <Separator />
+                                    <MenuItem Header="Show Current Setting" Command="{Binding RefreshDellChargeCommand}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
                     </Grid>
                 </Grid>
             </Border>
@@ -240,48 +273,47 @@
                 <Border Grid.Column="0" Style="{StaticResource CardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="28" />
+                            <RowDefinition Height="54" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                        <StackPanel>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
                                 <Path Width="13" Height="16" Stretch="Uniform" Fill="{StaticResource BatteryAccentBrush}" Data="M9,0 L2,9 H7 L5,16 L14,6 H9 Z" Margin="0,1,7,0" />
                                 <TextBlock Text="BATTERY WATTS" Foreground="{StaticResource BatteryAccentBrush}" FontSize="12" FontWeight="SemiBold" />
                             </StackPanel>
-                            <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,0,0,0">
-                                <TextBlock Text="{Binding BatteryWattsGraphSummaryTop}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Right" />
-                                <TextBlock Text="{Binding BatteryWattsGraphSummaryBottom}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Right" />
+                            <StackPanel Margin="0,7,0,0">
+                                <TextBlock Text="{Binding BatteryWattsGraphSummaryTop}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
+                                <TextBlock Text="{Binding BatteryWattsGraphSummaryBottom}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
                             </StackPanel>
-                        </Grid>
-                        <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" />
+                        </StackPanel>
+                        <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" Margin="0,3,0,0" />
                     </Grid>
                 </Border>
 
                 <Border Grid.Column="2" Style="{StaticResource CardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="28" />
+                            <RowDefinition Height="54" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                        <StackPanel>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                                <Path Width="13" Height="16" Stretch="Uniform" Stroke="{StaticResource ThermalAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M8,1 A3,3 0 0 1 11,4 L11,10.5 A5,5 0 1 1 5,10.5 L5,4 A3,3 0 0 1 8,1 Z M8,4 L8,12" Margin="0,1,7,0" />
-                                <TextBlock Text="CPU TEMPERATURE" Foreground="{StaticResource ThermalAccentBrush}" FontSize="12" FontWeight="SemiBold" />
+                                <Path Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,2,7,0" />
+                                <TextBlock Text="CPU / GPU USAGE" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold" />
                             </StackPanel>
-                            <StackPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,0,0,0">
-                                <TextBlock Text="{Binding TemperatureGraphSummaryTop}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Right" />
-                                <TextBlock Text="{Binding TemperatureGraphSummaryBottom}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Right" />
+                            <StackPanel Margin="0,7,0,0">
+                                <TextBlock Text="{Binding SystemUsageGraphSummaryTop}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
+                                <TextBlock Text="{Binding SystemUsageGraphSummaryBottom}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
                             </StackPanel>
-                        </Grid>
-                        <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#2AFF6F87" />
+                        </StackPanel>
+                        <controls:SparklineControl Grid.Row="1"
+                                                   Values="{Binding CpuGraphValues}"
+                                                   SecondaryValues="{Binding GpuGraphValues}"
+                                                   Stroke="{StaticResource AccentBrush}"
+                                                   SecondaryStroke="#54D6C6"
+                                                   Fill="#204AA8FF"
+                                                   Minimum="0"
+                                                   Margin="0,3,0,0" />
                     </Grid>
                 </Border>
             </Grid>

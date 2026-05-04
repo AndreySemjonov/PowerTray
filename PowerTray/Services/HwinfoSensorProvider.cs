@@ -98,6 +98,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
 
         double? cpuTemp = null;
         double? cpuPower = null;
+        double? gpuUsage = null;
         double? batteryPower = null;
         int batteryPowerScore = 0;
         var fans = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
@@ -140,6 +141,12 @@ public sealed class HwinfoSensorProvider : ISensorProvider
                 batteryPower = reading.Value;
                 batteryPowerScore = score;
             }
+            else if (gpuUsage is null && reading.Type == ReadingType.Usage &&
+                     ContainsAny(haystack, "GPU Core Load", "GPU Load", "3D", "Graphics") &&
+                     ContainsAny(haystack, "GPU", "NVIDIA", "Intel", "AMD", "Radeon", "GeForce", "Arc"))
+            {
+                gpuUsage = Math.Clamp(reading.Value, 0, 100);
+            }
             else if (reading.Type == ReadingType.Fan || ContainsAny(haystack, "Fan", "RPM"))
             {
                 fans[name] = reading.Value;
@@ -154,6 +161,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             Status = "HWiNFO sensors detected",
             CpuTemperatureCelsius = cpuTemp,
             CpuPackagePowerWatts = cpuPower,
+            GpuUsagePercent = gpuUsage,
             BatteryPowerWatts = batteryPower,
             FanRpm = fans
         };

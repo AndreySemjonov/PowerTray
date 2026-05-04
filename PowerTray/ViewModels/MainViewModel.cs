@@ -24,16 +24,19 @@ public sealed class MainViewModel : ObservableObject
     private string _statusMessage = "Ready";
     private string _hwinfoStatus = "Checking sensors...";
     private double _cpuUsagePercent;
+    private double? _gpuUsagePercent;
     private double? _cpuTemperatureCelsius;
     private double? _cpuPackagePowerWatts;
     private double? _batteryPowerWatts;
     private SystemMemoryInfo _memory = new();
     private IReadOnlyList<double?> _cpuGraphValues = [];
+    private IReadOnlyList<double?> _gpuGraphValues = [];
     private IReadOnlyList<double?> _temperatureGraphValues = [];
     private IReadOnlyList<double?> _batteryWattsGraphValues = [];
     private IReadOnlyList<double?> _cpuPowerGraphValues = [];
     private IReadOnlyList<double?> _fanGraphValues = [];
     private string _cpuGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+    private string _systemUsageGraphSummary = "CPU cur -- | GPU cur -- | CPU avg -- | GPU avg --";
     private string _batteryWattsGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
     private string _temperatureGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
     private string _cpuPowerGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
@@ -143,6 +146,18 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    public double? GpuUsagePercent
+    {
+        get => _gpuUsagePercent;
+        private set
+        {
+            if (SetProperty(ref _gpuUsagePercent, value))
+            {
+                OnPropertyChanged(nameof(GpuUsageText));
+            }
+        }
+    }
+
     public double? CpuTemperatureCelsius
     {
         get => _cpuTemperatureCelsius;
@@ -200,6 +215,12 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _cpuGraphValues, value);
     }
 
+    public IReadOnlyList<double?> GpuGraphValues
+    {
+        get => _gpuGraphValues;
+        private set => SetProperty(ref _gpuGraphValues, value);
+    }
+
     public IReadOnlyList<double?> TemperatureGraphValues
     {
         get => _temperatureGraphValues;
@@ -228,6 +249,19 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _cpuGraphSummary;
         private set => SetProperty(ref _cpuGraphSummary, value);
+    }
+
+    public string SystemUsageGraphSummary
+    {
+        get => _systemUsageGraphSummary;
+        private set
+        {
+            if (SetProperty(ref _systemUsageGraphSummary, value))
+            {
+                OnPropertyChanged(nameof(SystemUsageGraphSummaryTop));
+                OnPropertyChanged(nameof(SystemUsageGraphSummaryBottom));
+            }
+        }
     }
 
     public string BatteryWattsGraphSummary
@@ -419,6 +453,8 @@ public sealed class MainViewModel : ObservableObject
     public IReadOnlyList<BatteryUsageBucket> BatteryUsageBuckets => BatteryUsage.Buckets;
     public string BatteryWattsGraphSummaryTop => SplitGraphSummary(BatteryWattsGraphSummary, 0);
     public string BatteryWattsGraphSummaryBottom => SplitGraphSummary(BatteryWattsGraphSummary, 1);
+    public string SystemUsageGraphSummaryTop => SplitGraphSummary(SystemUsageGraphSummary, 0);
+    public string SystemUsageGraphSummaryBottom => SplitGraphSummary(SystemUsageGraphSummary, 1);
     public string TemperatureGraphSummaryTop => SplitGraphSummary(TemperatureGraphSummary, 0);
     public string TemperatureGraphSummaryBottom => SplitGraphSummary(TemperatureGraphSummary, 1);
     public string BatteryUsageDateText => SelectedBatteryUsageDate == DateTime.Today
@@ -473,6 +509,7 @@ public sealed class MainViewModel : ObservableObject
         $"{Battery.BatteryHealth.Source}\nFull charge: {FormatCapacity(Battery.BatteryHealth.FullChargeCapacityMilliWattHours)}\nDesign: {FormatCapacity(Battery.BatteryHealth.DesignCapacityMilliWattHours)}\n{BatteryCycleText}";
 
     public string CpuUsageText => $"{CpuUsagePercent:N1}%";
+    public string GpuUsageText => GpuUsagePercent is { } value ? $"{value:N0}%" : "--%";
     public double CpuGaugeValue => Math.Clamp(CpuUsagePercent, 0, 100);
     public string CpuTemperatureText => CpuTemperatureCelsius is { } value ? $"{value:N0} C" : "Temp unavailable";
     public string CpuTemperatureDisplay => CpuTemperatureCelsius is { } value ? $"{value:N0} °C" : "-- °C";
@@ -499,7 +536,7 @@ public sealed class MainViewModel : ObservableObject
 
     public async Task RefreshDellChargeAsync()
     {
-        CommandResult result = await _cctkService.ShowCurrentAsync();
+        CommandResult result = await _cctkService.ShowCurrentAsync(allowElevation: true);
         DellChargeSetting = result.Success ? CleanCctkOutput(result.StandardOutput) : "Unavailable";
         StatusMessage = result.Message;
     }
@@ -536,7 +573,17 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = result.Message;
         if (result.Success)
         {
-            await RefreshDellChargeAsync();
+            DellChargeSetting = FormatPresetChargeSetting(preset);
+            CommandResult refresh = await _cctkService.ShowCurrentAsync(allowElevation: true);
+            if (refresh.Success)
+            {
+                DellChargeSetting = CleanCctkOutput(refresh.StandardOutput);
+                StatusMessage = refresh.Message;
+            }
+            else
+            {
+                StatusMessage = $"{result.Message} Readback unavailable.";
+            }
         }
     }
 
@@ -588,6 +635,7 @@ public sealed class MainViewModel : ObservableObject
                 string energyImpactColumnHeader) = _processStatsService.Sample(battery);
 
             CpuUsagePercent = overallCpu;
+            GpuUsagePercent = sensors.GpuUsagePercent;
             CpuTemperatureCelsius = sensors.CpuTemperatureCelsius;
             CpuPackagePowerWatts = sensors.CpuPackagePowerWatts;
             Battery = battery;
@@ -611,6 +659,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 Timestamp = DateTimeOffset.Now,
                 CpuUsagePercent = overallCpu,
+                GpuUsagePercent = sensors.GpuUsagePercent,
                 CpuTemperatureCelsius = sensors.CpuTemperatureCelsius,
                 CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,
                 BatteryPowerWatts = Battery.ChargeRateWatts,
@@ -632,11 +681,13 @@ public sealed class MainViewModel : ObservableObject
         _samples.RemoveAll(s => s.Timestamp < cutoff);
 
         CpuGraphValues = _samples.Select(s => (double?)s.CpuUsagePercent).ToArray();
+        GpuGraphValues = _samples.Select(s => s.GpuUsagePercent).ToArray();
         TemperatureGraphValues = _samples.Select(s => s.CpuTemperatureCelsius).ToArray();
         BatteryWattsGraphValues = _samples.Select(s => s.BatteryPowerWatts).ToArray();
         CpuPowerGraphValues = _samples.Select(s => s.CpuPackagePowerWatts).ToArray();
         FanGraphValues = _samples.Select(s => s.FanRpm).ToArray();
         CpuGraphSummary = FormatGraphSummary(CpuGraphValues, "N1", "%");
+        SystemUsageGraphSummary = FormatUsageGraphSummary(CpuGraphValues, GpuGraphValues);
         BatteryWattsGraphSummary = FormatGraphSummary(BatteryWattsGraphValues, "N1", " W");
         CpuPowerGraphSummary = FormatGraphSummary(CpuPowerGraphValues, "N1", " W");
         TemperatureGraphSummary = FormatGraphSummary(TemperatureGraphValues, "N0", " C");
@@ -703,6 +754,17 @@ public sealed class MainViewModel : ObservableObject
         return $"Cur {current}{unit} | Avg {avg}{unit} | Min {min}{unit} | Max {max}{unit}";
     }
 
+    private static string FormatUsageGraphSummary(IEnumerable<double?> cpuValues, IEnumerable<double?> gpuValues)
+    {
+        double[] cpu = cpuValues.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(120).ToArray();
+        double[] gpu = gpuValues.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(120).ToArray();
+        string cpuCurrent = cpu.Length > 0 ? $"{cpu[^1]:N0}%" : "--";
+        string cpuAverage = cpu.Length > 0 ? $"{cpu.Average():N0}%" : "--";
+        string gpuCurrent = gpu.Length > 0 ? $"{gpu[^1]:N0}%" : "--";
+        string gpuAverage = gpu.Length > 0 ? $"{gpu.Average():N0}%" : "--";
+        return $"CPU cur {cpuCurrent} | GPU cur {gpuCurrent} | CPU avg {cpuAverage} | GPU avg {gpuAverage}";
+    }
+
     private static string SplitGraphSummary(string summary, int row)
     {
         string[] parts = summary.Split('|', StringSplitOptions.TrimEntries);
@@ -750,6 +812,16 @@ public sealed class MainViewModel : ObservableObject
 
         return "Mode: Dell custom";
     }
+
+    private string FormatPresetChargeSetting(BatteryPreset preset) => preset switch
+    {
+        BatteryPreset.Health => $"Custom:{_settingsService.Current.HealthStart}-{_settingsService.Current.HealthStop}",
+        BatteryPreset.Balanced => $"Custom:{_settingsService.Current.BalancedStart}-{_settingsService.Current.BalancedStop}",
+        BatteryPreset.Standard => "Standard",
+        BatteryPreset.PrimarilyAcUse => "PrimAcUse",
+        BatteryPreset.Adaptive => "Adaptive",
+        _ => "Unknown"
+    };
 
     private string FormatPowerModeMenuText(WindowsPowerMode mode)
     {

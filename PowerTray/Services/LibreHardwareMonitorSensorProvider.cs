@@ -21,6 +21,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
                 Computer computer = EnsureComputer();
                 double? cpuTemp = null;
                 double? cpuPower = null;
+                double? gpuUsage = null;
                 double? batteryPower = null;
                 int batteryPowerScore = 0;
                 var fans = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
@@ -28,10 +29,10 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
 
                 foreach (IHardware hardware in computer.Hardware)
                 {
-                    ReadHardware(hardware, diagnostics, ref cpuTemp, ref cpuPower, ref batteryPower, ref batteryPowerScore, fans);
+                    ReadHardware(hardware, diagnostics, ref cpuTemp, ref cpuPower, ref gpuUsage, ref batteryPower, ref batteryPowerScore, fans);
                 }
 
-                bool hasAnySensor = cpuTemp is not null || cpuPower is not null || batteryPower is not null || fans.Count > 0;
+                bool hasAnySensor = cpuTemp is not null || cpuPower is not null || gpuUsage is not null || batteryPower is not null || fans.Count > 0;
                 if (!hasAnySensor)
                 {
                     LogDiagnosticsIfNeeded("no matching sensors", diagnostics);
@@ -52,6 +53,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
                         : "LibreHardwareMonitor sensors active",
                     CpuTemperatureCelsius = cpuTemp,
                     CpuPackagePowerWatts = cpuPower,
+                    GpuUsagePercent = gpuUsage,
                     BatteryPowerWatts = batteryPower,
                     FanRpm = fans
                 };
@@ -92,6 +94,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
         {
             IsBatteryEnabled = true,
             IsCpuEnabled = true,
+            IsGpuEnabled = true,
             IsMotherboardEnabled = true,
             IsControllerEnabled = true
         };
@@ -104,6 +107,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
         List<string> diagnostics,
         ref double? cpuTemp,
         ref double? cpuPower,
+        ref double? gpuUsage,
         ref double? batteryPower,
         ref int batteryPowerScore,
         Dictionary<string, double> fans)
@@ -113,7 +117,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
 
         foreach (IHardware subHardware in hardware.SubHardware)
         {
-            ReadHardware(subHardware, diagnostics, ref cpuTemp, ref cpuPower, ref batteryPower, ref batteryPowerScore, fans);
+            ReadHardware(subHardware, diagnostics, ref cpuTemp, ref cpuPower, ref gpuUsage, ref batteryPower, ref batteryPowerScore, fans);
         }
 
         foreach (ISensor sensor in hardware.Sensors)
@@ -155,6 +159,15 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
             {
                 batteryPower = normalizedBatteryPower;
                 batteryPowerScore = score;
+                continue;
+            }
+
+            if (gpuUsage is null &&
+                sensor.SensorType == SensorType.Load &&
+                IsGpuHardware(hardware.HardwareType) &&
+                ContainsAny(haystack, "GPU Core", "GPU Total", "3D", "D3D", "Graphics", "Core"))
+            {
+                gpuUsage = Math.Clamp(value, 0, 100);
                 continue;
             }
 
@@ -206,6 +219,9 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
 
     private static bool ContainsAny(string value, params string[] terms) =>
         terms.Any(term => value.Contains(term, StringComparison.OrdinalIgnoreCase));
+
+    private static bool IsGpuHardware(HardwareType hardwareType) =>
+        hardwareType is HardwareType.GpuAmd or HardwareType.GpuIntel or HardwareType.GpuNvidia;
 
     private static void LogDiagnosticsIfNeeded(string reason, IReadOnlyList<string> diagnostics)
     {

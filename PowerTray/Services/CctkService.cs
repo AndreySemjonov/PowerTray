@@ -38,7 +38,16 @@ public sealed class CctkService
         return principal.IsInRole(WindowsBuiltInRole.Administrator);
     }
 
-    public Task<CommandResult> ShowCurrentAsync() => ExecuteAsync(QueryArgument, requiresAdmin: false);
+    public async Task<CommandResult> ShowCurrentAsync(bool allowElevation = false)
+    {
+        CommandResult result = await ExecuteAsync(QueryArgument, requiresAdmin: false);
+        if (result.Success || !allowElevation || IsAdministrator())
+        {
+            return result;
+        }
+
+        return await ExecuteAsync(QueryArgument, requiresAdmin: true);
+    }
 
     public async Task<CommandResult> ApplyPresetAsync(BatteryPreset preset)
     {

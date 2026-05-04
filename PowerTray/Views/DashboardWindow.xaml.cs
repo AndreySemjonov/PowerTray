@@ -49,6 +49,17 @@ public partial class DashboardWindow : Window
         ModesButton.ContextMenu.IsOpen = true;
     }
 
+    private void ChargeModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element || element.ContextMenu is null)
+        {
+            return;
+        }
+
+        element.ContextMenu.PlacementTarget = element;
+        element.ContextMenu.IsOpen = true;
+    }
+
     private void PowerButton_Click(object sender, RoutedEventArgs e)
     {
         if (PowerButton.ContextMenu is null)

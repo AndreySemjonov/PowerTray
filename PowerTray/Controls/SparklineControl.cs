@@ -20,12 +20,28 @@ public sealed class SparklineControl : FrameworkElement
         DependencyProperty.Register(nameof(Stroke), typeof(MediaBrush), typeof(SparklineControl),
             new FrameworkPropertyMetadata(MediaBrushes.DeepSkyBlue, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty SecondaryValuesProperty =
+        DependencyProperty.Register(nameof(SecondaryValues), typeof(IEnumerable<double?>), typeof(SparklineControl),
+            new FrameworkPropertyMetadata(Array.Empty<double?>(), FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty SecondaryStrokeProperty =
+        DependencyProperty.Register(nameof(SecondaryStroke), typeof(MediaBrush), typeof(SparklineControl),
+            new FrameworkPropertyMetadata(MediaBrushes.MediumAquamarine, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public static readonly DependencyProperty MaxPointsProperty =
         DependencyProperty.Register(nameof(MaxPoints), typeof(int), typeof(SparklineControl),
             new FrameworkPropertyMetadata(120, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public static readonly DependencyProperty FillProperty =
         DependencyProperty.Register(nameof(Fill), typeof(MediaBrush), typeof(SparklineControl),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty MinimumProperty =
+        DependencyProperty.Register(nameof(Minimum), typeof(double?), typeof(SparklineControl),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty MaximumProperty =
+        DependencyProperty.Register(nameof(Maximum), typeof(double?), typeof(SparklineControl),
             new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public IEnumerable<double?> Values
@@ -40,6 +56,18 @@ public sealed class SparklineControl : FrameworkElement
         set => SetValue(StrokeProperty, value);
     }
 
+    public IEnumerable<double?> SecondaryValues
+    {
+        get => (IEnumerable<double?>)GetValue(SecondaryValuesProperty);
+        set => SetValue(SecondaryValuesProperty, value);
+    }
+
+    public MediaBrush SecondaryStroke
+    {
+        get => (MediaBrush)GetValue(SecondaryStrokeProperty);
+        set => SetValue(SecondaryStrokeProperty, value);
+    }
+
     public int MaxPoints
     {
         get => (int)GetValue(MaxPointsProperty);
@@ -50,6 +78,18 @@ public sealed class SparklineControl : FrameworkElement
     {
         get => (MediaBrush?)GetValue(FillProperty);
         set => SetValue(FillProperty, value);
+    }
+
+    public double? Minimum
+    {
+        get => (double?)GetValue(MinimumProperty);
+        set => SetValue(MinimumProperty, value);
+    }
+
+    public double? Maximum
+    {
+        get => (double?)GetValue(MaximumProperty);
+        set => SetValue(MaximumProperty, value);
     }
 
     protected override void OnRender(DrawingContext drawingContext)
@@ -71,8 +111,10 @@ public sealed class SparklineControl : FrameworkElement
 
         int maxPoints = Math.Max(2, MaxPoints);
         double[] values = Values?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
+        double[] secondaryValues = SecondaryValues?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
+        double[] scaleValues = values.Concat(secondaryValues).ToArray();
         DrawTimeLabels(drawingContext, leftPadding, plotWidth, topPadding + plotHeight + 7);
-        if (values.Length < 2 || ActualWidth <= 1 || ActualHeight <= 1)
+        if (scaleValues.Length < 2 || ActualWidth <= 1 || ActualHeight <= 1)
         {
             var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
             drawingContext.DrawLine(pen, new WindowsPoint(leftPadding, topPadding + plotHeight / 2), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight / 2));
@@ -80,44 +122,56 @@ public sealed class SparklineControl : FrameworkElement
         }
 
         double[] displayValues = SmoothValues(values);
-        double min = displayValues.Min();
-        double max = displayValues.Max();
+        double[] displaySecondaryValues = SmoothValues(secondaryValues);
+        double[] displayScaleValues = displayValues.Concat(displaySecondaryValues).ToArray();
+        double min = Minimum ?? displayScaleValues.Min();
+        double max = Maximum ?? displayScaleValues.Max();
         bool isFlat = Math.Abs(max - min) < 0.001;
         if (isFlat)
         {
             max = min + 1;
         }
 
-        var points = new List<(WindowsPoint Point, double Value)>(displayValues.Length);
-        for (int i = 0; i < displayValues.Length; i++)
+        List<(WindowsPoint Point, double Value)> points = BuildPoints(displayValues, min, max, maxPoints, leftPadding, plotWidth, topPadding, plotHeight);
+        List<(WindowsPoint Point, double Value)> secondaryPoints = BuildPoints(displaySecondaryValues, min, max, maxPoints, leftPadding, plotWidth, topPadding, plotHeight);
+
+        bool flatZero = values.All(v => Math.Abs(v) < 0.05);
+        if (points.Count >= 2)
         {
-            int slot = maxPoints - displayValues.Length + i;
-            double x = leftPadding + slot * (plotWidth - 1) / (maxPoints - 1);
-            double y = topPadding + plotHeight - ((displayValues[i] - min) / (max - min) * (plotHeight - 4));
-            points.Add((new WindowsPoint(x, y), displayValues[i]));
+            StreamGeometry geometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: false, topPadding + plotHeight);
+            StreamGeometry areaGeometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: true, topPadding + plotHeight);
+            geometry.Freeze();
+            areaGeometry.Freeze();
+            if (Fill is not null && !flatZero)
+            {
+                drawingContext.DrawGeometry(Fill, null, areaGeometry);
+            }
+
+            drawingContext.DrawGeometry(null, CreateCurvePen(Stroke), geometry);
         }
 
-        StreamGeometry geometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: false, topPadding + plotHeight);
-        StreamGeometry areaGeometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: true, topPadding + plotHeight);
-        geometry.Freeze();
-        areaGeometry.Freeze();
-        bool flatZero = values.All(v => Math.Abs(v) < 0.05);
-        if (Fill is not null && !flatZero)
+        if (secondaryPoints.Count >= 2)
         {
-            drawingContext.DrawGeometry(Fill, null, areaGeometry);
+            StreamGeometry secondaryGeometry = BuildCurveGeometry(secondaryPoints.Select(p => p.Point).ToArray(), closeToBottom: false, topPadding + plotHeight);
+            secondaryGeometry.Freeze();
+            drawingContext.DrawGeometry(null, CreateCurvePen(SecondaryStroke), secondaryGeometry);
         }
 
         var axisPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(47, 54, 64)), 1);
         drawingContext.DrawLine(axisPen, new WindowsPoint(leftPadding, topPadding + plotHeight), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight));
         drawingContext.DrawLine(axisPen, new WindowsPoint(leftPadding + plotWidth, topPadding), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight));
-        drawingContext.DrawGeometry(null, CreateCurvePen(Stroke), geometry);
 
         var textBrush = new SolidColorBrush(MediaColor.FromRgb(175, 178, 184));
         DrawLabel(drawingContext, max, textBrush, leftPadding + plotWidth + 7, topPadding - 1);
         DrawLabel(drawingContext, (max + min) / 2d, textBrush, leftPadding + plotWidth + 7, topPadding + plotHeight / 2d - 7);
         DrawLabel(drawingContext, min, textBrush, leftPadding + plotWidth + 7, topPadding + plotHeight - 14);
 
-        if (points.Count > 2 && !isFlat)
+        if (secondaryPoints.Count > 2 && !isFlat)
+        {
+            DrawSeriesMaxLabel(drawingContext, points, Stroke, rect, preferAbove: true);
+            DrawSeriesMaxLabel(drawingContext, secondaryPoints, SecondaryStroke, rect, preferAbove: false);
+        }
+        else if (points.Count > 2 && !isFlat)
         {
             int maxIndex = 0;
             int minIndex = 0;
@@ -137,6 +191,40 @@ public sealed class SparklineControl : FrameworkElement
             DrawPeakLabel(drawingContext, points[maxIndex].Point, points[maxIndex].Value, Stroke, rect, preferAbove: true);
             DrawPeakLabel(drawingContext, points[minIndex].Point, points[minIndex].Value, Stroke, rect, preferAbove: false);
         }
+    }
+
+    private static void DrawSeriesMaxLabel(DrawingContext context, IReadOnlyList<(WindowsPoint Point, double Value)> points, MediaBrush accent, Rect bounds, bool preferAbove)
+    {
+        if (points.Count == 0)
+        {
+            return;
+        }
+
+        int maxIndex = 0;
+        for (int i = 1; i < points.Count; i++)
+        {
+            if (points[i].Value > points[maxIndex].Value)
+            {
+                maxIndex = i;
+            }
+        }
+
+        DrawPeakLabel(context, points[maxIndex].Point, points[maxIndex].Value, accent, bounds, preferAbove);
+    }
+
+    private static List<(WindowsPoint Point, double Value)> BuildPoints(double[] values, double min, double max, int maxPoints, double leftPadding, double plotWidth, double topPadding, double plotHeight)
+    {
+        var points = new List<(WindowsPoint Point, double Value)>(values.Length);
+        for (int i = 0; i < values.Length; i++)
+        {
+            int slot = maxPoints - values.Length + i;
+            double x = leftPadding + slot * (plotWidth - 1) / (maxPoints - 1);
+            double normalized = Math.Clamp((values[i] - min) / (max - min), 0, 1);
+            double y = topPadding + plotHeight - normalized * (plotHeight - 4);
+            points.Add((new WindowsPoint(x, y), values[i]));
+        }
+
+        return points;
     }
 
     private static double[] SmoothValues(double[] values)
@@ -240,26 +328,26 @@ public sealed class SparklineControl : FrameworkElement
             System.Globalization.CultureInfo.CurrentCulture,
             System.Windows.FlowDirection.LeftToRight,
             new Typeface("Segoe UI Semibold"),
-            10,
+            8,
             new SolidColorBrush(MediaColor.FromRgb(235, 238, 242)),
             1.0);
 
-        double width = formatted.Width + 10;
-        double height = formatted.Height + 4;
+        double width = formatted.Width + 8;
+        double height = formatted.Height + 3;
         double x = Math.Clamp(point.X - width / 2d, 4, Math.Max(4, bounds.Width - width - 46));
-        double y = preferAbove ? point.Y - height - 5 : point.Y + 5;
+        double y = preferAbove ? point.Y - height - 4 : point.Y + 4;
         if (y < 2)
         {
-            y = point.Y + 5;
+            y = point.Y + 4;
         }
         else if (y + height > bounds.Height - 16)
         {
-            y = point.Y - height - 5;
+            y = point.Y - height - 4;
         }
 
         var labelRect = new Rect(x, y, width, height);
-        context.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromArgb(220, 24, 27, 31)), new MediaPen(accent, 1), labelRect, 4, 4);
-        context.DrawText(formatted, new WindowsPoint(x + 5, y + 1));
+        context.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromArgb(220, 24, 27, 31)), new MediaPen(accent, 1), labelRect, 3, 3);
+        context.DrawText(formatted, new WindowsPoint(x + 4, y));
     }
 
     private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)

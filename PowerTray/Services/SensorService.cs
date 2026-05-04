@@ -68,6 +68,7 @@ public sealed class SensorService
             Status = $"{primaryReadings.Status}; {readings.Status}",
             CpuTemperatureCelsius = readings.CpuTemperatureCelsius,
             CpuPackagePowerWatts = readings.CpuPackagePowerWatts,
+            GpuUsagePercent = readings.GpuUsagePercent,
             BatteryPowerWatts = readings.BatteryPowerWatts,
             FanRpm = readings.FanRpm
         };
@@ -110,6 +111,7 @@ public sealed class SensorService
             Status = status,
             CpuTemperatureCelsius = cpuTemp,
             CpuPackagePowerWatts = cpuPower,
+            GpuUsagePercent = readings.GpuUsagePercent,
             BatteryPowerWatts = readings.BatteryPowerWatts,
             FanRpm = readings.FanRpm
         };
