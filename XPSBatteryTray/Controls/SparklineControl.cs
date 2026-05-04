@@ -10,6 +10,8 @@ namespace XPSBatteryTray.Controls;
 
 public sealed class SparklineControl : FrameworkElement
 {
+    private const double SmoothingTension = 0.42;
+
     public static readonly DependencyProperty ValuesProperty =
         DependencyProperty.Register(nameof(Values), typeof(IEnumerable<double?>), typeof(SparklineControl),
             new FrameworkPropertyMetadata(Array.Empty<double?>(), FrameworkPropertyMetadataOptions.AffectsRender));
@@ -77,45 +79,26 @@ public sealed class SparklineControl : FrameworkElement
             return;
         }
 
-        double min = values.Min();
-        double max = values.Max();
+        double[] displayValues = SmoothValues(values);
+        double min = displayValues.Min();
+        double max = displayValues.Max();
         bool isFlat = Math.Abs(max - min) < 0.001;
         if (isFlat)
         {
             max = min + 1;
         }
 
-        var geometry = new StreamGeometry();
-        var areaGeometry = new StreamGeometry();
-        var points = new List<(WindowsPoint Point, double Value)>(values.Length);
-        using (StreamGeometryContext context = geometry.Open())
-        using (StreamGeometryContext area = areaGeometry.Open())
+        var points = new List<(WindowsPoint Point, double Value)>(displayValues.Length);
+        for (int i = 0; i < displayValues.Length; i++)
         {
-            for (int i = 0; i < values.Length; i++)
-            {
-                int slot = maxPoints - values.Length + i;
-                double x = leftPadding + slot * (plotWidth - 1) / (maxPoints - 1);
-                double y = topPadding + plotHeight - ((values[i] - min) / (max - min) * (plotHeight - 4));
-                var point = new WindowsPoint(x, y);
-                points.Add((point, values[i]));
-                if (i == 0)
-                {
-                    context.BeginFigure(point, false, false);
-                    area.BeginFigure(new WindowsPoint(x, topPadding + plotHeight), true, true);
-                    area.LineTo(point, true, false);
-                }
-                else
-                {
-                    context.LineTo(point, true, false);
-                    area.LineTo(point, true, false);
-                }
-            }
-
-            int lastSlot = maxPoints - 1;
-            double endX = leftPadding + lastSlot * (plotWidth - 1) / (maxPoints - 1);
-            area.LineTo(new WindowsPoint(endX, topPadding + plotHeight), true, false);
+            int slot = maxPoints - displayValues.Length + i;
+            double x = leftPadding + slot * (plotWidth - 1) / (maxPoints - 1);
+            double y = topPadding + plotHeight - ((displayValues[i] - min) / (max - min) * (plotHeight - 4));
+            points.Add((new WindowsPoint(x, y), displayValues[i]));
         }
 
+        StreamGeometry geometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: false, topPadding + plotHeight);
+        StreamGeometry areaGeometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: true, topPadding + plotHeight);
         geometry.Freeze();
         areaGeometry.Freeze();
         bool flatZero = values.All(v => Math.Abs(v) < 0.05);
@@ -127,7 +110,7 @@ public sealed class SparklineControl : FrameworkElement
         var axisPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(47, 54, 64)), 1);
         drawingContext.DrawLine(axisPen, new WindowsPoint(leftPadding, topPadding + plotHeight), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight));
         drawingContext.DrawLine(axisPen, new WindowsPoint(leftPadding + plotWidth, topPadding), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight));
-        drawingContext.DrawGeometry(null, new MediaPen(Stroke, 1.8), geometry);
+        drawingContext.DrawGeometry(null, CreateCurvePen(Stroke), geometry);
 
         var textBrush = new SolidColorBrush(MediaColor.FromRgb(175, 178, 184));
         DrawLabel(drawingContext, max, textBrush, leftPadding + plotWidth + 7, topPadding - 1);
@@ -155,6 +138,85 @@ public sealed class SparklineControl : FrameworkElement
             DrawPeakLabel(drawingContext, points[minIndex].Point, points[minIndex].Value, Stroke, rect, preferAbove: false);
         }
     }
+
+    private static double[] SmoothValues(double[] values)
+    {
+        if (values.Length < 4)
+        {
+            return values;
+        }
+
+        var smoothed = new double[values.Length];
+        smoothed[0] = values[0];
+        smoothed[^1] = values[^1];
+        for (int i = 1; i < values.Length - 1; i++)
+        {
+            smoothed[i] = values[i - 1] * 0.24 + values[i] * 0.52 + values[i + 1] * 0.24;
+        }
+
+        return smoothed;
+    }
+
+    private static StreamGeometry BuildCurveGeometry(IReadOnlyList<WindowsPoint> points, bool closeToBottom, double bottom)
+    {
+        var geometry = new StreamGeometry();
+        using StreamGeometryContext context = geometry.Open();
+        if (points.Count == 0)
+        {
+            return geometry;
+        }
+
+        if (closeToBottom)
+        {
+            context.BeginFigure(new WindowsPoint(points[0].X, bottom), true, true);
+            context.LineTo(points[0], true, false);
+        }
+        else
+        {
+            context.BeginFigure(points[0], false, false);
+        }
+
+        if (points.Count == 1)
+        {
+            if (closeToBottom)
+            {
+                context.LineTo(new WindowsPoint(points[0].X, bottom), true, false);
+            }
+
+            return geometry;
+        }
+
+        for (int i = 0; i < points.Count - 1; i++)
+        {
+            WindowsPoint previous = i == 0 ? points[i] : points[i - 1];
+            WindowsPoint current = points[i];
+            WindowsPoint next = points[i + 1];
+            WindowsPoint following = i + 2 < points.Count ? points[i + 2] : next;
+
+            var control1 = new WindowsPoint(
+                current.X + (next.X - previous.X) * SmoothingTension / 6d,
+                current.Y + (next.Y - previous.Y) * SmoothingTension / 6d);
+            var control2 = new WindowsPoint(
+                next.X - (following.X - current.X) * SmoothingTension / 6d,
+                next.Y - (following.Y - current.Y) * SmoothingTension / 6d);
+            context.BezierTo(control1, control2, next, true, false);
+        }
+
+        if (closeToBottom)
+        {
+            context.LineTo(new WindowsPoint(points[^1].X, bottom), true, false);
+        }
+
+        return geometry;
+    }
+
+    private static MediaPen CreateCurvePen(MediaBrush stroke) =>
+        new(stroke, 2)
+        {
+            StartLineCap = PenLineCap.Round,
+            EndLineCap = PenLineCap.Round,
+            LineJoin = PenLineJoin.Round
+        };
 
     private static void DrawLabel(DrawingContext context, double value, MediaBrush brush, double x, double y)
     {
