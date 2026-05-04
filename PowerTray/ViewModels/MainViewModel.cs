@@ -83,8 +83,14 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(BatteryLevelPercent));
                 OnPropertyChanged(nameof(PowerStateText));
                 OnPropertyChanged(nameof(PowerStateChipText));
+                OnPropertyChanged(nameof(BatteryFlowChipText));
                 OnPropertyChanged(nameof(BatteryTimeText));
                 OnPropertyChanged(nameof(BatteryPowerText));
+                OnPropertyChanged(nameof(BatteryHealthText));
+                OnPropertyChanged(nameof(BatteryCycleText));
+                OnPropertyChanged(nameof(BatteryHealthSummaryText));
+                OnPropertyChanged(nameof(BatteryCapacityText));
+                OnPropertyChanged(nameof(BatteryHealthToolTip));
                 OnPropertyChanged(nameof(PowerModeTargetText));
                 OnPropertyChanged(nameof(PowerModeButtonToolTip));
                 OnPropertyChanged(nameof(FooterStatusText));
@@ -171,6 +177,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _batteryPowerWatts, value))
             {
                 OnPropertyChanged(nameof(BatteryPowerText));
+                OnPropertyChanged(nameof(BatteryFlowChipText));
             }
         }
     }
@@ -226,7 +233,14 @@ public sealed class MainViewModel : ObservableObject
     public string BatteryWattsGraphSummary
     {
         get => _batteryWattsGraphSummary;
-        private set => SetProperty(ref _batteryWattsGraphSummary, value);
+        private set
+        {
+            if (SetProperty(ref _batteryWattsGraphSummary, value))
+            {
+                OnPropertyChanged(nameof(BatteryWattsGraphSummaryTop));
+                OnPropertyChanged(nameof(BatteryWattsGraphSummaryBottom));
+            }
+        }
     }
 
     public string CpuPowerGraphSummary
@@ -238,7 +252,14 @@ public sealed class MainViewModel : ObservableObject
     public string TemperatureGraphSummary
     {
         get => _temperatureGraphSummary;
-        private set => SetProperty(ref _temperatureGraphSummary, value);
+        private set
+        {
+            if (SetProperty(ref _temperatureGraphSummary, value))
+            {
+                OnPropertyChanged(nameof(TemperatureGraphSummaryTop));
+                OnPropertyChanged(nameof(TemperatureGraphSummaryBottom));
+            }
+        }
     }
 
     public string EnergyImpactTitle
@@ -261,6 +282,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _currentWindowsPowerMode, value))
             {
                 OnPropertyChanged(nameof(PowerModeText));
+                OnPropertyChanged(nameof(PowerModeChipText));
                 OnPropertyChanged(nameof(PowerModeButtonText));
                 OnPropertyChanged(nameof(PowerModeButtonToolTip));
                 OnPropertyChanged(nameof(PowerEfficiencyMenuText));
@@ -283,6 +305,8 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(BatteryUsageActiveText));
                 OnPropertyChanged(nameof(BatteryUsageIdleText));
                 OnPropertyChanged(nameof(BatteryUsageEstimatedDrainText));
+                OnPropertyChanged(nameof(BatteryUsageSleepDrainText));
+                OnPropertyChanged(nameof(BatteryUsageChargeBehaviorText));
                 OnPropertyChanged(nameof(BatteryUsageBuckets));
                 OnPropertyChanged(nameof(BatteryUsageDateText));
             }
@@ -329,7 +353,13 @@ public sealed class MainViewModel : ObservableObject
     public string BatteryPercentText => Battery.Percentage > 0 ? $"{Battery.Percentage}%" : "--%";
     public double BatteryLevelPercent => Math.Clamp(Battery.Percentage, 0, 100);
     public string PowerStateText => Battery.IsPluggedIn ? "Plugged in" : "On battery";
-    public string PowerStateChipText => PowerStateText;
+    public string PowerStateChipText => Battery.IsPluggedIn ? "AC" : "Battery";
+    public string BatteryFlowChipText => BatteryPowerWatts switch
+    {
+        > 0.5 => "Charge",
+        < -0.5 => "Drain",
+        _ => Battery.IsPluggedIn ? "Hold" : "Idle"
+    };
     public string ModeChipText => FriendlyChargeMode.Replace("Mode: ", string.Empty);
     public string HwinfoChipText
     {
@@ -364,6 +394,13 @@ public sealed class MainViewModel : ObservableObject
     public string PowerModeText => CurrentWindowsPowerMode is { } mode
         ? WindowsPowerModeService.ToDisplayName(mode)
         : "Unavailable";
+    public string PowerModeChipText => CurrentWindowsPowerMode switch
+    {
+        WindowsPowerMode.BestPowerEfficiency => "Efficiency",
+        WindowsPowerMode.Balanced => "Balanced",
+        WindowsPowerMode.BestPerformance => "Performance",
+        _ => "Power --"
+    };
     public string PowerModeTargetText => Battery.IsPluggedIn ? "plugged in" : "on battery";
     public string PowerModeButtonText => $"Power: {PowerModeText}";
     public string PowerModeButtonToolTip => $"Windows power mode for {PowerModeTargetText}: {PowerModeText}";
@@ -377,7 +414,13 @@ public sealed class MainViewModel : ObservableObject
     public string BatteryUsageActiveText => BatteryUsage.ActiveText;
     public string BatteryUsageIdleText => BatteryUsage.IdleText;
     public string BatteryUsageEstimatedDrainText => BatteryUsage.EstimatedDrainText;
+    public string BatteryUsageSleepDrainText => BatteryUsage.SleepDrainText;
+    public string BatteryUsageChargeBehaviorText => BatteryUsage.ChargeBehaviorText;
     public IReadOnlyList<BatteryUsageBucket> BatteryUsageBuckets => BatteryUsage.Buckets;
+    public string BatteryWattsGraphSummaryTop => SplitGraphSummary(BatteryWattsGraphSummary, 0);
+    public string BatteryWattsGraphSummaryBottom => SplitGraphSummary(BatteryWattsGraphSummary, 1);
+    public string TemperatureGraphSummaryTop => SplitGraphSummary(TemperatureGraphSummary, 0);
+    public string TemperatureGraphSummaryBottom => SplitGraphSummary(TemperatureGraphSummary, 1);
     public string BatteryUsageDateText => SelectedBatteryUsageDate == DateTime.Today
         ? "Today"
         : SelectedBatteryUsageDate.ToString("MMM d");
@@ -392,6 +435,43 @@ public sealed class MainViewModel : ObservableObject
         ? $"{watts:N1} W"
         : "Watts unavailable";
 
+    public string BatteryHealthText => Battery.BatteryHealth.HealthPercent is { } health
+        ? $"Health {health:N0}%"
+        : "Health unavailable";
+
+    public string BatteryCycleText => Battery.BatteryHealth.CycleCount is { } cycles
+        ? $"Cycles {cycles:N0}"
+        : "Cycles unavailable";
+
+    public string BatteryHealthSummaryText
+    {
+        get
+        {
+            if (Battery.BatteryHealth.HealthPercent is { } health && Battery.BatteryHealth.CycleCount is { } cycles)
+            {
+                return $"Health {health:N0}% · {cycles:N0} cycles";
+            }
+
+            if (Battery.BatteryHealth.HealthPercent is { } healthOnly)
+            {
+                return $"Health {healthOnly:N0}%";
+            }
+
+            return Battery.BatteryHealth.CycleCount is { } cyclesOnly
+                ? $"{cyclesOnly:N0} cycles"
+                : "Health unavailable";
+        }
+    }
+
+    public string BatteryCapacityText =>
+        Battery.BatteryHealth.FullChargeCapacityMilliWattHours is { } fullCharge
+        && Battery.BatteryHealth.DesignCapacityMilliWattHours is { } design
+            ? $"{FormatCapacity(fullCharge)} / {FormatCapacity(design)}"
+            : "Capacity unavailable";
+
+    public string BatteryHealthToolTip =>
+        $"{Battery.BatteryHealth.Source}\nFull charge: {FormatCapacity(Battery.BatteryHealth.FullChargeCapacityMilliWattHours)}\nDesign: {FormatCapacity(Battery.BatteryHealth.DesignCapacityMilliWattHours)}\n{BatteryCycleText}";
+
     public string CpuUsageText => $"{CpuUsagePercent:N1}%";
     public double CpuGaugeValue => Math.Clamp(CpuUsagePercent, 0, 100);
     public string CpuTemperatureText => CpuTemperatureCelsius is { } value ? $"{value:N0} C" : "Temp unavailable";
@@ -399,8 +479,8 @@ public sealed class MainViewModel : ObservableObject
     public string CpuPowerText => CpuPackagePowerWatts is { } value ? $"{value:N1} W" : "Power unavailable";
     public string CpuPackagePowerDisplay => CpuPackagePowerWatts is { } value ? $"{value:N1} W pkg" : "-- W pkg";
     public string TopCpuProcessText => TopCpuProcesses.FirstOrDefault() is { } process
-        ? $"Top proc: {process.Name} {process.CpuPercent:N1}%"
-        : "Top proc: --";
+        ? process.Name
+        : "--";
     public string MemoryText => $"{Memory.UsedText} / {Memory.TotalText} ({Memory.UsedPercent:N0}%)";
     public bool IsAdministrator => CctkService.IsAdministrator();
 
@@ -513,7 +593,7 @@ public sealed class MainViewModel : ObservableObject
             Battery = battery;
             BatteryPowerWatts = Battery.ChargeRateWatts;
             RefreshWindowsPowerMode(Battery.IsPluggedIn);
-            BatteryUsage = _batteryUsageService.Record(Battery, SelectedBatteryUsageDate);
+            BatteryUsage = _batteryUsageService.Record(Battery, SelectedBatteryUsageDate, CurrentWindowsPowerMode);
             Memory = _processStatsService.GetMemoryInfo();
             EnergyImpactTitle = energyImpactTitle;
             EnergyImpactColumnHeader = "% used";
@@ -623,6 +703,19 @@ public sealed class MainViewModel : ObservableObject
         return $"Cur {current}{unit} | Avg {avg}{unit} | Min {min}{unit} | Max {max}{unit}";
     }
 
+    private static string SplitGraphSummary(string summary, int row)
+    {
+        string[] parts = summary.Split('|', StringSplitOptions.TrimEntries);
+        if (parts.Length < 4)
+        {
+            return row == 0 ? "Cur -- | Avg --" : "Min -- | Max --";
+        }
+
+        return row == 0
+            ? $"{parts[0]} | {parts[1]}"
+            : $"{parts[2]} | {parts[3]}";
+    }
+
     private static string FormatFriendlyChargeMode(string raw)
     {
         if (raw.Contains("Custom:50-80", StringComparison.OrdinalIgnoreCase))
@@ -662,5 +755,15 @@ public sealed class MainViewModel : ObservableObject
     {
         string prefix = CurrentWindowsPowerMode == mode ? "✓ " : string.Empty;
         return prefix + WindowsPowerModeService.ToDisplayName(mode);
+    }
+
+    private static string FormatCapacity(int? milliWattHours)
+    {
+        if (milliWattHours is not { } value)
+        {
+            return "Unavailable";
+        }
+
+        return value >= 1000 ? $"{value / 1000d:N1} Wh" : $"{value:N0} mWh";
     }
 }

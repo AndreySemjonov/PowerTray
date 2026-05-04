@@ -27,4 +27,5 @@ public sealed class BatteryUsageBucket
     public bool IsCurrent { get; init; }
     public bool HasData { get; init; }
     public BatteryUsageBucketKind Kind { get; init; } = BatteryUsageBucketKind.Observed;
+    public WindowsPowerMode? PowerMode { get; init; }
 }

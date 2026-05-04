@@ -34,18 +34,20 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         const double leftPadding = 8;
         const double rightPadding = 46;
         const double topPadding = 26;
-        const double bottomPadding = 28;
+        const double bottomPadding = 42;
         double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightPadding);
         double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomPadding);
         double bottom = topPadding + plotHeight;
+        double powerModeLaneY = bottom + 8;
 
         DrawNoDataBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawExternalPowerBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawGrid(context, leftPadding, plotWidth, topPadding, plotHeight);
         DrawBars(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
+        DrawPowerModeLane(context, buckets, leftPadding, plotWidth, powerModeLaneY);
         DrawCurrentMarker(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawAxisLabels(context, leftPadding + plotWidth + 10, topPadding, plotHeight);
-        DrawTimeLabels(context, leftPadding, plotWidth, bottom + 7);
+        DrawTimeLabels(context, leftPadding, plotWidth, bottom + 17);
     }
 
     private static void DrawNoDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
@@ -173,6 +175,31 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             or BatteryUsageBucketKind.InferredCharge
             or BatteryUsageBucketKind.ChargeHold;
 
+    private static void DrawPowerModeLane(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double y)
+    {
+        double slot = width / buckets.Count;
+        foreach (WindowsPowerMode mode in Enum.GetValues<WindowsPowerMode>())
+        {
+            var pen = new MediaPen(GetPowerModeBrush(mode), 3)
+            {
+                StartLineCap = PenLineCap.Round,
+                EndLineCap = PenLineCap.Round
+            };
+
+            foreach ((double start, double end) in Ranges(buckets, b => b.PowerMode == mode))
+            {
+                double startX = left + start * slot + 1;
+                double endX = left + end * slot - 1;
+                if (endX <= startX)
+                {
+                    continue;
+                }
+
+                context.DrawLine(pen, new WindowsPoint(startX, y), new WindowsPoint(endX, y));
+            }
+        }
+    }
+
     private static void DrawCurrentMarker(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         int index = -1;
@@ -230,6 +257,14 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
 
         return new SolidColorBrush(MediaColor.FromRgb(142, 148, 154));
     }
+
+    private static MediaBrush GetPowerModeBrush(WindowsPowerMode mode) => mode switch
+    {
+        WindowsPowerMode.BestPowerEfficiency => new SolidColorBrush(MediaColor.FromRgb(88, 166, 255)),
+        WindowsPowerMode.Balanced => new SolidColorBrush(MediaColor.FromRgb(154, 161, 170)),
+        WindowsPowerMode.BestPerformance => new SolidColorBrush(MediaColor.FromRgb(225, 76, 70)),
+        _ => new SolidColorBrush(MediaColor.FromRgb(142, 148, 154))
+    };
 
     private static void DrawAxisLabels(DrawingContext context, double x, double top, double height)
     {

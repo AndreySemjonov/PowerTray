@@ -21,7 +21,7 @@ public sealed class BatteryUsageService
     private DateTimeOffset _lastSave = DateTimeOffset.MinValue;
     private DateTimeOffset? _lastRecordTime;
 
-    public BatteryUsageSnapshot Record(BatteryStatus battery, DateTime selectedDate)
+    public BatteryUsageSnapshot Record(BatteryStatus battery, DateTime selectedDate, WindowsPowerMode? powerMode)
     {
         EnsureLoaded();
         DateTimeOffset now = DateTimeOffset.Now;
@@ -32,7 +32,7 @@ public sealed class BatteryUsageService
         }
 
         AddActivityTime(now);
-        AddOrUpdateSample(now, battery);
+        AddOrUpdateSample(now, battery, powerMode);
         SaveIfNeeded(now, force: false);
         return BuildSnapshot(selectedDate.Date, now);
     }
@@ -93,7 +93,7 @@ public sealed class BatteryUsageService
         _lastRecordTime = now;
     }
 
-    private void AddOrUpdateSample(DateTimeOffset now, BatteryStatus battery)
+    private void AddOrUpdateSample(DateTimeOffset now, BatteryStatus battery, WindowsPowerMode? powerMode)
     {
         var sample = new BatteryUsageSample
         {
@@ -102,7 +102,8 @@ public sealed class BatteryUsageService
             IsPluggedIn = battery.IsPluggedIn,
             BatteryWatts = battery.ChargeRateWatts,
             IsPowerSave = battery.IsPowerSave,
-            IsCritical = battery.IsCritical
+            IsCritical = battery.IsCritical,
+            PowerMode = powerMode
         };
 
         BatteryUsageSample? last = _state.Samples.LastOrDefault();
@@ -132,6 +133,8 @@ public sealed class BatteryUsageService
             ActiveText = FormatDuration(TimeSpan.FromSeconds(_state.ActiveSeconds)),
             IdleText = FormatDuration(TimeSpan.FromSeconds(_state.IdleSeconds)),
             EstimatedDrainText = FormatMilliWattHours(EstimateDrainMilliWattHours()),
+            SleepDrainText = BuildSleepDrainText(buckets),
+            ChargeBehaviorText = BuildChargeBehaviorText(buckets),
             Buckets = buckets
         };
     }
@@ -196,6 +199,9 @@ public sealed class BatteryUsageService
             bool critical = hasData && (bucketSamples.Length > 0
                 ? bucketSamples.Any(s => s.IsCritical || s.BatteryPercent <= 10)
                 : representative!.IsCritical || representative.BatteryPercent <= 10);
+            WindowsPowerMode? powerMode = hasData
+                ? MostCommonPowerMode(bucketSamples) ?? representative!.PowerMode
+                : null;
 
             buckets.Add(new BatteryUsageBucket
             {
@@ -211,7 +217,8 @@ public sealed class BatteryUsageService
                 IsMissingData = kind == BatteryUsageBucketKind.NoData,
                 IsCurrent = now >= bucketStart && now < bucketEnd,
                 HasData = hasData,
-                Kind = kind
+                Kind = kind,
+                PowerMode = powerMode
             });
         }
 
@@ -292,6 +299,14 @@ public sealed class BatteryUsageService
         return previous;
     }
 
+    private static WindowsPowerMode? MostCommonPowerMode(IReadOnlyList<BatteryUsageSample> samples) =>
+        samples
+            .Where(sample => sample.PowerMode.HasValue)
+            .GroupBy(sample => sample.PowerMode!.Value)
+            .OrderByDescending(group => group.Count())
+            .Select(group => (WindowsPowerMode?)group.Key)
+            .FirstOrDefault();
+
     private void SaveIfNeeded(DateTimeOffset now, bool force)
     {
         if (!force && now - _lastSave < TimeSpan.FromSeconds(30))
@@ -329,6 +344,91 @@ public sealed class BatteryUsageService
         }
 
         return $"{Math.Max(0, (int)Math.Round(duration.TotalMinutes))}m";
+    }
+
+    private static string BuildSleepDrainText(IReadOnlyList<BatteryUsageBucket> buckets)
+    {
+        TimeSpan duration = TimeSpan.Zero;
+        double drain = 0;
+        foreach ((int start, int end) in BucketRanges(buckets, b => b.Kind == BatteryUsageBucketKind.Sleep))
+        {
+            BatteryUsageBucket first = buckets[start];
+            BatteryUsageBucket last = buckets[end - 1];
+            duration += SumDuration(buckets, start, end);
+            drain += Math.Max(0, first.BatteryPercent - last.BatteryPercent);
+        }
+
+        if (duration < TimeSpan.FromMinutes(1))
+        {
+            return "Sleep: none";
+        }
+
+        double rate = duration.TotalHours > 0 ? drain / duration.TotalHours : 0;
+        return $"Sleep: {FormatDuration(duration)} · -{drain:N0}% · {rate:N1}%/h";
+    }
+
+    private static string BuildChargeBehaviorText(IReadOnlyList<BatteryUsageBucket> buckets)
+    {
+        TimeSpan onBattery = SumDuration(buckets, b => b.HasData && !b.IsPluggedIn);
+        TimeSpan charging = SumDuration(buckets, b => b.IsCharging);
+        TimeSpan hold = SumDuration(buckets, b => b.Kind == BatteryUsageBucketKind.ChargeHold);
+        TimeSpan sleep = SumDuration(buckets, b => b.Kind == BatteryUsageBucketKind.Sleep);
+        TimeSpan missing = SumDuration(buckets, b => b.Kind is BatteryUsageBucketKind.Missing or BatteryUsageBucketKind.NoData);
+
+        var parts = new List<string>();
+        AddDurationPart(parts, "Battery", onBattery);
+        AddDurationPart(parts, "Charge", charging);
+        AddDurationPart(parts, "Hold", hold);
+        AddDurationPart(parts, "Sleep", sleep);
+        AddDurationPart(parts, "Missing", missing);
+        return parts.Count > 0 ? string.Join(" · ", parts) : "Usage: collecting";
+    }
+
+    private static void AddDurationPart(List<string> parts, string label, TimeSpan duration)
+    {
+        if (duration >= TimeSpan.FromMinutes(1))
+        {
+            parts.Add($"{label} {FormatDuration(duration)}");
+        }
+    }
+
+    private static TimeSpan SumDuration(IReadOnlyList<BatteryUsageBucket> buckets, Func<BatteryUsageBucket, bool> predicate)
+    {
+        long ticks = buckets
+            .Where(predicate)
+            .Sum(bucket => Math.Max(0, (bucket.End - bucket.Start).Ticks));
+        return TimeSpan.FromTicks(ticks);
+    }
+
+    private static TimeSpan SumDuration(IReadOnlyList<BatteryUsageBucket> buckets, int start, int end)
+    {
+        long ticks = 0;
+        for (int i = start; i < end; i++)
+        {
+            ticks += Math.Max(0, (buckets[i].End - buckets[i].Start).Ticks);
+        }
+
+        return TimeSpan.FromTicks(ticks);
+    }
+
+    private static IEnumerable<(int Start, int End)> BucketRanges(IReadOnlyList<BatteryUsageBucket> buckets, Func<BatteryUsageBucket, bool> predicate)
+    {
+        bool inRange = false;
+        int start = 0;
+        for (int i = 0; i <= buckets.Count; i++)
+        {
+            bool active = i < buckets.Count && predicate(buckets[i]);
+            if (active && !inRange)
+            {
+                start = i;
+                inRange = true;
+            }
+            else if (!active && inRange)
+            {
+                inRange = false;
+                yield return (start, i);
+            }
+        }
     }
 
     private double EstimateDrainMilliWattHours()
@@ -416,6 +516,7 @@ public sealed class BatteryUsageService
         public double? BatteryWatts { get; set; }
         public bool IsPowerSave { get; set; }
         public bool IsCritical { get; set; }
+        public WindowsPowerMode? PowerMode { get; set; }
 
         public bool IsCharging => BatteryWatts is > 0.5;
     }

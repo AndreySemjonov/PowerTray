@@ -9,4 +9,5 @@ public sealed class BatteryStatus
     public TimeSpan? EstimatedTimeRemaining { get; init; }
     public double? ChargeRateWatts { get; init; }
     public string? HealthStatus { get; init; }
+    public BatteryHealthInfo BatteryHealth { get; init; } = new();
 }

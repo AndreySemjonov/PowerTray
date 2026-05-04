@@ -248,6 +248,84 @@
         <Setter Property="Padding" Value="9,5" />
     </Style>
 
+    <Style x:Key="DashboardChipStyle" TargetType="Border">
+        <Setter Property="Background" Value="#24282E" />
+        <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Padding" Value="7,3" />
+        <Setter Property="Margin" Value="0,0,5,5" />
+    </Style>
+
+    <Style x:Key="SectionTabControlStyle" TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="34" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TabPanel Grid.Row="0"
+                                  IsItemsHost="True"
+                                  KeyboardNavigation.TabIndex="1"
+                                  Panel.ZIndex="1"
+                                  Margin="0,0,0,6" />
+                        <Border Grid.Row="0"
+                                Height="1"
+                                Background="{StaticResource PanelBorder}"
+                                VerticalAlignment="Bottom"
+                                Opacity="0.65" />
+                        <ContentPresenter Grid.Row="1"
+                                          ContentSource="SelectedContent"
+                                          KeyboardNavigation.DirectionalNavigation="Contained" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SectionTabItemStyle" TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="Margin" Value="0,0,14,0" />
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Grid x:Name="TabRoot" Background="{TemplateBinding Background}">
+                        <ContentPresenter ContentSource="Header"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                        <Border x:Name="SelectedUnderline"
+                                Height="3"
+                                Background="Transparent"
+                                CornerRadius="1.5"
+                                VerticalAlignment="Bottom" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                            <Setter TargetName="TabRoot" Property="Background" Value="#141C23" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                            <Setter TargetName="SelectedUnderline" Property="Background" Value="{StaticResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="SmallHeaderStyle" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
         <Setter Property="FontSize" Value="17" />

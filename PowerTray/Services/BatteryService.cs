@@ -15,7 +15,8 @@ public sealed class BatteryService
                 Percentage = 0,
                 IsPluggedIn = false,
                 ChargeRateWatts = sensorBatteryWatts,
-                HealthStatus = "Unavailable"
+                HealthStatus = "Unavailable",
+                BatteryHealth = TryGetBatteryHealthInfo()
             };
         }
 
@@ -36,8 +37,78 @@ public sealed class BatteryService
                 128 => "No battery",
                 255 => "Unknown",
                 _ => null
-            }
+            },
+            BatteryHealth = TryGetBatteryHealthInfo()
         };
+    }
+
+    private static BatteryHealthInfo TryGetBatteryHealthInfo()
+    {
+        try
+        {
+            int? designCapacity = ReadFirstInt(@"root\WMI", "SELECT DesignedCapacity FROM BatteryStaticData", "DesignedCapacity")
+                ?? ReadFirstInt(@"root\CIMV2", "SELECT DesignCapacity FROM Win32_Battery", "DesignCapacity");
+            int? fullChargeCapacity = ReadFirstInt(@"root\WMI", "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity", "FullChargedCapacity")
+                ?? ReadFirstInt(@"root\CIMV2", "SELECT FullChargeCapacity FROM Win32_Battery", "FullChargeCapacity");
+            int? cycleCount = ReadFirstInt(@"root\WMI", "SELECT CycleCount FROM BatteryCycleCount", "CycleCount");
+
+            bool hasAnyValue = designCapacity.HasValue || fullChargeCapacity.HasValue || cycleCount.HasValue;
+            return new BatteryHealthInfo
+            {
+                DesignCapacityMilliWattHours = designCapacity,
+                FullChargeCapacityMilliWattHours = fullChargeCapacity,
+                CycleCount = cycleCount,
+                Source = hasAnyValue ? "Windows battery WMI" : "Unavailable"
+            };
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to read battery health information from WMI.");
+            return new BatteryHealthInfo();
+        }
+    }
+
+    private static int? ReadFirstInt(string scope, string query, string propertyName)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(scope, query);
+            foreach (ManagementObject item in searcher.Get().Cast<ManagementObject>())
+            {
+                using (item)
+                {
+                    return ToInt(item[propertyName]);
+                }
+            }
+        }
+        catch (ManagementException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private static int? ToInt(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            int result = Convert.ToInt32(value);
+            return result > 0 ? result : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static double? TryGetBatteryPowerWattsFromWmi()
