@@ -382,8 +382,6 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="34" />
                             <RowDefinition Height="*" />
-                            <RowDefinition Height="20" />
-                            <RowDefinition Height="24" />
                             <RowDefinition Height="34" />
                         </Grid.RowDefinitions>
 
@@ -402,38 +400,7 @@
 
                         <controls:BatteryUsageCombinedControl Grid.Row="1" Buckets="{Binding BatteryUsageBuckets}" Height="170" VerticalAlignment="Top" Margin="0,2,0,0" />
 
-                        <WrapPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <Ellipse Fill="#8E949A" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Level" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
-                            <Ellipse Fill="#9AD76C" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Charge" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
-                            <Ellipse Fill="#54D6C6" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Hold" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
-                            <Ellipse Fill="#58A6FF" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Sleep" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
-                            <Canvas Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center">
-                                <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="#34C4CCD6" Stroke="#C4CCD6" StrokeThickness="1" StrokeDashArray="2,1" />
-                            </Canvas>
-                            <TextBlock Text="Missing" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
-                            <Ellipse Fill="#EDB848" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Power save" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
-                            <Ellipse Fill="#D65C53" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Critical" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
-                            <Border Background="#2A2E34" BorderBrush="#585E66" BorderThickness="1" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="No data" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
-                        </WrapPanel>
-
-                        <WrapPanel Grid.Row="3" HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <TextBlock Text="Power plan (timeline):" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,9,0" />
-                            <Rectangle Fill="#58A6FF" Width="16" Height="3" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Power efficiency" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,12,0" />
-                            <Rectangle Fill="#9AA1AA" Width="16" Height="3" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Balanced" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,12,0" />
-                            <Rectangle Fill="#E14C46" Width="16" Height="3" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Performance" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
-                        </WrapPanel>
-
-                        <Grid Grid.Row="4" Margin="0,0,0,1">
+                        <Grid Grid.Row="2" Margin="0,0,0,1">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="17" />
                                 <RowDefinition Height="17" />

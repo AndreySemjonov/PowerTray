@@ -1,4 +1,7 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using XPSBatteryTray.Models;
 using MediaBrush = System.Windows.Media.Brush;
@@ -20,6 +23,19 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         set => SetValue(BucketsProperty, value);
     }
 
+    private HoverSelection? _hoverSelection;
+
+    public BatteryUsageCombinedControl()
+    {
+        ToolTip = new System.Windows.Controls.ToolTip
+        {
+            Placement = PlacementMode.Mouse,
+            StaysOpen = true
+        };
+        MouseMove += OnMouseMove;
+        MouseLeave += OnMouseLeave;
+    }
+
     protected override void OnRender(DrawingContext context)
     {
         base.OnRender(context);
@@ -31,28 +47,40 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             return;
         }
 
+        ChartLayout layout = CreateLayout(ActualWidth, ActualHeight);
+
+        DrawNoDataBands(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
+        DrawExternalPowerBands(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
+        DrawHoverHighlight(context, buckets, layout);
+        DrawGrid(context, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
+        DrawBars(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
+        DrawPowerModeLane(context, buckets, layout.Left, layout.PlotWidth, layout.PowerModeLaneY);
+        DrawLaneSeparators(context, layout.Left, layout.PlotWidth, layout.PowerModeLaneY, layout.AverageWattsLaneY);
+        DrawAverageWattsLane(context, buckets, layout.Left, layout.PlotWidth, layout.AverageWattsLaneY);
+        DrawCurrentMarker(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
+        DrawAxisLabels(context, layout.Left + layout.PlotWidth + 10, layout.Top, layout.PlotHeight);
+        DrawText(context, "Avg W", 10, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), layout.Left + layout.PlotWidth + 10, layout.AverageWattsLaneY);
+        DrawText(context, "Time", 10, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), layout.Left + layout.PlotWidth + 10, layout.TimeLabelsY);
+        DrawTimeLabels(context, layout.Left, layout.PlotWidth, layout.TimeLabelsY);
+    }
+
+    private static ChartLayout CreateLayout(double width, double height)
+    {
         const double leftPadding = 8;
         const double rightPadding = 46;
         const double topPadding = 26;
         const double bottomPadding = 72;
-        double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightPadding);
-        double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomPadding);
+        double plotWidth = Math.Max(1, width - leftPadding - rightPadding);
+        double plotHeight = Math.Max(1, height - topPadding - bottomPadding);
         double bottom = topPadding + plotHeight;
-        double powerModeLaneY = bottom + 8;
-        double averageWattsLaneY = bottom + 18;
-
-        DrawNoDataBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
-        DrawExternalPowerBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
-        DrawGrid(context, leftPadding, plotWidth, topPadding, plotHeight);
-        DrawBars(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
-        DrawPowerModeLane(context, buckets, leftPadding, plotWidth, powerModeLaneY);
-        DrawLaneSeparators(context, leftPadding, plotWidth, powerModeLaneY, averageWattsLaneY);
-        DrawAverageWattsLane(context, buckets, leftPadding, plotWidth, averageWattsLaneY);
-        DrawCurrentMarker(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
-        DrawAxisLabels(context, leftPadding + plotWidth + 10, topPadding, plotHeight);
-        DrawText(context, "Avg W", 10, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), leftPadding + plotWidth + 10, averageWattsLaneY);
-        DrawText(context, "Time", 10, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), leftPadding + plotWidth + 10, bottom + 47);
-        DrawTimeLabels(context, leftPadding, plotWidth, bottom + 47);
+        return new ChartLayout(
+            leftPadding,
+            topPadding,
+            plotWidth,
+            plotHeight,
+            bottom + 8,
+            bottom + 18,
+            bottom + 47);
     }
 
     private static void DrawNoDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
@@ -205,6 +233,27 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         }
     }
 
+    private void DrawHoverHighlight(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, ChartLayout layout)
+    {
+        if (_hoverSelection is not { } selection || selection.Start < 0 || selection.End <= selection.Start || selection.End > buckets.Count)
+        {
+            return;
+        }
+
+        double slot = layout.PlotWidth / buckets.Count;
+        double x = layout.Left + selection.Start * slot;
+        double width = Math.Max(2, (selection.End - selection.Start) * slot);
+        var fill = new SolidColorBrush(MediaColor.FromArgb(34, 255, 255, 255));
+        var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(115, 180, 190, 202)), 1);
+        if (selection.Kind == HoverKind.PowerMode)
+        {
+            context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.PowerModeLaneY - 5, width, 10), 4, 4);
+            return;
+        }
+
+        context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.Top, width, layout.AverageWattsLaneY + 26 - layout.Top), 4, 4);
+    }
+
     private static void DrawLaneSeparators(DrawingContext context, double left, double width, double powerModeLaneY, double averageWattsLaneY)
     {
         var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(88, 75, 82, 90)), 1);
@@ -336,6 +385,169 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         return new SolidColorBrush(color);
     }
 
+    private void OnMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        BatteryUsageBucket[] buckets = Buckets?.ToArray() ?? [];
+        if (buckets.Length == 0)
+        {
+            ClearHover();
+            return;
+        }
+
+        HoverSelection? selection = HitTestHover(e.GetPosition(this), buckets, CreateLayout(ActualWidth, ActualHeight));
+        if (selection is null)
+        {
+            ClearHover();
+            return;
+        }
+
+        SetHover(selection.Value, BuildHoverText(buckets, selection.Value));
+    }
+
+    private void OnMouseLeave(object sender, System.Windows.Input.MouseEventArgs e) => ClearHover();
+
+    private void SetHover(HoverSelection selection, string text)
+    {
+        bool changed = !_hoverSelection.Equals(selection);
+        _hoverSelection = selection;
+        if (ToolTip is System.Windows.Controls.ToolTip toolTip)
+        {
+            toolTip.Content = text;
+            toolTip.IsOpen = true;
+        }
+
+        if (changed)
+        {
+            InvalidateVisual();
+        }
+    }
+
+    private void ClearHover()
+    {
+        if (ToolTip is System.Windows.Controls.ToolTip toolTip)
+        {
+            toolTip.IsOpen = false;
+        }
+
+        if (_hoverSelection is null)
+        {
+            return;
+        }
+
+        _hoverSelection = null;
+        InvalidateVisual();
+    }
+
+    private static HoverSelection? HitTestHover(WindowsPoint point, IReadOnlyList<BatteryUsageBucket> buckets, ChartLayout layout)
+    {
+        if (point.X < layout.Left || point.X > layout.Left + layout.PlotWidth)
+        {
+            return null;
+        }
+
+        int index = Math.Clamp((int)((point.X - layout.Left) / (layout.PlotWidth / buckets.Count)), 0, buckets.Count - 1);
+        if (point.Y >= layout.PowerModeLaneY - 7 && point.Y <= layout.PowerModeLaneY + 7 && buckets[index].PowerMode.HasValue)
+        {
+            return BuildRangeSelection(buckets, index, HoverKind.PowerMode, bucket => bucket.PowerMode == buckets[index].PowerMode);
+        }
+
+        if (point.Y >= layout.Top && point.Y <= layout.AverageWattsLaneY + 34)
+        {
+            string? category = GetUsageRangeCategory(buckets[index]);
+            if (category is not null)
+            {
+                return BuildRangeSelection(buckets, index, HoverKind.Usage, bucket => GetUsageRangeCategory(bucket) == category);
+            }
+        }
+
+        return null;
+    }
+
+    private static HoverSelection BuildRangeSelection(IReadOnlyList<BatteryUsageBucket> buckets, int index, HoverKind kind, Func<BatteryUsageBucket, bool> predicate)
+    {
+        int start = index;
+        while (start > 0 && predicate(buckets[start - 1]))
+        {
+            start--;
+        }
+
+        int end = index + 1;
+        while (end < buckets.Count && predicate(buckets[end]))
+        {
+            end++;
+        }
+
+        return new HoverSelection(start, end, kind);
+    }
+
+    private static string BuildHoverText(IReadOnlyList<BatteryUsageBucket> buckets, HoverSelection selection)
+    {
+        BatteryUsageBucket[] range = buckets.Skip(selection.Start).Take(selection.End - selection.Start).ToArray();
+        BatteryUsageBucket first = range[0];
+        BatteryUsageBucket last = range[^1];
+        string title = selection.Kind == HoverKind.PowerMode
+            ? "Power Plan"
+            : FormatUsageCategory(first);
+        string time = $"{first.Start:HH:mm} - {last.End:HH:mm}";
+        string duration = FormatDuration(last.End - first.Start);
+        string battery = $"{first.BatteryPercent:N0}% -> {last.BatteryPercent:N0}%";
+        double averageWatts = range.Select(bucket => bucket.AverageWatts).DefaultIfEmpty(0).Average();
+        string powerMode = MostCommonPowerMode(range) is { } mode ? FormatPowerMode(mode) : "Unavailable";
+
+        return selection.Kind == HoverKind.PowerMode
+            ? $"{title}\n{FormatPowerMode(first.PowerMode)}\n{time} ({duration})\nAvg W: {averageWatts:N1}"
+            : $"{title}\n{time} ({duration})\nBattery: {battery}\nAvg W: {averageWatts:N1}\nPower plan: {powerMode}";
+    }
+
+    private static string FormatUsageCategory(BatteryUsageBucket bucket)
+    {
+        if (bucket.IsCritical)
+        {
+            return "Critical";
+        }
+
+        if (bucket.IsPowerSave && !bucket.IsPluggedIn)
+        {
+            return "Power Save";
+        }
+
+        return GetUsageRangeCategory(bucket) switch
+        {
+            "charge" => "Charge",
+            "hold" => "Charge Hold",
+            "sleep" => "Sleep",
+            "missing" => "Missing Data",
+            "discharge" => "Battery Discharge",
+            _ => "Battery Usage"
+        };
+    }
+
+    private static WindowsPowerMode? MostCommonPowerMode(IEnumerable<BatteryUsageBucket> buckets) =>
+        buckets
+            .Where(bucket => bucket.PowerMode.HasValue)
+            .GroupBy(bucket => bucket.PowerMode!.Value)
+            .OrderByDescending(group => group.Count())
+            .Select(group => (WindowsPowerMode?)group.Key)
+            .FirstOrDefault();
+
+    private static string FormatPowerMode(WindowsPowerMode? mode) => mode switch
+    {
+        WindowsPowerMode.BestPowerEfficiency => "Power efficiency",
+        WindowsPowerMode.Balanced => "Balanced",
+        WindowsPowerMode.BestPerformance => "Performance",
+        _ => "Unavailable"
+    };
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+        {
+            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        }
+
+        return $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))}m";
+    }
+
     private static void DrawCurrentMarker(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         int index = -1;
@@ -464,4 +676,21 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             size,
             brush,
             1.0);
+
+    private readonly record struct ChartLayout(
+        double Left,
+        double Top,
+        double PlotWidth,
+        double PlotHeight,
+        double PowerModeLaneY,
+        double AverageWattsLaneY,
+        double TimeLabelsY);
+
+    private readonly record struct HoverSelection(int Start, int End, HoverKind Kind);
+
+    private enum HoverKind
+    {
+        Usage,
+        PowerMode
+    }
 }
