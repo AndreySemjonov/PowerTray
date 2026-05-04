@@ -11,7 +11,30 @@ namespace XPSBatteryTray.Controls;
 
 public sealed class UsageDetailGraphControl : FrameworkElement
 {
-    private const double PeakLabelHeadroomMultiplier = 1.35;
+    private static class Layout
+    {
+        public const double PeakLabelHeadroomMultiplier = 1.35;
+        public const double LeftPadding = 4;
+        public const double TopPadding = 8;
+        public const double RightAxisWidth = 45;
+        public const double BottomLabelHeight = 28;
+        public const double RightAxisLabelGap = 7;
+        public const double TimeLabelTopGap = 8;
+        public const double PeakMarkerRadius = 3.7;
+        public const double PeakLabelHorizontalPadding = 10;
+        public const double PeakLabelVerticalPadding = 5;
+        public const double PeakLabelGap = 8;
+        public const double PeakLabelMinWidth = 70;
+        public const double PeakLabelMaxWidth = 150;
+        public const double PeakLabelRightReserve = 48;
+    }
+
+    private static class Typography
+    {
+        public const double PeakLabelSize = 9;
+        public const double AxisLabelSize = 10;
+        public const double TimeLabelSize = 10;
+    }
 
     public static readonly DependencyProperty ValuesProperty =
         DependencyProperty.Register(nameof(Values), typeof(IEnumerable<double?>), typeof(UsageDetailGraphControl),
@@ -72,13 +95,9 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             return;
         }
 
-        const double leftPadding = 4;
-        const double topPadding = 8;
-        const double rightAxisWidth = 45;
-        const double bottomLabelHeight = 28;
-        double plotWidth = Math.Max(1, bounds.Width - leftPadding - rightAxisWidth);
-        double plotHeight = Math.Max(1, bounds.Height - topPadding - bottomLabelHeight);
-        double plotBottom = topPadding + plotHeight;
+        double plotWidth = Math.Max(1, bounds.Width - Layout.LeftPadding - Layout.RightAxisWidth);
+        double plotHeight = Math.Max(1, bounds.Height - Layout.TopPadding - Layout.BottomLabelHeight);
+        double plotBottom = Layout.TopPadding + plotHeight;
 
         int maxPoints = Math.Max(2, MaxPoints);
         double?[] raw = Values?.TakeLast(maxPoints).ToArray() ?? [];
@@ -86,16 +105,16 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         int firstVisibleIndex = Math.Max(0, originalCount - raw.Length);
         double scaleMaximum = CalculateScaleMaximum(raw);
 
-        DrawGrid(drawingContext, leftPadding, topPadding, plotWidth, plotHeight);
-        DrawAxisLabels(drawingContext, leftPadding + plotWidth + 7, topPadding, plotHeight, scaleMaximum);
-        DrawTimeLabels(drawingContext, leftPadding, plotWidth, plotBottom + 8);
+        DrawGrid(drawingContext, Layout.LeftPadding, Layout.TopPadding, plotWidth, plotHeight);
+        DrawAxisLabels(drawingContext, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding, plotHeight, scaleMaximum);
+        DrawTimeLabels(drawingContext, Layout.LeftPadding, plotWidth, plotBottom + Layout.TimeLabelTopGap);
 
-        var points = BuildPoints(raw, firstVisibleIndex, maxPoints, scaleMaximum, leftPadding, topPadding, plotWidth, plotHeight);
+        var points = BuildPoints(raw, firstVisibleIndex, maxPoints, scaleMaximum, Layout.LeftPadding, Layout.TopPadding, plotWidth, plotHeight);
 
         if (points.Count < 2)
         {
             var emptyPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
-            drawingContext.DrawLine(emptyPen, new WindowsPoint(leftPadding, topPadding + plotHeight / 2), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight / 2));
+            drawingContext.DrawLine(emptyPen, new WindowsPoint(Layout.LeftPadding, Layout.TopPadding + plotHeight / 2), new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding + plotHeight / 2));
             return;
         }
 
@@ -150,7 +169,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
                 continue;
             }
 
-            context.DrawEllipse(new SolidColorBrush(MediaColor.FromArgb(210, 26, 31, 36)), new MediaPen(Stroke, 1.4), point, 3.7, 3.7);
+            context.DrawEllipse(new SolidColorBrush(MediaColor.FromArgb(210, 26, 31, 36)), new MediaPen(Stroke, 1.4), point, Layout.PeakMarkerRadius, Layout.PeakMarkerRadius);
             DrawPeakLabel(context, peak.LabelText, point, bounds, usedLabelRects);
         }
     }
@@ -162,21 +181,21 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             System.Globalization.CultureInfo.CurrentCulture,
             System.Windows.FlowDirection.LeftToRight,
             new Typeface("Segoe UI Semibold"),
-            9,
+            Typography.PeakLabelSize,
             new SolidColorBrush(MediaColor.FromRgb(240, 244, 248)),
             1.0)
         {
-            MaxTextWidth = Math.Min(150, Math.Max(70, bounds.Width - 70)),
+            MaxTextWidth = Math.Min(Layout.PeakLabelMaxWidth, Math.Max(Layout.PeakLabelMinWidth, bounds.Width - Layout.PeakLabelMinWidth)),
             Trimming = TextTrimming.CharacterEllipsis
         };
 
-        double width = formatted.Width + 10;
-        double height = formatted.Height + 5;
-        double x = Math.Clamp(point.X - width / 2d, 6, Math.Max(6, bounds.Width - width - 48));
-        double y = point.Y - height - 8;
+        double width = formatted.Width + Layout.PeakLabelHorizontalPadding;
+        double height = formatted.Height + Layout.PeakLabelVerticalPadding;
+        double x = Math.Clamp(point.X - width / 2d, 6, Math.Max(6, bounds.Width - width - Layout.PeakLabelRightReserve));
+        double y = point.Y - height - Layout.PeakLabelGap;
         if (y < 4)
         {
-            y = point.Y + 8;
+            y = point.Y + Layout.PeakLabelGap;
         }
 
         var labelRect = new Rect(x, y, width, height);
@@ -186,7 +205,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             y += height + 4;
             if (y + height > bounds.Height - 28)
             {
-                y = point.Y - height - 8 - (attempts + 1) * (height + 4);
+                y = point.Y - height - Layout.PeakLabelGap - (attempts + 1) * (height + 4);
             }
 
             labelRect = new Rect(x, y, width, height);
@@ -236,7 +255,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             return 10;
         }
 
-        double target = Math.Clamp(maximum * PeakLabelHeadroomMultiplier, 10, 100);
+        double target = Math.Clamp(maximum * Layout.PeakLabelHeadroomMultiplier, 10, 100);
         double step = target switch
         {
             <= 20 => 5,
@@ -283,7 +302,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
                 y -= 1;
             }
 
-            DrawText(context, labels[i], brush, x, y, "Segoe UI", 10);
+            DrawText(context, labels[i], brush, x, y, "Segoe UI", Typography.AxisLabelSize);
         }
     }
 
@@ -296,7 +315,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         var brush = new SolidColorBrush(MediaColor.FromRgb(165, 171, 178));
         for (int i = 0; i < labels.Length; i++)
         {
-            var formatted = CreateText(labels[i], brush, "Segoe UI", 10);
+            var formatted = CreateText(labels[i], brush, "Segoe UI", Typography.TimeLabelSize);
             double x = left + i * width / (labels.Length - 1);
             if (i == labels.Length - 1)
             {

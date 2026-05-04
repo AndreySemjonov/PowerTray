@@ -13,6 +13,39 @@ namespace XPSBatteryTray.Controls;
 
 public sealed class BatteryUsageCombinedControl : FrameworkElement
 {
+    private static class Layout
+    {
+        public const double MinimumRenderableWidth = 80;
+        public const double MinimumRenderableHeight = 80;
+        public const double LeftPadding = 8;
+        public const double RightAxisWidth = 46;
+        public const double TopPadding = 26;
+        public const double BottomBandsHeight = 58;
+        public const double PowerPlanLaneOffset = 8;
+        public const double AverageWattsLaneOffset = 16;
+        public const double TimeLabelsOffset = 37;
+        public const double RightAxisLabelGap = 10;
+        public const double PowerPlanHitSlop = 7;
+        public const double PowerPlanHighlightHeight = 10;
+        public const double HoverHighlightBottomPadding = 18;
+        public const double FirstLaneSeparatorOffset = 7;
+        public const double SecondLaneSeparatorOffset = 18;
+        public const double BarGapRatio = 0.32;
+        public const double MinBarGap = 1.2;
+        public const double MaxBarGap = 4;
+        public const double MinBarWidth = 2.5;
+        public const double MinRangeWidth = 2;
+    }
+
+    private static class Typography
+    {
+        public const double AxisLabelSize = 12;
+        public const double ThresholdLabelSize = 10;
+        public const double LaneLabelSize = 10;
+        public const double TimeLabelSize = 11;
+        public const double EmptyTextSize = 12;
+    }
+
     public static readonly DependencyProperty BucketsProperty =
         DependencyProperty.Register(nameof(Buckets), typeof(IEnumerable<BatteryUsageBucket>), typeof(BatteryUsageCombinedControl),
             new FrameworkPropertyMetadata(Array.Empty<BatteryUsageBucket>(), FrameworkPropertyMetadataOptions.AffectsRender));
@@ -41,7 +74,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         base.OnRender(context);
         BatteryUsageBucket[] buckets = Buckets?.ToArray() ?? [];
         var bounds = new Rect(0, 0, ActualWidth, ActualHeight);
-        if (bounds.Width < 80 || bounds.Height < 80 || buckets.Length == 0)
+        if (bounds.Width < Layout.MinimumRenderableWidth || bounds.Height < Layout.MinimumRenderableHeight || buckets.Length == 0)
         {
             DrawCollecting(context, bounds);
             return;
@@ -58,29 +91,26 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         DrawLaneSeparators(context, layout.Left, layout.PlotWidth, layout.PowerModeLaneY, layout.AverageWattsLaneY);
         DrawAverageWattsLane(context, buckets, layout.Left, layout.PlotWidth, layout.AverageWattsLaneY);
         DrawCurrentMarker(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
-        DrawAxisLabels(context, layout.Left + layout.PlotWidth + 10, layout.Top, layout.PlotHeight);
-        DrawText(context, "Avg W", 10, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), layout.Left + layout.PlotWidth + 10, layout.AverageWattsLaneY);
-        DrawText(context, "Time", 10, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), layout.Left + layout.PlotWidth + 10, layout.TimeLabelsY);
+        DrawAxisLabels(context, layout.RightLabelX, layout.Top, layout.PlotHeight);
+        DrawText(context, "Avg W", Typography.LaneLabelSize, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), layout.RightLabelX, layout.AverageWattsLaneY);
+        DrawText(context, "Time", Typography.LaneLabelSize, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), layout.RightLabelX, layout.TimeLabelsY);
         DrawTimeLabels(context, layout.Left, layout.PlotWidth, layout.TimeLabelsY);
     }
 
     private static ChartLayout CreateLayout(double width, double height)
     {
-        const double leftPadding = 8;
-        const double rightPadding = 46;
-        const double topPadding = 26;
-        const double bottomPadding = 58;
-        double plotWidth = Math.Max(1, width - leftPadding - rightPadding);
-        double plotHeight = Math.Max(1, height - topPadding - bottomPadding);
-        double bottom = topPadding + plotHeight;
+        double plotWidth = Math.Max(1, width - Layout.LeftPadding - Layout.RightAxisWidth);
+        double plotHeight = Math.Max(1, height - Layout.TopPadding - Layout.BottomBandsHeight);
+        double bottom = Layout.TopPadding + plotHeight;
         return new ChartLayout(
-            leftPadding,
-            topPadding,
+            Layout.LeftPadding,
+            Layout.TopPadding,
             plotWidth,
             plotHeight,
-            bottom + 8,
-            bottom + 16,
-            bottom + 37);
+            Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap,
+            bottom + Layout.PowerPlanLaneOffset,
+            bottom + Layout.AverageWattsLaneOffset,
+            bottom + Layout.TimeLabelsOffset);
     }
 
     private static void DrawNoDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
@@ -90,7 +120,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         foreach ((double start, double end) in Ranges(buckets, b => b.Kind == BatteryUsageBucketKind.NoData))
         {
             double x = left + start * slot;
-            double w = Math.Max(2, (end - start) * slot);
+            double w = Math.Max(Layout.MinRangeWidth, (end - start) * slot);
             context.DrawRectangle(bandBrush, null, new Rect(x, top, w, height));
         }
     }
@@ -119,7 +149,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         foreach ((double start, double end) in Ranges(buckets, predicate))
         {
             double x = left + start * slot;
-            double w = Math.Max(2, (end - start) * slot);
+            double w = Math.Max(Layout.MinRangeWidth, (end - start) * slot);
             context.DrawRoundedRectangle(bandBrush, null, new Rect(x, top, w, height), 4, 4);
 
             var marker = FormatText(markerText, 20, markerBrush, "Segoe UI Symbol");
@@ -170,8 +200,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
     private static void DrawBars(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         double slot = width / buckets.Count;
-        double gap = Math.Clamp(slot * 0.32, 1.2, 4);
-        double barWidth = Math.Max(2.5, slot - gap);
+        double gap = Math.Clamp(slot * Layout.BarGapRatio, Layout.MinBarGap, Layout.MaxBarGap);
+        double barWidth = Math.Max(Layout.MinBarWidth, slot - gap);
         for (int i = 0; i < buckets.Count; i++)
         {
             BatteryUsageBucket bucket = buckets[i];
@@ -247,18 +277,18 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(115, 180, 190, 202)), 1);
         if (selection.Kind == HoverKind.PowerMode)
         {
-            context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.PowerModeLaneY - 5, width, 10), 4, 4);
+            context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.PowerModeLaneY - Layout.PowerPlanHighlightHeight / 2d, width, Layout.PowerPlanHighlightHeight), 4, 4);
             return;
         }
 
-        context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.Top, width, layout.TimeLabelsY + 18 - layout.Top), 4, 4);
+        context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.Top, width, layout.TimeLabelsY + Layout.HoverHighlightBottomPadding - layout.Top), 4, 4);
     }
 
     private static void DrawLaneSeparators(DrawingContext context, double left, double width, double powerModeLaneY, double averageWattsLaneY)
     {
         var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(88, 75, 82, 90)), 1);
-        context.DrawLine(pen, new WindowsPoint(left, powerModeLaneY + 7), new WindowsPoint(left + width, powerModeLaneY + 7));
-        context.DrawLine(pen, new WindowsPoint(left, averageWattsLaneY + 18), new WindowsPoint(left + width, averageWattsLaneY + 18));
+        context.DrawLine(pen, new WindowsPoint(left, powerModeLaneY + Layout.FirstLaneSeparatorOffset), new WindowsPoint(left + width, powerModeLaneY + Layout.FirstLaneSeparatorOffset));
+        context.DrawLine(pen, new WindowsPoint(left, averageWattsLaneY + Layout.SecondLaneSeparatorOffset), new WindowsPoint(left + width, averageWattsLaneY + Layout.SecondLaneSeparatorOffset));
     }
 
     private static void DrawAverageWattsLane(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double y)
@@ -286,7 +316,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             double averageWatts = watts.Average();
             string label = $"{averageWatts:N1}";
             MediaBrush brush = GetUsageRangeBrush(range[^1]);
-            var text = FormatText(label, 10, brush, "Segoe UI Semibold");
+            var text = FormatText(label, Typography.LaneLabelSize, brush, "Segoe UI Semibold");
             double textX = Math.Clamp(x + w / 2d - text.Width / 2d, left, left + width - text.Width);
             double? textY = FindAvailableLabelY(new Rect(textX, y, text.Width, text.Height), labelRects, y);
             if (!textY.HasValue)
@@ -447,7 +477,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         }
 
         int index = Math.Clamp((int)((point.X - layout.Left) / (layout.PlotWidth / buckets.Count)), 0, buckets.Count - 1);
-        if (point.Y >= layout.PowerModeLaneY - 7 && point.Y <= layout.PowerModeLaneY + 7 && buckets[index].PowerMode.HasValue)
+        if (point.Y >= layout.PowerModeLaneY - Layout.PowerPlanHitSlop && point.Y <= layout.PowerModeLaneY + Layout.PowerPlanHitSlop && buckets[index].PowerMode.HasValue)
         {
             return BuildRangeSelection(buckets, index, HoverKind.PowerMode, bucket => bucket.PowerMode == buckets[index].PowerMode);
         }
@@ -620,13 +650,13 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         var majorBrush = new SolidColorBrush(MediaColor.FromRgb(188, 193, 200));
         foreach (double percent in new[] { 100d, 50d, 0d })
         {
-            DrawText(context, $"{percent:N0}%", 12, majorBrush, x, PercentToY(percent, top, height) - 9);
+            DrawText(context, $"{percent:N0}%", Typography.AxisLabelSize, majorBrush, x, PercentToY(percent, top, height) - 9);
         }
 
         var thresholdBrush = new SolidColorBrush(MediaColor.FromRgb(142, 149, 158));
         foreach (double percent in new[] { 75d, 25d })
         {
-            DrawText(context, $"{percent:N0}%", 10, thresholdBrush, x, PercentToY(percent, top, height) - 7);
+            DrawText(context, $"{percent:N0}%", Typography.ThresholdLabelSize, thresholdBrush, x, PercentToY(percent, top, height) - 7);
         }
     }
 
@@ -640,7 +670,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         {
             string label = hour.ToString("00");
             double x = left + width * hour / 24d;
-            var formatted = FormatText(label, 11, brush);
+            var formatted = FormatText(label, Typography.TimeLabelSize, brush);
             if (hour == 24)
             {
                 x -= formatted.Width;
@@ -659,7 +689,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(80, 92, 98, 106)), 1);
         context.DrawLine(pen, new WindowsPoint(12, bounds.Height / 2d), new WindowsPoint(Math.Max(12, bounds.Width - 12), bounds.Height / 2d));
         var brush = new SolidColorBrush(MediaColor.FromRgb(175, 181, 190));
-        var text = FormatText("Collecting battery usage data...", 12, brush);
+        var text = FormatText("Collecting battery usage data...", Typography.EmptyTextSize, brush);
         context.DrawText(text, new WindowsPoint(Math.Max(8, bounds.Width / 2d - text.Width / 2d), bounds.Height / 2d - text.Height - 8));
     }
 
@@ -683,6 +713,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         double Top,
         double PlotWidth,
         double PlotHeight,
+        double RightLabelX,
         double PowerModeLaneY,
         double AverageWattsLaneY,
         double TimeLabelsY);

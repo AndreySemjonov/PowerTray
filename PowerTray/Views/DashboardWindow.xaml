@@ -4,7 +4,7 @@
         xmlns:controls="clr-namespace:XPSBatteryTray.Controls"
         Title="PowerTray"
         Width="620"
-        Height="910"
+        Height="870"
         MinWidth="520"
         MinHeight="820"
         MaxWidth="640"
