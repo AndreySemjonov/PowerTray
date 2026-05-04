@@ -535,7 +535,7 @@ public sealed class MainViewModel : ObservableObject
             string current = BatteryPowerWatts is { } watts ? $"{watts:N1} W" : "-- W";
             string average = _averageBatteryDischargeWatts is { } avg ? $"-{avg:N1} W" : "-- W";
             string rate = CalculateBatteryPercentRateText(Battery, _averageBatteryDischargeWatts);
-            return $"Cur: {current} | Avg: {average} | Rate: {rate}";
+            return $"Cur: {current} | 10m Avg: {average} | Rate: {rate}";
         }
     }
 

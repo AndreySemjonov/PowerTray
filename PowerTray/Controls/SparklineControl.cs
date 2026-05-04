@@ -12,6 +12,15 @@ public sealed class SparklineControl : FrameworkElement
 {
     private const double SmoothingTension = 0.42;
 
+    private static class Layout
+    {
+        public const double LeftPadding = 10;
+        public const double RightAxisWidth = 34;
+        public const double TopPadding = 4;
+        public const double BottomLabelHeight = 34;
+        public const double RightAxisLabelGap = 5;
+    }
+
     public static readonly DependencyProperty ValuesProperty =
         DependencyProperty.Register(nameof(Values), typeof(IEnumerable<double?>), typeof(SparklineControl),
             new FrameworkPropertyMetadata(Array.Empty<double?>(), FrameworkPropertyMetadataOptions.AffectsRender));
@@ -96,28 +105,24 @@ public sealed class SparklineControl : FrameworkElement
     {
         base.OnRender(drawingContext);
         var rect = new Rect(0, 0, ActualWidth, ActualHeight);
-        const double leftPadding = 10;
-        const double rightAxisWidth = 44;
-        const double topPadding = 4;
-        const double bottomLabelHeight = 34;
-        double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomLabelHeight);
-        double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightAxisWidth);
+        double plotHeight = Math.Max(1, ActualHeight - Layout.TopPadding - Layout.BottomLabelHeight);
+        double plotWidth = Math.Max(1, ActualWidth - Layout.LeftPadding - Layout.RightAxisWidth);
         var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(80, 88, 92, 98)), 1);
         for (int i = 1; i <= 3; i++)
         {
-            double y = topPadding + i * plotHeight / 4d;
-            drawingContext.DrawLine(gridPen, new WindowsPoint(leftPadding, y), new WindowsPoint(leftPadding + plotWidth, y));
+            double y = Layout.TopPadding + i * plotHeight / 4d;
+            drawingContext.DrawLine(gridPen, new WindowsPoint(Layout.LeftPadding, y), new WindowsPoint(Layout.LeftPadding + plotWidth, y));
         }
 
         int maxPoints = Math.Max(2, MaxPoints);
         double[] values = Values?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
         double[] secondaryValues = SecondaryValues?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
         double[] scaleValues = values.Concat(secondaryValues).ToArray();
-        DrawTimeLabels(drawingContext, leftPadding, plotWidth, topPadding + plotHeight + 7);
+        DrawTimeLabels(drawingContext, Layout.LeftPadding, plotWidth, Layout.TopPadding + plotHeight + 7);
         if (scaleValues.Length < 2 || ActualWidth <= 1 || ActualHeight <= 1)
         {
             var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
-            drawingContext.DrawLine(pen, new WindowsPoint(leftPadding, topPadding + plotHeight / 2), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight / 2));
+            drawingContext.DrawLine(pen, new WindowsPoint(Layout.LeftPadding, Layout.TopPadding + plotHeight / 2), new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding + plotHeight / 2));
             return;
         }
 
@@ -132,14 +137,14 @@ public sealed class SparklineControl : FrameworkElement
             max = min + 1;
         }
 
-        List<(WindowsPoint Point, double Value)> points = BuildPoints(displayValues, min, max, maxPoints, leftPadding, plotWidth, topPadding, plotHeight);
-        List<(WindowsPoint Point, double Value)> secondaryPoints = BuildPoints(displaySecondaryValues, min, max, maxPoints, leftPadding, plotWidth, topPadding, plotHeight);
+        List<(WindowsPoint Point, double Value)> points = BuildPoints(displayValues, min, max, maxPoints, Layout.LeftPadding, plotWidth, Layout.TopPadding, plotHeight);
+        List<(WindowsPoint Point, double Value)> secondaryPoints = BuildPoints(displaySecondaryValues, min, max, maxPoints, Layout.LeftPadding, plotWidth, Layout.TopPadding, plotHeight);
 
         bool flatZero = values.All(v => Math.Abs(v) < 0.05);
         if (points.Count >= 2)
         {
-            StreamGeometry geometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: false, topPadding + plotHeight);
-            StreamGeometry areaGeometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: true, topPadding + plotHeight);
+            StreamGeometry geometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: false, Layout.TopPadding + plotHeight);
+            StreamGeometry areaGeometry = BuildCurveGeometry(points.Select(p => p.Point).ToArray(), closeToBottom: true, Layout.TopPadding + plotHeight);
             geometry.Freeze();
             areaGeometry.Freeze();
             if (Fill is not null && !flatZero)
@@ -152,19 +157,19 @@ public sealed class SparklineControl : FrameworkElement
 
         if (secondaryPoints.Count >= 2)
         {
-            StreamGeometry secondaryGeometry = BuildCurveGeometry(secondaryPoints.Select(p => p.Point).ToArray(), closeToBottom: false, topPadding + plotHeight);
+            StreamGeometry secondaryGeometry = BuildCurveGeometry(secondaryPoints.Select(p => p.Point).ToArray(), closeToBottom: false, Layout.TopPadding + plotHeight);
             secondaryGeometry.Freeze();
             drawingContext.DrawGeometry(null, CreateCurvePen(SecondaryStroke), secondaryGeometry);
         }
 
         var axisPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(47, 54, 64)), 1);
-        drawingContext.DrawLine(axisPen, new WindowsPoint(leftPadding, topPadding + plotHeight), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight));
-        drawingContext.DrawLine(axisPen, new WindowsPoint(leftPadding + plotWidth, topPadding), new WindowsPoint(leftPadding + plotWidth, topPadding + plotHeight));
+        drawingContext.DrawLine(axisPen, new WindowsPoint(Layout.LeftPadding, Layout.TopPadding + plotHeight), new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding + plotHeight));
+        drawingContext.DrawLine(axisPen, new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding), new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding + plotHeight));
 
         var textBrush = new SolidColorBrush(MediaColor.FromRgb(175, 178, 184));
-        DrawLabel(drawingContext, max, textBrush, leftPadding + plotWidth + 7, topPadding - 1);
-        DrawLabel(drawingContext, (max + min) / 2d, textBrush, leftPadding + plotWidth + 7, topPadding + plotHeight / 2d - 7);
-        DrawLabel(drawingContext, min, textBrush, leftPadding + plotWidth + 7, topPadding + plotHeight - 14);
+        DrawLabel(drawingContext, max, textBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding - 1);
+        DrawLabel(drawingContext, (max + min) / 2d, textBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding + plotHeight / 2d - 7);
+        DrawLabel(drawingContext, min, textBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding + plotHeight - 14);
 
         if (secondaryPoints.Count > 2 && !isFlat)
         {
