@@ -39,8 +39,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomPadding);
         double bottom = topPadding + plotHeight;
 
-        DrawMissingDataBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
-        DrawChargingBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
+        DrawNoDataBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
+        DrawExternalPowerBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawGrid(context, leftPadding, plotWidth, topPadding, plotHeight);
         DrawBars(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawCurrentMarker(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
@@ -48,11 +48,11 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         DrawTimeLabels(context, leftPadding, plotWidth, bottom + 7);
     }
 
-    private static void DrawMissingDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
+    private static void DrawNoDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         double slot = width / buckets.Count;
         var bandBrush = new SolidColorBrush(MediaColor.FromArgb(42, 36, 40, 45));
-        foreach ((double start, double end) in Ranges(buckets, b => b.IsMissingData))
+        foreach ((double start, double end) in Ranges(buckets, b => b.Kind == BatteryUsageBucketKind.NoData))
         {
             double x = left + start * slot;
             double w = Math.Max(2, (end - start) * slot);
@@ -60,18 +60,34 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         }
     }
 
-    private static void DrawChargingBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
+    private static void DrawExternalPowerBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         double slot = width / buckets.Count;
-        var bandBrush = new SolidColorBrush(MediaColor.FromArgb(70, 58, 122, 51));
-        var markerBrush = new SolidColorBrush(MediaColor.FromRgb(163, 232, 105));
-        foreach ((double start, double end) in Ranges(buckets, b => b.HasData && b.IsCharging))
+        DrawPowerBand(context, buckets, left, top, height, slot, b => b.IsCharging, MediaColor.FromArgb(70, 58, 122, 51), "\u26A1", MediaColor.FromRgb(163, 232, 105));
+        DrawPowerBand(context, buckets, left, top, height, slot, b => b.Kind == BatteryUsageBucketKind.ChargeHold, MediaColor.FromArgb(74, 35, 107, 108), "\u2161", MediaColor.FromRgb(84, 214, 198));
+    }
+
+    private static void DrawPowerBand(
+        DrawingContext context,
+        IReadOnlyList<BatteryUsageBucket> buckets,
+        double left,
+        double top,
+        double height,
+        double slot,
+        Func<BatteryUsageBucket, bool> predicate,
+        MediaColor bandColor,
+        string markerText,
+        MediaColor markerColor)
+    {
+        var bandBrush = new SolidColorBrush(bandColor);
+        var markerBrush = new SolidColorBrush(markerColor);
+        foreach ((double start, double end) in Ranges(buckets, predicate))
         {
             double x = left + start * slot;
             double w = Math.Max(2, (end - start) * slot);
             context.DrawRoundedRectangle(bandBrush, null, new Rect(x, top, w, height), 4, 4);
 
-            var marker = FormatText("\u26A1", 20, markerBrush, "Segoe UI Symbol");
+            var marker = FormatText(markerText, 20, markerBrush, "Segoe UI Symbol");
             context.DrawText(marker, new WindowsPoint(x + w / 2d - marker.Width / 2d, Math.Max(0, top - 24)));
         }
     }
@@ -114,7 +130,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         for (int i = 0; i < buckets.Count; i++)
         {
             BatteryUsageBucket bucket = buckets[i];
-            if (!bucket.HasData)
+            if (!ShouldDrawBar(bucket))
             {
                 continue;
             }
@@ -123,9 +139,29 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             double barHeight = Math.Max(3, normalized * height);
             double x = left + i * slot + (slot - barWidth) / 2d;
             double y = top + height - barHeight;
-            context.DrawRoundedRectangle(GetBarBrush(bucket), null, new Rect(x, y, barWidth, barHeight), 2, 2);
+            var rect = new Rect(x, y, barWidth, barHeight);
+            if (bucket.Kind == BatteryUsageBucketKind.Missing)
+            {
+                var fill = new SolidColorBrush(MediaColor.FromArgb(52, 196, 204, 214));
+                var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(196, 204, 214)), 1)
+                {
+                    DashStyle = new DashStyle([2, 2], 0)
+                };
+                context.DrawRoundedRectangle(fill, pen, rect, 2, 2);
+            }
+            else
+            {
+                context.DrawRoundedRectangle(GetBarBrush(bucket), null, rect, 2, 2);
+            }
         }
     }
+
+    private static bool ShouldDrawBar(BatteryUsageBucket bucket) =>
+        bucket.HasData
+        || bucket.Kind is BatteryUsageBucketKind.Sleep
+            or BatteryUsageBucketKind.Missing
+            or BatteryUsageBucketKind.InferredCharge
+            or BatteryUsageBucketKind.ChargeHold;
 
     private static void DrawCurrentMarker(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
@@ -152,6 +188,21 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
 
     private static MediaBrush GetBarBrush(BatteryUsageBucket bucket)
     {
+        if (bucket.Kind == BatteryUsageBucketKind.Sleep)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(88, 166, 255));
+        }
+
+        if (bucket.Kind == BatteryUsageBucketKind.InferredCharge)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(154, 215, 108));
+        }
+
+        if (bucket.Kind == BatteryUsageBucketKind.ChargeHold)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(84, 214, 198));
+        }
+
         if (bucket.IsCharging)
         {
             return new SolidColorBrush(MediaColor.FromRgb(154, 215, 108));

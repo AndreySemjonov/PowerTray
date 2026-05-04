@@ -9,8 +9,10 @@ public sealed class BatteryUsageService
 {
     private const int RetentionDays = 7;
     private const int BucketCount = 96;
+    private const double ChargeInferenceMinimumPercent = 1;
+    private const double SleepDrainMaximumPercent = 3;
+    private const double SleepDrainMaximumPercentPerHour = 2;
     private static readonly TimeSpan BucketSize = TimeSpan.FromMinutes(15);
-    private static readonly TimeSpan MissingDataThreshold = TimeSpan.FromMinutes(30);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     private readonly string _historyPath = Path.Combine(LogService.AppDataRoot, "battery-usage-history.json");
@@ -124,7 +126,7 @@ public sealed class BatteryUsageService
         TimeSpan age = _state.SessionStart == default ? TimeSpan.Zero : now - _state.SessionStart;
         return new BatteryUsageSnapshot
         {
-            Title = "Battery Usage Since Charge (24h)",
+            Title = "Battery usage (24h)",
             Date = selectedDate,
             SessionText = FormatDuration(age),
             ActiveText = FormatDuration(TimeSpan.FromSeconds(_state.ActiveSeconds)),
@@ -144,6 +146,9 @@ public sealed class BatteryUsageService
             .Where(s => s.Timestamp >= dayStart && s.Timestamp < dayEnd)
             .OrderBy(s => s.Timestamp)
             .ToArray();
+        BatteryUsageSample[] allSamples = _state.Samples
+            .OrderBy(s => s.Timestamp)
+            .ToArray();
 
         var buckets = new List<BatteryUsageBucket>(BucketCount);
         for (int i = 0; i < BucketCount; i++)
@@ -157,21 +162,34 @@ public sealed class BatteryUsageService
             BatteryUsageSample? representative = bucketSamples.LastOrDefault();
             bool hasData = representative is not null;
             bool isFuture = bucketStart > now;
+            BatteryUsageBucketKind kind = BatteryUsageBucketKind.Observed;
+            int percent = hasData ? representative!.BatteryPercent : 0;
             if (!hasData && !isFuture)
             {
-                representative = FindNearestSample(samples, bucketStart + BucketSize / 2);
-                hasData = representative is not null && Distance(representative.Timestamp, bucketStart + BucketSize / 2) <= MissingDataThreshold;
+                (kind, percent) = InferGapBucket(allSamples, bucketStart, bucketEnd);
             }
 
-            int percent = hasData ? representative!.BatteryPercent : 0;
+            bool pluggedIn = hasData && (bucketSamples.Length > 0
+                ? bucketSamples.Count(s => s.IsPluggedIn) >= Math.Max(1, bucketSamples.Length / 2)
+                : representative!.IsPluggedIn);
+            bool positiveWatts = hasData && (bucketSamples.Length > 0
+                ? bucketSamples.Any(s => s.BatteryWatts is > 0.5)
+                : representative!.BatteryWatts is > 0.5);
+            bool percentRising = bucketSamples.Length >= 2
+                ? bucketSamples[^1].BatteryPercent > bucketSamples[0].BatteryPercent
+                : representative is not null && FindPreviousSample(allSamples, bucketStart) is { } previousSample
+                    && representative.BatteryPercent > previousSample.BatteryPercent;
             double averageWatts = bucketSamples
                 .Where(s => s.BatteryWatts.HasValue)
                 .Select(s => s.BatteryWatts!.Value)
                 .DefaultIfEmpty(representative?.BatteryWatts ?? 0)
                 .Average();
-            bool charging = hasData && (bucketSamples.Length > 0
-                ? bucketSamples.Count(s => s.IsCharging) >= Math.Max(1, bucketSamples.Length / 2)
-                : representative!.IsCharging);
+            bool charging = kind == BatteryUsageBucketKind.InferredCharge || (pluggedIn && (positiveWatts || percentRising));
+            if (hasData && pluggedIn && !charging)
+            {
+                kind = BatteryUsageBucketKind.ChargeHold;
+            }
+
             bool powerSave = hasData && (bucketSamples.Length > 0
                 ? bucketSamples.Any(s => s.IsPowerSave)
                 : representative!.IsPowerSave);
@@ -186,33 +204,92 @@ public sealed class BatteryUsageService
                 Label = BuildBucketLabel(i, bucketStart),
                 BatteryPercent = percent,
                 AverageWatts = averageWatts,
+                IsPluggedIn = pluggedIn || kind is BatteryUsageBucketKind.InferredCharge or BatteryUsageBucketKind.ChargeHold,
                 IsCharging = charging,
                 IsPowerSave = powerSave,
                 IsCritical = critical,
-                IsMissingData = !hasData && !isFuture,
+                IsMissingData = kind == BatteryUsageBucketKind.NoData,
                 IsCurrent = now >= bucketStart && now < bucketEnd,
-                HasData = hasData
+                HasData = hasData,
+                Kind = kind
             });
         }
 
         return buckets;
     }
 
-    private static BatteryUsageSample? FindNearestSample(IReadOnlyList<BatteryUsageSample> samples, DateTimeOffset target)
+    private static (BatteryUsageBucketKind Kind, int Percent) InferGapBucket(IReadOnlyList<BatteryUsageSample> samples, DateTimeOffset bucketStart, DateTimeOffset bucketEnd)
     {
-        BatteryUsageSample? nearest = null;
-        TimeSpan nearestDistance = TimeSpan.MaxValue;
+        BatteryUsageSample? before = null;
+        BatteryUsageSample? after = null;
         foreach (BatteryUsageSample sample in samples)
         {
-            TimeSpan distance = Distance(sample.Timestamp, target);
-            if (distance < nearestDistance)
+            if (sample.Timestamp < bucketStart)
             {
-                nearest = sample;
-                nearestDistance = distance;
+                before = sample;
+                continue;
+            }
+
+            if (sample.Timestamp >= bucketEnd)
+            {
+                after = sample;
+                break;
             }
         }
 
-        return nearest;
+        int fallbackPercent = before?.BatteryPercent ?? after?.BatteryPercent ?? 0;
+        if (before is null || after is null || after.Timestamp <= before.Timestamp)
+        {
+            return (BatteryUsageBucketKind.NoData, fallbackPercent);
+        }
+
+        int percent = InterpolateBatteryPercent(before, after, bucketStart + BucketSize / 2);
+        double delta = after.BatteryPercent - before.BatteryPercent;
+        if (delta >= ChargeInferenceMinimumPercent)
+        {
+            return (BatteryUsageBucketKind.InferredCharge, percent);
+        }
+
+        double drain = Math.Max(0, -delta);
+        if (before.IsPluggedIn && after.IsPluggedIn && drain <= SleepDrainMaximumPercent)
+        {
+            return (BatteryUsageBucketKind.ChargeHold, percent);
+        }
+
+        double hours = Math.Max((after.Timestamp - before.Timestamp).TotalHours, BucketSize.TotalHours);
+        double sleepDrainLimit = Math.Max(SleepDrainMaximumPercent, hours * SleepDrainMaximumPercentPerHour);
+        return drain <= sleepDrainLimit
+            ? (BatteryUsageBucketKind.Sleep, percent)
+            : (BatteryUsageBucketKind.Missing, percent);
+    }
+
+    private static int InterpolateBatteryPercent(BatteryUsageSample before, BatteryUsageSample after, DateTimeOffset timestamp)
+    {
+        double totalTicks = (after.Timestamp - before.Timestamp).Ticks;
+        if (totalTicks <= 0)
+        {
+            return Math.Clamp(before.BatteryPercent, 0, 100);
+        }
+
+        double progress = Math.Clamp((timestamp - before.Timestamp).Ticks / totalTicks, 0, 1);
+        double percent = before.BatteryPercent + (after.BatteryPercent - before.BatteryPercent) * progress;
+        return Math.Clamp((int)Math.Round(percent), 0, 100);
+    }
+
+    private static BatteryUsageSample? FindPreviousSample(IReadOnlyList<BatteryUsageSample> samples, DateTimeOffset timestamp)
+    {
+        BatteryUsageSample? previous = null;
+        foreach (BatteryUsageSample sample in samples)
+        {
+            if (sample.Timestamp >= timestamp)
+            {
+                break;
+            }
+
+            previous = sample;
+        }
+
+        return previous;
     }
 
     private void SaveIfNeeded(DateTimeOffset now, bool force)
@@ -243,9 +320,6 @@ public sealed class BatteryUsageService
 
         return bucketStart.Hour % 2 == 0 && bucketStart.Minute == 0 ? bucketStart.ToString("HH") : string.Empty;
     }
-
-    private static TimeSpan Distance(DateTimeOffset left, DateTimeOffset right) =>
-        TimeSpan.FromTicks(Math.Abs((left - right).Ticks));
 
     private static string FormatDuration(TimeSpan duration)
     {
@@ -343,6 +417,6 @@ public sealed class BatteryUsageService
         public bool IsPowerSave { get; set; }
         public bool IsCritical { get; set; }
 
-        public bool IsCharging => IsPluggedIn || BatteryWatts is > 0.5;
+        public bool IsCharging => BatteryWatts is > 0.5;
     }
 }

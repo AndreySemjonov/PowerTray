@@ -218,15 +218,23 @@
 
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Ellipse Fill="#8E949A" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Battery level" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,12,0" />
+                            <TextBlock Text="Level" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
                             <Ellipse Fill="#9AD76C" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Charging" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,12,0" />
+                            <TextBlock Text="Charge" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
+                            <Ellipse Fill="#54D6C6" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Hold" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
+                            <Ellipse Fill="#58A6FF" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Sleep" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
+                            <Canvas Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center">
+                                <Rectangle Width="8" Height="8" RadiusX="2" RadiusY="2" Fill="#34C4CCD6" Stroke="#C4CCD6" StrokeThickness="1" StrokeDashArray="2,1" />
+                            </Canvas>
+                            <TextBlock Text="Missing" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
                             <Ellipse Fill="#EDB848" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Power save" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,12,0" />
+                            <TextBlock Text="Saver" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
                             <Ellipse Fill="#D65C53" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Critical" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,12,0" />
+                            <TextBlock Text="Critical" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,0,8,0" />
                             <Border Background="#2A2E34" BorderBrush="#585E66" BorderThickness="1" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="No data" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
+                            <TextBlock Text="No data" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
                         </WrapPanel>
                     </Grid>
                 </Border>

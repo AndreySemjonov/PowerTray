@@ -2,7 +2,7 @@ namespace XPSBatteryTray.Models;
 
 public sealed class BatteryUsageSnapshot
 {
-    public string Title { get; init; } = "Battery Usage Since Charge (24h)";
+    public string Title { get; init; } = "Battery usage (24h)";
     public DateTime Date { get; init; } = DateTime.Today;
     public string SessionText { get; init; } = "0m";
     public string ActiveText { get; init; } = "0m";
