@@ -69,7 +69,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         const double leftPadding = 8;
         const double rightPadding = 46;
         const double topPadding = 26;
-        const double bottomPadding = 72;
+        const double bottomPadding = 58;
         double plotWidth = Math.Max(1, width - leftPadding - rightPadding);
         double plotHeight = Math.Max(1, height - topPadding - bottomPadding);
         double bottom = topPadding + plotHeight;
@@ -79,8 +79,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             plotWidth,
             plotHeight,
             bottom + 8,
-            bottom + 18,
-            bottom + 47);
+            bottom + 16,
+            bottom + 37);
     }
 
     private static void DrawNoDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
@@ -251,14 +251,14 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             return;
         }
 
-        context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.Top, width, layout.AverageWattsLaneY + 26 - layout.Top), 4, 4);
+        context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.Top, width, layout.TimeLabelsY + 18 - layout.Top), 4, 4);
     }
 
     private static void DrawLaneSeparators(DrawingContext context, double left, double width, double powerModeLaneY, double averageWattsLaneY)
     {
         var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(88, 75, 82, 90)), 1);
         context.DrawLine(pen, new WindowsPoint(left, powerModeLaneY + 7), new WindowsPoint(left + width, powerModeLaneY + 7));
-        context.DrawLine(pen, new WindowsPoint(left, averageWattsLaneY + 26), new WindowsPoint(left + width, averageWattsLaneY + 26));
+        context.DrawLine(pen, new WindowsPoint(left, averageWattsLaneY + 18), new WindowsPoint(left + width, averageWattsLaneY + 18));
     }
 
     private static void DrawAverageWattsLane(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double y)
@@ -288,26 +288,27 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             MediaBrush brush = GetUsageRangeBrush(range[^1]);
             var text = FormatText(label, 10, brush, "Segoe UI Semibold");
             double textX = Math.Clamp(x + w / 2d - text.Width / 2d, left, left + width - text.Width);
-            double textY = FindAvailableLabelY(new Rect(textX, y, text.Width, text.Height), labelRects, y);
-            var labelRect = new Rect(textX, textY, text.Width, text.Height);
+            double? textY = FindAvailableLabelY(new Rect(textX, y, text.Width, text.Height), labelRects, y);
+            if (!textY.HasValue)
+            {
+                continue;
+            }
+
+            var labelRect = new Rect(textX, textY.Value, text.Width, text.Height);
             labelRects.Add(labelRect);
-            context.DrawText(text, new WindowsPoint(textX, textY));
+            context.DrawText(text, new WindowsPoint(textX, textY.Value));
         }
     }
 
-    private static double FindAvailableLabelY(Rect preferredRect, IReadOnlyList<Rect> placedLabels, double baseY)
+    private static double? FindAvailableLabelY(Rect preferredRect, IReadOnlyList<Rect> placedLabels, double baseY)
     {
-        double[] rows = [baseY, baseY + 11];
-        foreach (double rowY in rows)
+        var candidate = new Rect(preferredRect.X, baseY, preferredRect.Width, preferredRect.Height);
+        if (!placedLabels.Any(rect => rect.IntersectsWith(candidate)))
         {
-            var candidate = new Rect(preferredRect.X, rowY, preferredRect.Width, preferredRect.Height);
-            if (!placedLabels.Any(rect => rect.IntersectsWith(candidate)))
-            {
-                return candidate.Y;
-            }
+            return candidate.Y;
         }
 
-        return rows[1];
+        return null;
     }
 
     private static IEnumerable<(int Start, int End)> UsageRanges(IReadOnlyList<BatteryUsageBucket> buckets)
