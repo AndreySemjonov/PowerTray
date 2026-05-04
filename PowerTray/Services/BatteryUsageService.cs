@@ -95,6 +95,10 @@ public sealed class BatteryUsageService
 
     private void AddOrUpdateSample(DateTimeOffset now, BatteryStatus battery, WindowsPowerMode? powerMode)
     {
+        _state.LastFullChargeCapacityMilliWattHours = battery.BatteryHealth.FullChargeCapacityMilliWattHours
+            ?? battery.BatteryHealth.DesignCapacityMilliWattHours
+            ?? _state.LastFullChargeCapacityMilliWattHours;
+
         var sample = new BatteryUsageSample
         {
             Timestamp = now,
@@ -187,6 +191,10 @@ public sealed class BatteryUsageService
                 .Select(s => s.BatteryWatts!.Value)
                 .DefaultIfEmpty(representative?.BatteryWatts ?? 0)
                 .Average();
+            if (!hasData)
+            {
+                averageWatts = EstimateGapAverageWatts(allSamples, bucketStart, bucketEnd, _state.LastFullChargeCapacityMilliWattHours);
+            }
             bool charging = kind == BatteryUsageBucketKind.InferredCharge || (pluggedIn && (positiveWatts || percentRising));
             if (hasData && pluggedIn && !charging)
             {
@@ -268,6 +276,31 @@ public sealed class BatteryUsageService
         return drain <= sleepDrainLimit
             ? (BatteryUsageBucketKind.Sleep, percent)
             : (BatteryUsageBucketKind.Missing, percent);
+    }
+
+    private static double EstimateGapAverageWatts(IReadOnlyList<BatteryUsageSample> samples, DateTimeOffset bucketStart, DateTimeOffset bucketEnd, double? fullChargeCapacityMilliWattHours)
+    {
+        if (fullChargeCapacityMilliWattHours is not > 0)
+        {
+            return 0;
+        }
+
+        BatteryUsageSample? before = FindPreviousSample(samples, bucketStart);
+        BatteryUsageSample? after = samples.FirstOrDefault(s => s.Timestamp >= bucketEnd);
+        if (before is null || after is null || after.Timestamp <= before.Timestamp)
+        {
+            return 0;
+        }
+
+        double hours = (after.Timestamp - before.Timestamp).TotalHours;
+        if (hours <= 0)
+        {
+            return 0;
+        }
+
+        double deltaPercent = after.BatteryPercent - before.BatteryPercent;
+        double wattHours = fullChargeCapacityMilliWattHours.Value / 1000d * deltaPercent / 100d;
+        return wattHours / hours;
     }
 
     private static int InterpolateBatteryPercent(BatteryUsageSample before, BatteryUsageSample after, DateTimeOffset timestamp)
@@ -505,6 +538,7 @@ public sealed class BatteryUsageService
         public DateTimeOffset SessionStart { get; set; }
         public double ActiveSeconds { get; set; }
         public double IdleSeconds { get; set; }
+        public double? LastFullChargeCapacityMilliWattHours { get; set; }
         public List<BatteryUsageSample> Samples { get; set; } = [];
     }
 

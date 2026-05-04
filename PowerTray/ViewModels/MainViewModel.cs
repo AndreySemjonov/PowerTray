@@ -18,6 +18,9 @@ public sealed class MainViewModel : ObservableObject
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
     private bool _isRefreshing;
+    private bool _isUsageDetailsVisible;
+    private TimeSpan? _averageBatteryTimeRemaining;
+    private double? _averageBatteryDischargeWatts;
 
     private BatteryStatus _battery = new();
     private string _dellChargeSetting = "Unknown";
@@ -35,6 +38,8 @@ public sealed class MainViewModel : ObservableObject
     private IReadOnlyList<double?> _batteryWattsGraphValues = [];
     private IReadOnlyList<double?> _cpuPowerGraphValues = [];
     private IReadOnlyList<double?> _fanGraphValues = [];
+    private IReadOnlyList<UsagePeakInfo> _cpuUsagePeaks = [];
+    private IReadOnlyList<UsagePeakInfo> _gpuUsagePeaks = [];
     private string _cpuGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
     private string _systemUsageGraphSummary = "CPU cur -- | GPU cur -- | CPU avg -- | GPU avg --";
     private string _batteryWattsGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
@@ -65,6 +70,8 @@ public sealed class MainViewModel : ObservableObject
         ApplyBatteryPresetCommand = new RelayCommand(async parameter => await ApplyBatteryPresetAsync(parameter));
         ApplyWindowsPowerModeCommand = new RelayCommand(parameter => ApplyWindowsPowerMode(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
+        ShowUsageDetailsCommand = new RelayCommand(() => IsUsageDetailsVisible = true);
+        HideUsageDetailsCommand = new RelayCommand(() => IsUsageDetailsVisible = false);
         PreviousBatteryUsageDayCommand = new RelayCommand(ShowPreviousBatteryUsageDay);
         NextBatteryUsageDayCommand = new RelayCommand(ShowNextBatteryUsageDay);
         TodayBatteryUsageCommand = new RelayCommand(ShowTodayBatteryUsage);
@@ -73,6 +80,12 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public event EventHandler? OpenSettingsRequested;
+
+    public bool IsUsageDetailsVisible
+    {
+        get => _isUsageDetailsVisible;
+        private set => SetProperty(ref _isUsageDetailsVisible, value);
+    }
 
     public BatteryStatus Battery
     {
@@ -142,6 +155,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(CpuUsageText));
                 OnPropertyChanged(nameof(CpuGaugeValue));
+                OnPropertyChanged(nameof(CpuNowDetailText));
             }
         }
     }
@@ -154,6 +168,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _gpuUsagePercent, value))
             {
                 OnPropertyChanged(nameof(GpuUsageText));
+                OnPropertyChanged(nameof(GpuNowDetailText));
             }
         }
     }
@@ -192,7 +207,9 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _batteryPowerWatts, value))
             {
                 OnPropertyChanged(nameof(BatteryPowerText));
+                OnPropertyChanged(nameof(BatteryDrainSummaryText));
                 OnPropertyChanged(nameof(BatteryFlowChipText));
+                OnPropertyChanged(nameof(BatteryTimeText));
             }
         }
     }
@@ -243,6 +260,18 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _fanGraphValues;
         private set => SetProperty(ref _fanGraphValues, value);
+    }
+
+    public IReadOnlyList<UsagePeakInfo> CpuUsagePeaks
+    {
+        get => _cpuUsagePeaks;
+        private set => SetProperty(ref _cpuUsagePeaks, value);
+    }
+
+    public IReadOnlyList<UsagePeakInfo> GpuUsagePeaks
+    {
+        get => _gpuUsagePeaks;
+        private set => SetProperty(ref _gpuUsagePeaks, value);
     }
 
     public string CpuGraphSummary
@@ -376,6 +405,8 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ApplyBatteryPresetCommand { get; }
     public ICommand ApplyWindowsPowerModeCommand { get; }
     public ICommand OpenSettingsCommand { get; }
+    public ICommand ShowUsageDetailsCommand { get; }
+    public ICommand HideUsageDetailsCommand { get; }
     public ICommand PreviousBatteryUsageDayCommand { get; }
     public ICommand NextBatteryUsageDayCommand { get; }
     public ICommand TodayBatteryUsageCommand { get; }
@@ -462,14 +493,51 @@ public sealed class MainViewModel : ObservableObject
         : SelectedBatteryUsageDate.ToString("MMM d");
     public bool CanShowNextBatteryUsageDay => SelectedBatteryUsageDate < DateTime.Today;
     public string TopAppUsageEmptyText => EnergyImpactProcesses.Count == 0 ? "No app usage data yet" : string.Empty;
+    public string CpuNowDetailText => $"{CpuUsagePercent:N0}%";
+    public string GpuNowDetailText => GpuUsagePercent is { } value ? $"{value:N0}%" : "--";
+    public string CpuMaxDetailText => FormatMaxPercent(CpuGraphValues);
+    public string GpuMaxDetailText => FormatMaxPercent(GpuGraphValues);
+    public string DetailSamplingText => $"{_settingsService.Current.SensorSampleIntervalSeconds}s";
+    public string CpuAverageDetailText => FormatAveragePercent(CpuGraphValues);
+    public string GpuAverageDetailText => FormatAveragePercent(GpuGraphValues);
+    public string CpuTimeAbove50Text => FormatTimeAbove(CpuGraphValues, 50, _settingsService.Current.SensorSampleIntervalSeconds);
+    public string GpuTimeAbove50Text => FormatTimeAbove(GpuGraphValues, 50, _settingsService.Current.SensorSampleIntervalSeconds);
+    public string CpuSamplesDetailText => FormatSampleCount(CpuGraphValues);
+    public string GpuSamplesDetailText => FormatSampleCount(GpuGraphValues);
 
-    public string BatteryTimeText => Battery.EstimatedTimeRemaining is { } remaining
-        ? $"{remaining.Hours + remaining.Days * 24}h {remaining.Minutes}m remaining"
-        : "Time remaining unavailable";
+    public string BatteryTimeText
+    {
+        get
+        {
+            if (Battery.IsPluggedIn)
+            {
+                return BatteryPowerWatts switch
+                {
+                    > 0.5 => "Charging",
+                    _ => "Plugged in"
+                };
+            }
+
+            TimeSpan? remaining = _averageBatteryTimeRemaining ?? Battery.EstimatedTimeRemaining;
+            return remaining is { } value
+                ? $"{value.Hours + value.Days * 24}h {value.Minutes}m remaining"
+                : "Time remaining unavailable";
+        }
+    }
 
     public string BatteryPowerText => BatteryPowerWatts is { } watts
         ? $"{watts:N1} W"
         : "Watts unavailable";
+    public string BatteryDrainSummaryText
+    {
+        get
+        {
+            string current = BatteryPowerWatts is { } watts ? $"{watts:N1} W" : "-- W";
+            string average = _averageBatteryDischargeWatts is { } avg ? $"-{avg:N1} W" : "-- W";
+            string rate = CalculateBatteryPercentRateText(Battery, _averageBatteryDischargeWatts);
+            return $"Cur: {current} | Avg: {average} | Rate: {rate}";
+        }
+    }
 
     public string BatteryHealthText => Battery.BatteryHealth.HealthPercent is { } health
         ? $"Health {health:N0}%"
@@ -532,6 +600,8 @@ public sealed class MainViewModel : ObservableObject
     {
         ConfigureTimer();
         StatusMessage = "Settings saved.";
+        OnPropertyChanged(nameof(DetailSamplingText));
+        NotifyUsageDetailMetricsChanged();
     }
 
     public async Task RefreshDellChargeAsync()
@@ -663,7 +733,8 @@ public sealed class MainViewModel : ObservableObject
                 CpuTemperatureCelsius = sensors.CpuTemperatureCelsius,
                 CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,
                 BatteryPowerWatts = Battery.ChargeRateWatts,
-                FanRpm = sensors.FanRpm.Values.FirstOrDefault()
+                FanRpm = sensors.FanRpm.Values.FirstOrDefault(),
+                TopCpuProcessName = topCpu.FirstOrDefault()?.Name
             });
         }
         finally
@@ -686,11 +757,18 @@ public sealed class MainViewModel : ObservableObject
         BatteryWattsGraphValues = _samples.Select(s => s.BatteryPowerWatts).ToArray();
         CpuPowerGraphValues = _samples.Select(s => s.CpuPackagePowerWatts).ToArray();
         FanGraphValues = _samples.Select(s => s.FanRpm).ToArray();
+        _averageBatteryDischargeWatts = CalculateAverageBatteryDischargeWatts(_samples);
+        _averageBatteryTimeRemaining = CalculateAverageBatteryTimeRemaining(Battery, _averageBatteryDischargeWatts);
+        CpuUsagePeaks = BuildUsagePeaks(_samples, s => s.CpuUsagePercent, s => s.TopCpuProcessName, includeProcessName: true);
+        GpuUsagePeaks = BuildUsagePeaks(_samples, s => s.GpuUsagePercent, _ => null, includeProcessName: false);
         CpuGraphSummary = FormatGraphSummary(CpuGraphValues, "N1", "%");
         SystemUsageGraphSummary = FormatUsageGraphSummary(CpuGraphValues, GpuGraphValues);
         BatteryWattsGraphSummary = FormatGraphSummary(BatteryWattsGraphValues, "N1", " W");
         CpuPowerGraphSummary = FormatGraphSummary(CpuPowerGraphValues, "N1", " W");
         TemperatureGraphSummary = FormatGraphSummary(TemperatureGraphValues, "N0", " C");
+        OnPropertyChanged(nameof(BatteryDrainSummaryText));
+        OnPropertyChanged(nameof(BatteryTimeText));
+        NotifyUsageDetailMetricsChanged();
     }
 
     private void ShowPreviousBatteryUsageDay()
@@ -763,6 +841,223 @@ public sealed class MainViewModel : ObservableObject
         string gpuCurrent = gpu.Length > 0 ? $"{gpu[^1]:N0}%" : "--";
         string gpuAverage = gpu.Length > 0 ? $"{gpu.Average():N0}%" : "--";
         return $"CPU cur {cpuCurrent} | GPU cur {gpuCurrent} | CPU avg {cpuAverage} | GPU avg {gpuAverage}";
+    }
+
+    private static TimeSpan? CalculateAverageBatteryTimeRemaining(BatteryStatus battery, double? averageDrainWatts)
+    {
+        if (battery.IsPluggedIn || battery.Percentage <= 0)
+        {
+            return null;
+        }
+
+        double? fullChargeCapacityMilliWattHours = battery.BatteryHealth.FullChargeCapacityMilliWattHours
+            ?? battery.BatteryHealth.DesignCapacityMilliWattHours;
+        if (fullChargeCapacityMilliWattHours is not > 0)
+        {
+            return null;
+        }
+
+        if (averageDrainWatts is not > 0.1)
+        {
+            return null;
+        }
+
+        double remainingWattHours = fullChargeCapacityMilliWattHours.Value / 1000d * battery.Percentage / 100d;
+        double remainingHours = remainingWattHours / averageDrainWatts.Value;
+        if (remainingHours is <= 0 or > 100)
+        {
+            return null;
+        }
+
+        return TimeSpan.FromHours(remainingHours);
+    }
+
+    private static double? CalculateAverageBatteryDischargeWatts(IReadOnlyList<SensorSample> samples)
+    {
+        double[] dischargeWatts = samples
+            .Select(s => s.BatteryPowerWatts)
+            .Where(watts => watts is < -0.5)
+            .Select(watts => Math.Abs(watts!.Value))
+            .ToArray();
+        if (dischargeWatts.Length < 5)
+        {
+            return null;
+        }
+
+        return CalculateTrimmedAverage(dischargeWatts);
+    }
+
+    private static string CalculateBatteryPercentRateText(BatteryStatus battery, double? averageDrainWatts)
+    {
+        if (battery.IsPluggedIn)
+        {
+            return "--%/h";
+        }
+
+        double? fullChargeCapacityMilliWattHours = battery.BatteryHealth.FullChargeCapacityMilliWattHours
+            ?? battery.BatteryHealth.DesignCapacityMilliWattHours;
+        if (fullChargeCapacityMilliWattHours is not > 0 || averageDrainWatts is not > 0.1)
+        {
+            return "--%/h";
+        }
+
+        double fullChargeWattHours = fullChargeCapacityMilliWattHours.Value / 1000d;
+        double percentPerHour = averageDrainWatts.Value / fullChargeWattHours * 100d;
+        return $"-{percentPerHour:N1}%/h";
+    }
+
+    private static double CalculateTrimmedAverage(double[] values)
+    {
+        if (values.Length < 10)
+        {
+            return values.Average();
+        }
+
+        double[] ordered = values.Order().ToArray();
+        int trimCount = Math.Max(1, ordered.Length / 10);
+        return ordered.Skip(trimCount).Take(ordered.Length - trimCount * 2).Average();
+    }
+
+    private static IReadOnlyList<UsagePeakInfo> BuildUsagePeaks(
+        IReadOnlyList<SensorSample> samples,
+        Func<SensorSample, double?> valueSelector,
+        Func<SensorSample, string?> processSelector,
+        bool includeProcessName)
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+        var values = samples
+            .Select((sample, index) => new
+            {
+                Sample = sample,
+                Index = index,
+                Value = valueSelector(sample)
+            })
+            .Where(item => item.Value.HasValue)
+            .Select(item => new
+            {
+                item.Sample,
+                item.Index,
+                Value = Math.Clamp(item.Value!.Value, 0, 100)
+            })
+            .ToArray();
+
+        if (values.Length == 0)
+        {
+            return [];
+        }
+
+        var candidates = new List<(SensorSample Sample, int Index, double Value)>();
+        for (int i = 0; i < values.Length; i++)
+        {
+            double previous = i == 0 ? double.MinValue : values[i - 1].Value;
+            double next = i == values.Length - 1 ? double.MinValue : values[i + 1].Value;
+            if (values[i].Value >= previous && values[i].Value >= next)
+            {
+                candidates.Add((values[i].Sample, values[i].Index, values[i].Value));
+            }
+        }
+
+        if (candidates.Count < 3)
+        {
+            candidates = values.Select(item => (item.Sample, item.Index, item.Value)).ToList();
+        }
+
+        int minimumSeparation = Math.Max(2, values.Length / 18);
+        var selected = new List<(SensorSample Sample, int Index, double Value)>();
+        foreach ((SensorSample sample, int index, double value) in candidates.OrderByDescending(item => item.Value))
+        {
+            if (selected.Any(existing => Math.Abs(existing.Index - index) < minimumSeparation))
+            {
+                continue;
+            }
+
+            selected.Add((sample, index, value));
+            if (selected.Count == 3)
+            {
+                break;
+            }
+        }
+
+        if (selected.Count < 3)
+        {
+            foreach ((SensorSample sample, int index, double value) in values.Select(item => (item.Sample, item.Index, item.Value)).OrderByDescending(item => item.Value))
+            {
+                if (selected.Any(existing => existing.Index == index))
+                {
+                    continue;
+                }
+
+                selected.Add((sample, index, value));
+                if (selected.Count == 3)
+                {
+                    break;
+                }
+            }
+        }
+
+        return selected
+            .OrderByDescending(item => item.Value)
+            .Select((item, rank) => new UsagePeakInfo
+            {
+                Rank = rank + 1,
+                Index = item.Index,
+                Timestamp = item.Sample.Timestamp,
+                Value = item.Value,
+                ProcessName = includeProcessName ? processSelector(item.Sample) : null,
+                TimeAgoText = FormatTimeAgo(now - item.Sample.Timestamp)
+            })
+            .ToArray();
+    }
+
+    private static string FormatMaxPercent(IEnumerable<double?> values)
+    {
+        double[] visible = values.Where(v => v.HasValue).Select(v => v!.Value).ToArray();
+        return visible.Length == 0 ? "--" : $"{visible.Max():N0}%";
+    }
+
+    private static string FormatAveragePercent(IEnumerable<double?> values)
+    {
+        double[] visible = values.Where(v => v.HasValue).Select(v => v!.Value).ToArray();
+        return visible.Length == 0 ? "--" : $"{visible.Average():N0}%";
+    }
+
+    private static string FormatTimeAbove(IEnumerable<double?> values, double threshold, int sampleIntervalSeconds)
+    {
+        int count = values.Count(v => v is { } value && value > threshold);
+        TimeSpan duration = TimeSpan.FromSeconds(count * Math.Max(1, sampleIntervalSeconds));
+        if (duration.TotalSeconds < 1)
+        {
+            return "0s";
+        }
+
+        return duration.TotalMinutes >= 1
+            ? $"{(int)duration.TotalMinutes}m {duration.Seconds}s"
+            : $"{duration.Seconds}s";
+    }
+
+    private static string FormatSampleCount(IEnumerable<double?> values) =>
+        values.Count(v => v.HasValue).ToString("N0");
+
+    private static string FormatTimeAgo(TimeSpan age)
+    {
+        if (age.TotalMinutes >= 1)
+        {
+            return $"{(int)age.TotalMinutes}m {Math.Max(0, age.Seconds)}s ago";
+        }
+
+        return $"{Math.Max(0, (int)age.TotalSeconds)}s ago";
+    }
+
+    private void NotifyUsageDetailMetricsChanged()
+    {
+        OnPropertyChanged(nameof(CpuMaxDetailText));
+        OnPropertyChanged(nameof(GpuMaxDetailText));
+        OnPropertyChanged(nameof(CpuAverageDetailText));
+        OnPropertyChanged(nameof(GpuAverageDetailText));
+        OnPropertyChanged(nameof(CpuTimeAbove50Text));
+        OnPropertyChanged(nameof(GpuTimeAbove50Text));
+        OnPropertyChanged(nameof(CpuSamplesDetailText));
+        OnPropertyChanged(nameof(GpuSamplesDetailText));
     }
 
     private static string SplitGraphSummary(string summary, int row)

@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XPSBatteryTray.Controls"
         Title="PowerTray"
-        Width="520"
+        Width="620"
         Height="910"
-        MinWidth="450"
+        MinWidth="520"
         MinHeight="820"
         MaxWidth="640"
         MaxHeight="980"
@@ -110,13 +110,15 @@
 
                         <Grid Grid.Column="0" Margin="0,0,14,0">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="68" />
+                                <ColumnDefinition Width="78" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <controls:BatteryGaugeControl Grid.Column="0" Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="48" Height="74" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left" Width="64">
+                                <controls:BatteryGaugeControl Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="48" Height="74" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding BatteryPercentText}" FontSize="24" FontWeight="Bold" LineHeight="30" Height="30" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                            </StackPanel>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding BatteryPercentText}" FontSize="25" FontWeight="Bold" LineHeight="35" Height="31" />
-                                <WrapPanel Margin="0,3,0,2">
+                                <WrapPanel Margin="0,0,0,2">
                                     <Border Style="{StaticResource DashboardChipStyle}">
                                         <TextBlock Text="{Binding PowerStateChipText}" FontSize="11" Foreground="{StaticResource AccentBrush}" />
                                     </Border>
@@ -127,9 +129,8 @@
                                         <TextBlock Text="{Binding PowerModeChipText}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
                                     </Border>
                                 </WrapPanel>
-                                <TextBlock Text="{Binding BatteryPowerText}" FontSize="12" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding BatteryDrainSummaryText}" FontSize="12" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding BatteryDrainSummaryText}" />
                                 <TextBlock Text="{Binding BatteryTimeText}" Style="{StaticResource MutedStyle}" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding FriendlyChargeMode}" Style="{StaticResource MutedStyle}" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap" ToolTip="{Binding DellChargeSetting}" />
                                 <TextBlock Text="{Binding BatteryHealthSummaryText}" Style="{StaticResource MutedStyle}" FontSize="11" Margin="0,5,0,0" ToolTip="{Binding BatteryHealthToolTip}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </Grid>
@@ -290,7 +291,10 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                <Border Grid.Column="2" Style="{StaticResource CardStyle}" Cursor="Hand" ToolTip="Open CPU / GPU usage details">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick" Command="{Binding ShowUsageDetailsCommand}" />
+                    </Border.InputBindings>
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="54" />
@@ -378,7 +382,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="34" />
                             <RowDefinition Height="*" />
-                            <RowDefinition Height="30" />
+                            <RowDefinition Height="20" />
                             <RowDefinition Height="24" />
                             <RowDefinition Height="34" />
                         </Grid.RowDefinitions>
@@ -396,7 +400,7 @@
                             </StackPanel>
                         </Grid>
 
-                        <controls:BatteryUsageCombinedControl Grid.Row="1" Buckets="{Binding BatteryUsageBuckets}" Height="150" VerticalAlignment="Top" Margin="0,2,0,0" />
+                        <controls:BatteryUsageCombinedControl Grid.Row="1" Buckets="{Binding BatteryUsageBuckets}" Height="170" VerticalAlignment="Top" Margin="0,2,0,0" />
 
                         <WrapPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Ellipse Fill="#8E949A" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
@@ -498,6 +502,274 @@
                 </Border>
                 </TabItem>
             </TabControl>
+
+            <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="20" Margin="10,8,10,8" Background="{StaticResource WindowBg}">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsUsageDetailsVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="139" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource CardStyle}" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="44" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="42" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Button Grid.Row="0"
+                                Grid.Column="0"
+                                Command="{Binding HideUsageDetailsCommand}"
+                                Content="&#xE72B;"
+                                FontFamily="Segoe MDL2 Assets"
+                                Width="32"
+                                Height="32"
+                                MinWidth="32"
+                                MinHeight="32"
+                                Padding="0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                ToolTip="Back" />
+                        <StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Top">
+                            <TextBlock Text="CPU / GPU Usage Details" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="Detailed activity and top peak processes" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <UniformGrid Grid.Row="1" Grid.ColumnSpan="2" Columns="5" Margin="0,12,0,0">
+                            <Border Background="#20252B" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                                <Grid Margin="10,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="26" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Path Width="18" Height="18" Stretch="Uniform" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="CPU Now" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding CpuNowDetailText}" FontSize="18" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Background="#20252B" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                                <Grid Margin="10,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="26" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Path Width="18" Height="18" Stretch="Uniform" Stroke="#54D6C6" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="GPU Now" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding GpuNowDetailText}" FontSize="18" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Background="#20252B" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                                <Grid Margin="10,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="26" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Path Width="18" Height="18" Stretch="Uniform" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,13 L6,9 L9,11 L14,4 M11,4 H14 V7" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="CPU Max" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding CpuMaxDetailText}" FontSize="18" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Background="#20252B" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                                <Grid Margin="10,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="26" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Path Width="18" Height="18" Stretch="Uniform" Stroke="#54D6C6" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,13 L6,9 L9,11 L14,4 M11,4 H14 V7" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="GPU Max" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding GpuMaxDetailText}" FontSize="18" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Background="#20252B" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54">
+                                <Grid Margin="10,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="26" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource MutedTextBrush}" FontSize="17" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="Sampling" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding DetailSamplingText}" FontSize="18" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </UniformGrid>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="56" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="112" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                            <Path Width="17" Height="17" Stretch="Uniform" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,1,8,0" />
+                            <TextBlock Text="CPU Usage" Foreground="{StaticResource AccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                        </StackPanel>
+      
+
+                        <controls:UsageDetailGraphControl Grid.Row="1"
+                                                          Values="{Binding CpuGraphValues}"
+                                                          Peaks="{Binding CpuUsagePeaks}"
+                                                          Stroke="{StaticResource AccentBrush}"
+                                                          Fill="#203A82C9"
+                                                          Margin="0,4,8,0" />
+
+                        <Border Grid.Row="2" Grid.Column="0" Background="#1D2228" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,8,0">
+                            <UniformGrid Columns="3" Margin="10,6">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource AccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Average" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding CpuAverageDetailText}" FontSize="14" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource AccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Total Time &gt; 50%" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding CpuTimeAbove50Text}" FontSize="14" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource MutedTextBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Samples" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding CpuSamplesDetailText}" FontSize="14" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </UniformGrid>
+                        </Border>
+
+                        <StackPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,2,0,0">
+                            <TextBlock Text="Top 3 Peaks" Foreground="{StaticResource TextBrush}" FontSize="13" Margin="0,0,0,18" HorizontalAlignment="Center" />
+                            <ItemsControl ItemsSource="{Binding CpuUsagePeaks}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,18">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="24" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="18" Height="18" Background="{StaticResource AccentBrush}" CornerRadius="9" VerticalAlignment="Top" Margin="0,2,6,0">
+                                                <TextBlock Text="{Binding Rank}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding ValueText}" FontSize="15" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding ProcessText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding ProcessText}" />
+                                                <TextBlock Text="{Binding TimeAgoText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="4" Style="{StaticResource CardStyle}" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="56" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="112" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                            <Path Width="17" Height="17" Stretch="Uniform" Stroke="#54D6C6" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,1,8,0" />
+                            <TextBlock Text="GPU Usage" Foreground="#54D6C6" FontSize="15" FontWeight="SemiBold" />
+                        </StackPanel>
+
+                        <controls:UsageDetailGraphControl Grid.Row="1"
+                                                          Values="{Binding GpuGraphValues}"
+                                                          Peaks="{Binding GpuUsagePeaks}"
+                                                          Stroke="#54D6C6"
+                                                          Fill="#2040A695"
+                                                          Margin="0,4,8,0" />
+
+                        <Border Grid.Row="2" Grid.Column="0" Background="#1D2228" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,8,0">
+                            <UniformGrid Columns="3" Margin="10,6">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="#54D6C6" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Average" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding GpuAverageDetailText}" FontSize="14" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="#54D6C6" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Total Time &gt; 50%" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding GpuTimeAbove50Text}" FontSize="14" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource MutedTextBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <StackPanel>
+                                        <TextBlock Text="Samples" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="{Binding GpuSamplesDetailText}" FontSize="14" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </UniformGrid>
+                        </Border>
+
+                        <StackPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,2,0,0">
+                            <TextBlock Text="Top 3 Peaks" Foreground="{StaticResource TextBrush}" FontSize="13" Margin="0,0,0,18" HorizontalAlignment="Center" />
+                            <ItemsControl ItemsSource="{Binding GpuUsagePeaks}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,24">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="24" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="18" Height="18" Background="#54D6C6" CornerRadius="9" VerticalAlignment="Top" Margin="0,2,6,0">
+                                                <TextBlock Text="{Binding Rank}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Top" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
 
 
             <Border Grid.Row="4" Background="{StaticResource TopBarBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,1,0,0" CornerRadius="0,0,11,11">

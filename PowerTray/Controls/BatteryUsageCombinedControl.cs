@@ -34,20 +34,25 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         const double leftPadding = 8;
         const double rightPadding = 46;
         const double topPadding = 26;
-        const double bottomPadding = 42;
+        const double bottomPadding = 72;
         double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightPadding);
         double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomPadding);
         double bottom = topPadding + plotHeight;
         double powerModeLaneY = bottom + 8;
+        double averageWattsLaneY = bottom + 18;
 
         DrawNoDataBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawExternalPowerBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawGrid(context, leftPadding, plotWidth, topPadding, plotHeight);
         DrawBars(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawPowerModeLane(context, buckets, leftPadding, plotWidth, powerModeLaneY);
+        DrawLaneSeparators(context, leftPadding, plotWidth, powerModeLaneY, averageWattsLaneY);
+        DrawAverageWattsLane(context, buckets, leftPadding, plotWidth, averageWattsLaneY);
         DrawCurrentMarker(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawAxisLabels(context, leftPadding + plotWidth + 10, topPadding, plotHeight);
-        DrawTimeLabels(context, leftPadding, plotWidth, bottom + 17);
+        DrawText(context, "Avg W", 10, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), leftPadding + plotWidth + 10, averageWattsLaneY);
+        DrawText(context, "Time", 10, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), leftPadding + plotWidth + 10, bottom + 47);
+        DrawTimeLabels(context, leftPadding, plotWidth, bottom + 47);
     }
 
     private static void DrawNoDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
@@ -198,6 +203,137 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
                 context.DrawLine(pen, new WindowsPoint(startX, y), new WindowsPoint(endX, y));
             }
         }
+    }
+
+    private static void DrawLaneSeparators(DrawingContext context, double left, double width, double powerModeLaneY, double averageWattsLaneY)
+    {
+        var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(88, 75, 82, 90)), 1);
+        context.DrawLine(pen, new WindowsPoint(left, powerModeLaneY + 7), new WindowsPoint(left + width, powerModeLaneY + 7));
+        context.DrawLine(pen, new WindowsPoint(left, averageWattsLaneY + 26), new WindowsPoint(left + width, averageWattsLaneY + 26));
+    }
+
+    private static void DrawAverageWattsLane(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double y)
+    {
+        double slot = width / buckets.Count;
+        var labelRects = new List<Rect>();
+        foreach ((int start, int end) in UsageRanges(buckets))
+        {
+            double x = left + start * slot;
+            double w = Math.Max(2, (end - start) * slot);
+
+            BatteryUsageBucket[] range = buckets.Skip(start).Take(end - start).ToArray();
+            double[] watts = range
+                .Where(bucket => bucket.HasData || bucket.Kind is BatteryUsageBucketKind.Sleep
+                    or BatteryUsageBucketKind.Missing
+                    or BatteryUsageBucketKind.InferredCharge
+                    or BatteryUsageBucketKind.ChargeHold)
+                .Select(bucket => bucket.AverageWatts)
+                .ToArray();
+            if (watts.Length == 0)
+            {
+                continue;
+            }
+
+            double averageWatts = watts.Average();
+            string label = $"{averageWatts:N1}";
+            MediaBrush brush = GetUsageRangeBrush(range[^1]);
+            var text = FormatText(label, 10, brush, "Segoe UI Semibold");
+            double textX = Math.Clamp(x + w / 2d - text.Width / 2d, left, left + width - text.Width);
+            double textY = FindAvailableLabelY(new Rect(textX, y, text.Width, text.Height), labelRects, y);
+            var labelRect = new Rect(textX, textY, text.Width, text.Height);
+            labelRects.Add(labelRect);
+            context.DrawText(text, new WindowsPoint(textX, textY));
+        }
+    }
+
+    private static double FindAvailableLabelY(Rect preferredRect, IReadOnlyList<Rect> placedLabels, double baseY)
+    {
+        double[] rows = [baseY, baseY + 11];
+        foreach (double rowY in rows)
+        {
+            var candidate = new Rect(preferredRect.X, rowY, preferredRect.Width, preferredRect.Height);
+            if (!placedLabels.Any(rect => rect.IntersectsWith(candidate)))
+            {
+                return candidate.Y;
+            }
+        }
+
+        return rows[1];
+    }
+
+    private static IEnumerable<(int Start, int End)> UsageRanges(IReadOnlyList<BatteryUsageBucket> buckets)
+    {
+        string? current = null;
+        int start = 0;
+        for (int i = 0; i <= buckets.Count; i++)
+        {
+            string? category = i < buckets.Count ? GetUsageRangeCategory(buckets[i]) : null;
+            if (category is not null && current is null)
+            {
+                current = category;
+                start = i;
+            }
+            else if (category != current)
+            {
+                if (current is not null)
+                {
+                    yield return (start, i);
+                }
+
+                current = category;
+                start = i;
+            }
+        }
+    }
+
+    private static string? GetUsageRangeCategory(BatteryUsageBucket bucket)
+    {
+        if (bucket.Kind == BatteryUsageBucketKind.NoData)
+        {
+            return null;
+        }
+
+        if (bucket.Kind == BatteryUsageBucketKind.Sleep)
+        {
+            return "sleep";
+        }
+
+        if (bucket.Kind == BatteryUsageBucketKind.Missing)
+        {
+            return "missing";
+        }
+
+        if (bucket.IsCharging || bucket.Kind == BatteryUsageBucketKind.InferredCharge)
+        {
+            return "charge";
+        }
+
+        if (bucket.Kind == BatteryUsageBucketKind.ChargeHold)
+        {
+            return "hold";
+        }
+
+        if (bucket.HasData && !bucket.IsPluggedIn)
+        {
+            return "discharge";
+        }
+
+        return null;
+    }
+
+    private static MediaBrush GetUsageRangeBrush(BatteryUsageBucket bucket)
+    {
+        string? category = GetUsageRangeCategory(bucket);
+        MediaColor color = category switch
+        {
+            "charge" => MediaColor.FromRgb(154, 215, 108),
+            "hold" => MediaColor.FromRgb(84, 214, 198),
+            "sleep" => MediaColor.FromRgb(88, 166, 255),
+            "missing" => MediaColor.FromRgb(196, 204, 214),
+            _ => MediaColor.FromRgb(174, 180, 188)
+        };
+
+        return new SolidColorBrush(color);
     }
 
     private static void DrawCurrentMarker(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
