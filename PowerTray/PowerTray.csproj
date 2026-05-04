@@ -9,7 +9,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <UseAppHost>false</UseAppHost>
     <PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>XPSBatteryTray</AssemblyName>
+    <AssemblyName>PowerTray</AssemblyName>
+    <RootNamespace>XPSBatteryTray</RootNamespace>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 

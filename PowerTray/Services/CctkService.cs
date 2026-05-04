@@ -148,7 +148,7 @@ public sealed class CctkService
             return new CommandResult { Success = false, ExitCode = -1, Message = "Could not locate the tray executable for elevation." };
         }
 
-        string outputPath = Path.Combine(Path.GetTempPath(), "XPSBatteryTray", $"{Guid.NewGuid():N}.json");
+        string outputPath = Path.Combine(Path.GetTempPath(), "PowerTray", $"{Guid.NewGuid():N}.json");
         string elevatedArgs = $"{prefixArguments} --run-cctk {Quote(cctkPath)} {Quote(argument)} {Quote(outputPath)}".Trim();
 
         try

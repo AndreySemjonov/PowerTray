@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:XPSBatteryTray.Controls"
-        Title="XPS Battery Tray"
+        Title="PowerTray"
         Width="520"
         Height="1160"
         MinWidth="450"
@@ -43,7 +43,7 @@
                         <Border Background="#1F6FEB" BorderBrush="#79C0FF" BorderThickness="1" CornerRadius="6" Width="26" Height="26" Margin="0,0,10,0">
                             <TextBlock Text="⚡" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="XPS Battery Tray" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Text="PowerTray" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">

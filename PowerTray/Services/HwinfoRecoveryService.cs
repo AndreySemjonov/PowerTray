@@ -131,6 +131,8 @@ public sealed class HwinfoRecoveryService
             };
 
             startInfo.WorkingDirectory = Path.GetDirectoryName(scriptPath) ?? string.Empty;
+            startInfo.Environment["POWERTRAY_HWiNFO_REASON"] = "missing-shared-memory";
+            startInfo.Environment["POWERTRAY_HWiNFO_PATH"] = hwinfoExecutablePath ?? string.Empty;
             startInfo.Environment["XPSBATTERYTRAY_HWiNFO_REASON"] = "missing-shared-memory";
             startInfo.Environment["XPSBATTERYTRAY_HWiNFO_PATH"] = hwinfoExecutablePath ?? string.Empty;
             Process.Start(startInfo);

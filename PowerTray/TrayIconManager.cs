@@ -13,6 +13,8 @@ namespace XPSBatteryTray;
 
 public sealed class TrayIconManager : IDisposable
 {
+    private const string AppDisplayName = "PowerTray";
+
     private readonly MainViewModel _viewModel;
     private readonly Func<SettingsWindow> _settingsWindowFactory;
     private readonly NotifyIcon _notifyIcon;
@@ -104,7 +106,7 @@ public sealed class TrayIconManager : IDisposable
         var icon = new NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = "XPS Battery Tray",
+            Text = AppDisplayName,
             ContextMenuStrip = contextMenu,
             Visible = false
         };
@@ -143,13 +145,13 @@ public sealed class TrayIconManager : IDisposable
     private void ApplyPreset(BatteryPreset preset)
     {
         Application.Current.Dispatcher.Invoke(() => _viewModel.ApplyBatteryPresetCommand.Execute(preset));
-        _notifyIcon.ShowBalloonTip(2500, "XPS Battery Tray", "Battery mode command started.", ToolTipIcon.Info);
+        _notifyIcon.ShowBalloonTip(2500, AppDisplayName, "Battery mode command started.", ToolTipIcon.Info);
     }
 
     private void ApplyWindowsPowerMode(WindowsPowerMode mode)
     {
         Application.Current.Dispatcher.Invoke(() => _viewModel.ApplyWindowsPowerModeCommand.Execute(mode));
-        _notifyIcon.ShowBalloonTip(2000, "XPS Battery Tray", "Windows power mode updated.", ToolTipIcon.Info);
+        _notifyIcon.ShowBalloonTip(2000, AppDisplayName, "Windows power mode updated.", ToolTipIcon.Info);
     }
 
     private static void PositionDashboardNearTray(Window window)

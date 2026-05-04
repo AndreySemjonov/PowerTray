@@ -1,12 +1,12 @@
-# XPSBatteryTray
+# PowerTray
 
-Lightweight Windows tray utility for a Dell XPS 14 DA14260. It lets you switch Dell BIOS battery charge settings through Dell Command | Configure `cctk.exe` and shows a compact live dashboard for battery, CPU, memory, processes, and optional HWiNFO sensors.
+Lightweight Windows tray utility for laptop power, battery, thermal, and process monitoring. It can switch Dell BIOS battery charge settings through Dell Command | Configure `cctk.exe` when Dell hardware/tools are available, and it shows a compact live dashboard for battery, CPU, processes, power modes, and optional HWiNFO sensors.
 
 ## Requirements
 
 - Windows 11 x64
 - .NET 8 Desktop Runtime or .NET 8 SDK
-- Dell Command | Configure for battery BIOS setting changes
+- Optional: Dell Command | Configure for Dell battery BIOS setting changes
 - Optional: HWiNFO with Shared Memory Support enabled for the most reliable advanced sensors
 - Optional: built-in LibreHardwareMonitor sensor provider for advanced sensors without running HWiNFO
 
@@ -22,21 +22,21 @@ If neither path exists, open Settings and browse to `cctk.exe`.
 From the repo root:
 
 ```powershell
-dotnet build .\XPSBatteryTray.slnx -c Release
+dotnet build .\PowerTray.slnx -c Release
 ```
 
 To publish a standalone x64 folder:
 
 ```powershell
-dotnet publish .\XPSBatteryTray\XPSBatteryTray.csproj -c Release -r win-x64 --self-contained false
+dotnet publish .\PowerTray\PowerTray.csproj -c Release -r win-x64 --self-contained false
 ```
 
-This development machine has a preview .NET 10 SDK that currently fails during apphost `.exe` generation with a Windows file-locking error in the synced Google Drive folder. The project sets `UseAppHost=false` so Visual Studio and CLI builds produce `XPSBatteryTray.dll` without creating `XPSBatteryTray.exe`.
+This development machine has a preview .NET 10 SDK that currently fails during apphost `.exe` generation with a Windows file-locking error in the synced Google Drive folder. The project sets `UseAppHost=false` so Visual Studio and CLI builds produce `PowerTray.dll` without creating `PowerTray.exe`.
 
 Run from the build folder with:
 
 ```powershell
-dotnet XPSBatteryTray.dll
+dotnet PowerTray.dll
 ```
 
 For a normal `.exe` publish, use the stable .NET 8 SDK outside a synced-drive build folder and temporarily remove or override `UseAppHost=false`.
@@ -99,21 +99,22 @@ The app does not fake missing temperature, fan, package-power, or watt values. U
 Settings:
 
 ```text
-%AppData%\DellBatteryTray\settings.json
+%AppData%\PowerTray\settings.json
 ```
 
 Logs:
 
 ```text
-%AppData%\DellBatteryTray\logs\app.log
+%AppData%\PowerTray\logs\app.log
 ```
 
 No telemetry, analytics, or network calls are used.
 
 ## Known Limitations
 
-- HWiNFO and LibreHardwareMonitor sensor names vary by machine; matching is flexible but should be validated on the target XPS 14.
+- HWiNFO and LibreHardwareMonitor sensor names vary by machine; matching is flexible but should be validated on each target laptop.
 - Per-process battery drain is not available from Windows as exact watts. The “Estimated Energy Impact” view is an estimate based on accumulated CPU activity and battery discharge rate when available.
-- The energy history is persisted to `%AppData%\DellBatteryTray\energy-history.json` and resets when a new discharging session begins.
+- Existing data from `%AppData%\DellBatteryTray` is copied into `%AppData%\PowerTray` on first run after the rename.
+- The energy history is persisted to `%AppData%\PowerTray\energy-history.json` and resets when a new discharging session begins.
 - Windows usually does not expose fan RPM or CPU package temperature without vendor/third-party sensors.
 - The current tray icon uses the default application icon; a custom `.ico` would be a good polish pass.

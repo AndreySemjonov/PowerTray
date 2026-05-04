@@ -7,12 +7,14 @@ namespace XPSBatteryTray.Services;
 public sealed class StartupService
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string AppName = "XPSBatteryTray";
+    private const string AppName = "PowerTray";
+    private const string LegacyAppName = "XPSBatteryTray";
 
     public bool IsEnabled()
     {
         using RegistryKey? key = Registry.CurrentUser.OpenSubKey(RunKeyPath, false);
-        return key?.GetValue(AppName) is string value && value.Length > 0;
+        return key?.GetValue(AppName) is string value && value.Length > 0
+            || key?.GetValue(LegacyAppName) is string legacyValue && legacyValue.Length > 0;
     }
 
     public void SetEnabled(bool enabled)
@@ -23,10 +25,12 @@ public sealed class StartupService
         if (enabled)
         {
             key.SetValue(AppName, BuildStartupCommand());
+            key.DeleteValue(LegacyAppName, false);
         }
         else
         {
             key.DeleteValue(AppName, false);
+            key.DeleteValue(LegacyAppName, false);
         }
     }
 
