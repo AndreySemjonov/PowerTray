@@ -1,5 +1,6 @@
 using System.IO.MemoryMappedFiles;
 using System.IO;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using XPSBatteryTray.Models;
@@ -11,6 +12,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
     private const string MappingName = @"Global\HWiNFO_SENS_SM2";
     private const string MutexName = @"Global\HWiNFO_SM2_MUTEX";
     private static DateTimeOffset _lastDiagnosticLog = DateTimeOffset.MinValue;
+    private static DateTimeOffset _lastUnavailableLog = DateTimeOffset.MinValue;
 
     public string Name => "HWiNFO";
 
@@ -44,17 +46,20 @@ public sealed class HwinfoSensorProvider : ISensorProvider
         }
         catch (FileNotFoundException)
         {
-            return Unavailable("HWiNFO shared memory not available");
+            string status = IsHwinfoProcessRunning()
+                ? "HWiNFO running but shared memory is not available"
+                : "HWiNFO shared memory not available";
+            return Unavailable(status, log: true);
         }
         catch (UnauthorizedAccessException ex)
         {
             LogService.Error(ex, "HWiNFO shared memory access denied.");
-            return Unavailable("HWiNFO shared memory access denied");
+            return Unavailable("HWiNFO shared memory access denied", log: true);
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Failed to read HWiNFO shared memory.");
-            return Unavailable("HWiNFO sensors detected but could not be parsed");
+            return Unavailable("HWiNFO sensors detected but could not be parsed", log: true);
         }
     }
 
@@ -62,7 +67,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
     {
         if (accessor.Capacity < 44)
         {
-            return Unavailable("HWiNFO shared memory header was too small");
+            return Unavailable("HWiNFO shared memory header was too small", log: true);
         }
 
         string signature = ReadString(accessor, 0, 4);
@@ -70,7 +75,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
         {
             return Unavailable(signature.Equals("DEAD", StringComparison.OrdinalIgnoreCase)
                 ? "HWiNFO shared memory is inactive"
-                : "HWiNFO shared memory signature was not recognized");
+                : "HWiNFO shared memory signature was not recognized", log: true);
         }
 
         // Packed HWiNFO_SENSORS_SHARED_MEM2:
@@ -86,7 +91,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
         if (readingOffset == 0 || readingElementSize < 64 || readingCount == 0 || readingOffset + readingElementSize > accessor.Capacity)
         {
             LogService.Info($"HWiNFO descriptors invalid. sensorOffset={sensorOffset}, sensorElementSize={sensorElementSize}, sensorCount={sensorCount}, readingOffset={readingOffset}, readingElementSize={readingElementSize}, readingCount={readingCount}, capacity={accessor.Capacity}.");
-            return Unavailable("HWiNFO sensors detected but no readings were exposed");
+            return Unavailable("HWiNFO sensors detected but no readings were exposed", log: true);
         }
 
         Dictionary<uint, SensorInfo> sensors = ReadSensors(accessor, sensorOffset, sensorElementSize, sensorCount);
@@ -274,7 +279,33 @@ public sealed class HwinfoSensorProvider : ISensorProvider
         LogService.Info($"HWiNFO detected but some expected sensors were not matched. CPU temp={cpuTemp?.ToString("N1") ?? "none"}, CPU power={cpuPower?.ToString("N1") ?? "none"}, battery power={batteryPower?.ToString("N1") ?? "none"}, fans={fanCount}.{Environment.NewLine}{sample}");
     }
 
-    private static SensorReadings Unavailable(string status) => new() { IsAvailable = false, Status = status };
+    private static SensorReadings Unavailable(string status, bool log = false)
+    {
+        if (log)
+        {
+            DateTimeOffset now = DateTimeOffset.Now;
+            if (now - _lastUnavailableLog >= TimeSpan.FromMinutes(1))
+            {
+                _lastUnavailableLog = now;
+                LogService.Info(status);
+            }
+        }
+
+        return new SensorReadings { IsAvailable = false, Status = status };
+    }
+
+    private static bool IsHwinfoProcessRunning()
+    {
+        try
+        {
+            return Process.GetProcessesByName("HWiNFO64").Length > 0 ||
+                   Process.GetProcessesByName("HWiNFO").Length > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     private readonly record struct SensorInfo(string DisplayName);
 

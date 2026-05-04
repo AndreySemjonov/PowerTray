@@ -41,6 +41,7 @@ public sealed class MainViewModel : ObservableObject
     private string _energyImpactColumnHeader = "est. mWh";
     private WindowsPowerMode? _currentWindowsPowerMode;
     private BatteryUsageSnapshot _batteryUsage = new();
+    private DateTime _selectedBatteryUsageDate = DateTime.Today;
 
     public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService)
     {
@@ -61,6 +62,9 @@ public sealed class MainViewModel : ObservableObject
         ApplyBatteryPresetCommand = new RelayCommand(async parameter => await ApplyBatteryPresetAsync(parameter));
         ApplyWindowsPowerModeCommand = new RelayCommand(parameter => ApplyWindowsPowerMode(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
+        PreviousBatteryUsageDayCommand = new RelayCommand(ShowPreviousBatteryUsageDay);
+        NextBatteryUsageDayCommand = new RelayCommand(ShowNextBatteryUsageDay);
+        TodayBatteryUsageCommand = new RelayCommand(ShowTodayBatteryUsage);
 
         ConfigureTimer();
     }
@@ -280,6 +284,27 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(BatteryUsageIdleText));
                 OnPropertyChanged(nameof(BatteryUsageEstimatedDrainText));
                 OnPropertyChanged(nameof(BatteryUsageBuckets));
+                OnPropertyChanged(nameof(BatteryUsageDateText));
+            }
+        }
+    }
+
+    public DateTime SelectedBatteryUsageDate
+    {
+        get => _selectedBatteryUsageDate;
+        private set
+        {
+            DateTime date = value.Date;
+            if (date > DateTime.Today)
+            {
+                date = DateTime.Today;
+            }
+
+            if (SetProperty(ref _selectedBatteryUsageDate, date))
+            {
+                BatteryUsage = _batteryUsageService.GetSnapshot(_selectedBatteryUsageDate);
+                OnPropertyChanged(nameof(BatteryUsageDateText));
+                OnPropertyChanged(nameof(CanShowNextBatteryUsageDay));
             }
         }
     }
@@ -293,6 +318,9 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ApplyBatteryPresetCommand { get; }
     public ICommand ApplyWindowsPowerModeCommand { get; }
     public ICommand OpenSettingsCommand { get; }
+    public ICommand PreviousBatteryUsageDayCommand { get; }
+    public ICommand NextBatteryUsageDayCommand { get; }
+    public ICommand TodayBatteryUsageCommand { get; }
 
     public string BatterySummary => Battery.Percentage > 0
         ? $"{Battery.Percentage}% - {(Battery.IsPluggedIn ? "Plugged in" : "On battery")}"
@@ -322,6 +350,11 @@ public sealed class MainViewModel : ObservableObject
                 return "Windows fallback";
             }
 
+            if (HwinfoStatus.Contains("shared memory", StringComparison.OrdinalIgnoreCase))
+            {
+                return "HWiNFO no shared memory";
+            }
+
             return HwinfoStatus.Contains("detected", StringComparison.OrdinalIgnoreCase) ? "HWiNFO OK" : "HWiNFO unavailable";
         }
     }
@@ -345,6 +378,10 @@ public sealed class MainViewModel : ObservableObject
     public string BatteryUsageIdleText => BatteryUsage.IdleText;
     public string BatteryUsageEstimatedDrainText => BatteryUsage.EstimatedDrainText;
     public IReadOnlyList<BatteryUsageBucket> BatteryUsageBuckets => BatteryUsage.Buckets;
+    public string BatteryUsageDateText => SelectedBatteryUsageDate == DateTime.Today
+        ? "Today"
+        : SelectedBatteryUsageDate.ToString("MMM d");
+    public bool CanShowNextBatteryUsageDay => SelectedBatteryUsageDate < DateTime.Today;
     public string TopAppUsageEmptyText => EnergyImpactProcesses.Count == 0 ? "No app usage data yet" : string.Empty;
 
     public string BatteryTimeText => Battery.EstimatedTimeRemaining is { } remaining
@@ -476,7 +513,7 @@ public sealed class MainViewModel : ObservableObject
             Battery = battery;
             BatteryPowerWatts = Battery.ChargeRateWatts;
             RefreshWindowsPowerMode(Battery.IsPluggedIn);
-            BatteryUsage = _batteryUsageService.Record(Battery);
+            BatteryUsage = _batteryUsageService.Record(Battery, SelectedBatteryUsageDate);
             Memory = _processStatsService.GetMemoryInfo();
             EnergyImpactTitle = energyImpactTitle;
             EnergyImpactColumnHeader = "% used";
@@ -523,6 +560,24 @@ public sealed class MainViewModel : ObservableObject
         BatteryWattsGraphSummary = FormatGraphSummary(BatteryWattsGraphValues, "N1", " W");
         CpuPowerGraphSummary = FormatGraphSummary(CpuPowerGraphValues, "N1", " W");
         TemperatureGraphSummary = FormatGraphSummary(TemperatureGraphValues, "N0", " C");
+    }
+
+    private void ShowPreviousBatteryUsageDay()
+    {
+        SelectedBatteryUsageDate = SelectedBatteryUsageDate.AddDays(-1);
+    }
+
+    private void ShowNextBatteryUsageDay()
+    {
+        if (SelectedBatteryUsageDate < DateTime.Today)
+        {
+            SelectedBatteryUsageDate = SelectedBatteryUsageDate.AddDays(1);
+        }
+    }
+
+    private void ShowTodayBatteryUsage()
+    {
+        SelectedBatteryUsageDate = DateTime.Today;
     }
 
     private void RefreshWindowsPowerMode(bool pluggedIn)

@@ -1,41 +1,173 @@
 using XPSBatteryTray.Models;
+using System.IO;
+using System.Text.Json;
 
 namespace XPSBatteryTray.Services;
 
 public sealed class SensorService
 {
+    private static readonly TimeSpan CachedSensorGracePeriod = TimeSpan.FromMinutes(30);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+
     private readonly SettingsService _settingsService;
     private readonly ISensorProvider _hwinfoProvider = new HwinfoSensorProvider();
     private readonly ISensorProvider _libreHardwareMonitorProvider = new LibreHardwareMonitorSensorProvider();
     private readonly ISensorProvider _windowsProvider = new WindowsSensorProvider();
+    private readonly HwinfoRecoveryService _hwinfoRecoveryService = new();
+    private double? _lastCpuTemperatureCelsius;
+    private double? _lastCpuPackagePowerWatts;
+    private DateTimeOffset _lastCpuSensorUpdate = DateTimeOffset.MinValue;
 
     public SensorService(SettingsService settingsService)
     {
         _settingsService = settingsService;
+        LoadCachedCpuSensors();
     }
 
     public SensorReadings Read()
     {
+        SensorReadings? hwinfoReadings = null;
         if (_settingsService.Current.EnableHwinfoIntegration)
         {
-            SensorReadings readings = _hwinfoProvider.Read();
-            if (readings.IsAvailable)
+            hwinfoReadings = RememberCpuSensors(_hwinfoProvider.Read());
+            _hwinfoRecoveryService.Observe(_settingsService.Current, hwinfoReadings);
+            if (hwinfoReadings.IsAvailable && HasCpuSensors(hwinfoReadings))
             {
-                return readings;
+                return hwinfoReadings;
             }
         }
 
         if (_settingsService.Current.EnableLibreHardwareMonitorIntegration)
         {
-            SensorReadings readings = _libreHardwareMonitorProvider.Read();
-            if (readings.IsAvailable)
+            SensorReadings readings = RememberCpuSensors(_libreHardwareMonitorProvider.Read());
+            SensorReadings merged = MergeRecentCpuSensors(MergeStatus(readings, hwinfoReadings));
+            if (merged.IsAvailable)
             {
-                return readings;
+                return merged;
             }
 
+            return hwinfoReadings is not null ? MergeRecentCpuSensors(hwinfoReadings) : merged;
+        }
+
+        return MergeRecentCpuSensors(hwinfoReadings ?? _windowsProvider.Read());
+    }
+
+    private static SensorReadings MergeStatus(SensorReadings readings, SensorReadings? primaryReadings)
+    {
+        if (primaryReadings is null ||
+            primaryReadings.IsAvailable ||
+            string.IsNullOrWhiteSpace(primaryReadings.Status) ||
+            readings.Status.Contains(primaryReadings.Status, StringComparison.OrdinalIgnoreCase))
+        {
             return readings;
         }
 
-        return _windowsProvider.Read();
+        return new SensorReadings
+        {
+            IsAvailable = readings.IsAvailable,
+            Status = $"{primaryReadings.Status}; {readings.Status}",
+            CpuTemperatureCelsius = readings.CpuTemperatureCelsius,
+            CpuPackagePowerWatts = readings.CpuPackagePowerWatts,
+            BatteryPowerWatts = readings.BatteryPowerWatts,
+            FanRpm = readings.FanRpm
+        };
+    }
+
+    private SensorReadings RememberCpuSensors(SensorReadings readings)
+    {
+        if (readings.CpuTemperatureCelsius is not null || readings.CpuPackagePowerWatts is not null)
+        {
+            _lastCpuTemperatureCelsius = readings.CpuTemperatureCelsius ?? _lastCpuTemperatureCelsius;
+            _lastCpuPackagePowerWatts = readings.CpuPackagePowerWatts ?? _lastCpuPackagePowerWatts;
+            _lastCpuSensorUpdate = DateTimeOffset.Now;
+            SaveCachedCpuSensors();
+        }
+
+        return readings;
+    }
+
+    private SensorReadings MergeRecentCpuSensors(SensorReadings readings)
+    {
+        if (HasCpuSensors(readings) || DateTimeOffset.Now - _lastCpuSensorUpdate > CachedSensorGracePeriod)
+        {
+            return readings;
+        }
+
+        double? cpuTemp = readings.CpuTemperatureCelsius ?? _lastCpuTemperatureCelsius;
+        double? cpuPower = readings.CpuPackagePowerWatts ?? _lastCpuPackagePowerWatts;
+        if (cpuTemp is null && cpuPower is null)
+        {
+            return readings;
+        }
+
+        string status = readings.Status.Contains("recent CPU", StringComparison.OrdinalIgnoreCase)
+            ? readings.Status
+            : $"{readings.Status}; using recent CPU sensor values";
+
+        return new SensorReadings
+        {
+            IsAvailable = readings.IsAvailable || cpuTemp is not null || cpuPower is not null || readings.BatteryPowerWatts is not null,
+            Status = status,
+            CpuTemperatureCelsius = cpuTemp,
+            CpuPackagePowerWatts = cpuPower,
+            BatteryPowerWatts = readings.BatteryPowerWatts,
+            FanRpm = readings.FanRpm
+        };
+    }
+
+    private static bool HasCpuSensors(SensorReadings readings) =>
+        readings.CpuTemperatureCelsius is not null || readings.CpuPackagePowerWatts is not null;
+
+    private void LoadCachedCpuSensors()
+    {
+        try
+        {
+            string path = GetCachePath();
+            if (!File.Exists(path))
+            {
+                return;
+            }
+
+            CachedCpuSensors? cache = JsonSerializer.Deserialize<CachedCpuSensors>(File.ReadAllText(path), JsonOptions);
+            if (cache is null || DateTimeOffset.Now - cache.UpdatedAt > CachedSensorGracePeriod)
+            {
+                return;
+            }
+
+            _lastCpuTemperatureCelsius = cache.CpuTemperatureCelsius;
+            _lastCpuPackagePowerWatts = cache.CpuPackagePowerWatts;
+            _lastCpuSensorUpdate = cache.UpdatedAt;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to load cached CPU sensor values.");
+        }
+    }
+
+    private void SaveCachedCpuSensors()
+    {
+        try
+        {
+            Directory.CreateDirectory(LogService.AppDataRoot);
+            File.WriteAllText(GetCachePath(), JsonSerializer.Serialize(new CachedCpuSensors
+            {
+                UpdatedAt = _lastCpuSensorUpdate,
+                CpuTemperatureCelsius = _lastCpuTemperatureCelsius,
+                CpuPackagePowerWatts = _lastCpuPackagePowerWatts
+            }, JsonOptions));
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to save cached CPU sensor values.");
+        }
+    }
+
+    private static string GetCachePath() => Path.Combine(LogService.AppDataRoot, "sensor-cache.json");
+
+    private sealed class CachedCpuSensors
+    {
+        public DateTimeOffset UpdatedAt { get; set; }
+        public double? CpuTemperatureCelsius { get; set; }
+        public double? CpuPackagePowerWatts { get; set; }
     }
 }

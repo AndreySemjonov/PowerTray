@@ -27,9 +27,11 @@ public sealed class BatteryService
         {
             Percentage = status.BatteryLifePercent == 255 ? 0 : status.BatteryLifePercent,
             IsPluggedIn = status.ACLineStatus == 1,
+            IsPowerSave = status.SystemStatusFlag == 1,
+            IsCritical = (status.BatteryFlag & 4) == 4 || (status.BatteryLifePercent != 255 && status.BatteryLifePercent <= 10),
             EstimatedTimeRemaining = remaining,
-                ChargeRateWatts = sensorBatteryWatts ?? TryGetBatteryPowerWattsFromWmi(),
-                HealthStatus = status.BatteryFlag switch
+            ChargeRateWatts = sensorBatteryWatts ?? TryGetBatteryPowerWattsFromWmi(),
+            HealthStatus = status.BatteryFlag switch
             {
                 128 => "No battery",
                 255 => "Unknown",

@@ -2,7 +2,6 @@ using System.Windows;
 using System.Windows.Media;
 using XPSBatteryTray.Models;
 using MediaBrush = System.Windows.Media.Brush;
-using MediaBrushes = System.Windows.Media.Brushes;
 using MediaColor = System.Windows.Media.Color;
 using MediaPen = System.Windows.Media.Pen;
 using WindowsPoint = System.Windows.Point;
@@ -26,101 +25,92 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         base.OnRender(context);
         BatteryUsageBucket[] buckets = Buckets?.ToArray() ?? [];
         var bounds = new Rect(0, 0, ActualWidth, ActualHeight);
-        if (bounds.Width < 40 || bounds.Height < 40 || buckets.Count(b => b.HasData) < 2)
+        if (bounds.Width < 80 || bounds.Height < 80 || buckets.Length == 0)
         {
             DrawCollecting(context, bounds);
             return;
         }
 
-        const double leftPadding = 34;
-        const double rightPadding = 34;
-        const double topPadding = 18;
-        const double bottomPadding = 22;
+        const double leftPadding = 8;
+        const double rightPadding = 46;
+        const double topPadding = 26;
+        const double bottomPadding = 28;
         double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightPadding);
         double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomPadding);
         double bottom = topPadding + plotHeight;
-        double activityBand = plotHeight * 0.28;
 
-        var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(70, 92, 98, 106)), 1);
-        for (int i = 0; i <= 2; i++)
-        {
-            double y = topPadding + i * plotHeight / 2d;
-            context.DrawLine(gridPen, new WindowsPoint(leftPadding, y), new WindowsPoint(leftPadding + plotWidth, y));
-        }
-
-        DrawAxisLabels(context, leftPadding, left: true, topPadding, plotHeight);
-        DrawAxisLabels(context, leftPadding + plotWidth + 6, left: false, topPadding, plotHeight);
+        DrawMissingDataBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
         DrawChargingBands(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
-        DrawBatteryAreaAndLine(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
-        DrawActivityBars(context, buckets, leftPadding, plotWidth, bottom, activityBand);
-        DrawTimeLabels(context, buckets, leftPadding, plotWidth, bottom + 5);
+        DrawGrid(context, leftPadding, plotWidth, topPadding, plotHeight);
+        DrawBars(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
+        DrawCurrentMarker(context, buckets, leftPadding, plotWidth, topPadding, plotHeight);
+        DrawAxisLabels(context, leftPadding + plotWidth + 10, topPadding, plotHeight);
+        DrawTimeLabels(context, leftPadding, plotWidth, bottom + 7);
+    }
+
+    private static void DrawMissingDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
+    {
+        double slot = width / buckets.Count;
+        var bandBrush = new SolidColorBrush(MediaColor.FromArgb(42, 36, 40, 45));
+        foreach ((double start, double end) in Ranges(buckets, b => b.IsMissingData))
+        {
+            double x = left + start * slot;
+            double w = Math.Max(2, (end - start) * slot);
+            context.DrawRectangle(bandBrush, null, new Rect(x, top, w, height));
+        }
     }
 
     private static void DrawChargingBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         double slot = width / buckets.Count;
-        var bandBrush = new SolidColorBrush(MediaColor.FromArgb(70, 60, 205, 92));
-        var markerBrush = new SolidColorBrush(MediaColor.FromRgb(105, 225, 104));
-        bool inBand = false;
-        double bandStart = 0;
+        var bandBrush = new SolidColorBrush(MediaColor.FromArgb(70, 58, 122, 51));
+        var markerBrush = new SolidColorBrush(MediaColor.FromRgb(163, 232, 105));
+        foreach ((double start, double end) in Ranges(buckets, b => b.HasData && b.IsCharging))
+        {
+            double x = left + start * slot;
+            double w = Math.Max(2, (end - start) * slot);
+            context.DrawRoundedRectangle(bandBrush, null, new Rect(x, top, w, height), 4, 4);
+
+            var marker = FormatText("\u26A1", 20, markerBrush, "Segoe UI Symbol");
+            context.DrawText(marker, new WindowsPoint(x + w / 2d - marker.Width / 2d, Math.Max(0, top - 24)));
+        }
+    }
+
+    private static IEnumerable<(double Start, double End)> Ranges(IReadOnlyList<BatteryUsageBucket> buckets, Func<BatteryUsageBucket, bool> predicate)
+    {
+        bool inRange = false;
+        int start = 0;
         for (int i = 0; i <= buckets.Count; i++)
         {
-            bool charging = i < buckets.Count && buckets[i].HasData && (buckets[i].IsCharging || buckets[i].ChargePercent > buckets[i].DrainPercent);
-            if (charging && !inBand)
+            bool active = i < buckets.Count && predicate(buckets[i]);
+            if (active && !inRange)
             {
-                inBand = true;
-                bandStart = left + i * slot;
+                start = i;
+                inRange = true;
             }
-            else if (!charging && inBand)
+            else if (!active && inRange)
             {
-                inBand = false;
-                double bandEnd = left + i * slot;
-                context.DrawRectangle(bandBrush, null, new Rect(bandStart, top, Math.Max(2, bandEnd - bandStart), height));
-                DrawText(context, "⚡", 15, markerBrush, bandStart + (bandEnd - bandStart) / 2d - 6, top - 3, "Segoe UI Semibold");
+                inRange = false;
+                yield return (start, i);
             }
         }
     }
 
-    private static void DrawBatteryAreaAndLine(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
+    private static void DrawGrid(DrawingContext context, double left, double width, double top, double height)
     {
-        var lineGeometry = new StreamGeometry();
-        var areaGeometry = new StreamGeometry();
-        using (StreamGeometryContext line = lineGeometry.Open())
-        using (StreamGeometryContext area = areaGeometry.Open())
+        var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(74, 85, 91, 99)), 1);
+        for (int i = 0; i <= 2; i++)
         {
-            for (int i = 0; i < buckets.Count; i++)
-            {
-                WindowsPoint point = PointForBucket(buckets, i, left, width, top, height);
-                if (i == 0)
-                {
-                    line.BeginFigure(point, false, false);
-                    area.BeginFigure(new WindowsPoint(point.X, top + height), true, true);
-                    area.LineTo(point, true, false);
-                }
-                else
-                {
-                    line.LineTo(point, true, false);
-                    area.LineTo(point, true, false);
-                }
-            }
-
-            WindowsPoint end = PointForBucket(buckets, buckets.Count - 1, left, width, top, height);
-            area.LineTo(new WindowsPoint(end.X, top + height), true, false);
+            double y = top + i * height / 2d;
+            context.DrawLine(gridPen, new WindowsPoint(left, y), new WindowsPoint(left + width, y));
         }
-
-        lineGeometry.Freeze();
-        areaGeometry.Freeze();
-        var fill = new LinearGradientBrush(MediaColor.FromArgb(80, 70, 150, 255), MediaColor.FromArgb(18, 70, 150, 255), 90);
-        var stroke = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(103, 159, 255)), 2);
-        context.DrawGeometry(fill, null, areaGeometry);
-        context.DrawGeometry(null, stroke, lineGeometry);
     }
 
-    private static void DrawActivityBars(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double bottom, double bandHeight)
+    private static void DrawBars(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         double slot = width / buckets.Count;
-        double barWidth = Math.Max(2, slot * 0.7);
-        double maxActivity = Math.Max(1, buckets.Max(b => Math.Max(Math.Max(b.DrainPercent, b.ChargePercent), Math.Abs(b.AverageWatts) / 4d)));
+        double gap = Math.Clamp(slot * 0.32, 1.2, 4);
+        double barWidth = Math.Max(2.5, slot - gap);
         for (int i = 0; i < buckets.Count; i++)
         {
             BatteryUsageBucket bucket = buckets[i];
@@ -129,69 +119,81 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
                 continue;
             }
 
-            double activity = Math.Max(Math.Max(bucket.DrainPercent, bucket.ChargePercent), Math.Abs(bucket.AverageWatts) / 4d);
-            double barHeight = Math.Clamp(activity / maxActivity, 0.04, 1) * bandHeight;
+            double normalized = Math.Clamp(bucket.BatteryPercent / 100d, 0, 1);
+            double barHeight = Math.Max(3, normalized * height);
             double x = left + i * slot + (slot - barWidth) / 2d;
-            double y = bottom - barHeight;
-            context.DrawRoundedRectangle(GetActivityBrush(bucket), null, new Rect(x, y, barWidth, barHeight), 1.5, 1.5);
+            double y = top + height - barHeight;
+            context.DrawRoundedRectangle(GetBarBrush(bucket), null, new Rect(x, y, barWidth, barHeight), 2, 2);
         }
     }
 
-    private static MediaBrush GetActivityBrush(BatteryUsageBucket bucket)
+    private static void DrawCurrentMarker(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
-        if (bucket.IsCharging || bucket.ChargePercent > bucket.DrainPercent)
+        int index = -1;
+        for (int i = 0; i < buckets.Count; i++)
         {
-            return new SolidColorBrush(MediaColor.FromRgb(90, 220, 105));
+            if (buckets[i].IsCurrent)
+            {
+                index = i;
+                break;
+            }
         }
 
-        double intensity = Math.Max(bucket.DrainPercent, Math.Abs(bucket.AverageWatts) / 4d);
-        if (intensity >= 5)
+        if (index < 0)
         {
-            return new SolidColorBrush(MediaColor.FromRgb(255, 91, 91));
+            return;
         }
 
-        if (intensity >= 2)
-        {
-            return new SolidColorBrush(MediaColor.FromRgb(245, 170, 45));
-        }
-
-        return new SolidColorBrush(MediaColor.FromRgb(86, 105, 126));
+        double slot = width / buckets.Count;
+        double x = left + index * slot + slot / 2d;
+        var markerPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(105, 116, 182, 255)), 1);
+        context.DrawLine(markerPen, new WindowsPoint(x, top), new WindowsPoint(x, top + height));
     }
 
-    private static WindowsPoint PointForBucket(IReadOnlyList<BatteryUsageBucket> buckets, int index, double left, double width, double top, double height)
+    private static MediaBrush GetBarBrush(BatteryUsageBucket bucket)
     {
-        double x = left + index * width / Math.Max(1, buckets.Count - 1);
-        double y = top + height - Math.Clamp(buckets[index].BatteryPercent, 0, 100) / 100d * height;
-        return new WindowsPoint(x, y);
+        if (bucket.IsCharging)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(154, 215, 108));
+        }
+
+        if (bucket.IsCritical)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(214, 92, 83));
+        }
+
+        if (bucket.IsPowerSave)
+        {
+            return new SolidColorBrush(MediaColor.FromRgb(237, 184, 72));
+        }
+
+        return new SolidColorBrush(MediaColor.FromRgb(142, 148, 154));
     }
 
-    private static void DrawAxisLabels(DrawingContext context, double x, bool left, double top, double height)
+    private static void DrawAxisLabels(DrawingContext context, double x, double top, double height)
     {
-        var brush = new SolidColorBrush(MediaColor.FromRgb(184, 190, 198));
+        var brush = new SolidColorBrush(MediaColor.FromRgb(188, 193, 200));
         string[] labels = ["100%", "50%", "0%"];
         for (int i = 0; i < labels.Length; i++)
         {
-            double y = top + i * height / 2d - 8;
-            double labelX = left ? x - 34 : x;
-            DrawText(context, labels[i], 10, brush, labelX, y);
+            double y = top + i * height / 2d - 9;
+            DrawText(context, labels[i], 12, brush, x, y);
         }
     }
 
-    private static void DrawTimeLabels(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double y)
+    private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)
     {
-        int[] positions = [0, buckets.Count / 4, buckets.Count / 2, buckets.Count * 3 / 4, buckets.Count - 1];
-        var brush = new SolidColorBrush(MediaColor.FromRgb(170, 176, 184));
-        for (int i = 0; i < positions.Length; i++)
+        var brush = new SolidColorBrush(MediaColor.FromRgb(174, 180, 188));
+        for (int hour = 0; hour <= 24; hour += 2)
         {
-            int bucketIndex = Math.Clamp(positions[i], 0, buckets.Count - 1);
-            string label = buckets[bucketIndex].Label;
-            double x = left + i * width / (positions.Length - 1);
-            var formatted = FormatText(label, 10, brush);
-            if (i == positions.Length - 1)
+            string label = hour.ToString("00");
+            double x = left + width * hour / 24d;
+            var formatted = FormatText(label, 11, brush);
+            if (hour == 24)
             {
                 x -= formatted.Width;
             }
-            else if (i > 0)
+            else if (hour > 0)
             {
                 x -= formatted.Width / 2d;
             }

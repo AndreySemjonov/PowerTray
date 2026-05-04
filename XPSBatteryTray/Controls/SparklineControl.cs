@@ -54,7 +54,6 @@ public sealed class SparklineControl : FrameworkElement
     {
         base.OnRender(drawingContext);
         var rect = new Rect(0, 0, ActualWidth, ActualHeight);
-        drawingContext.DrawRectangle(new SolidColorBrush(MediaColor.FromRgb(19, 22, 26)), null, rect);
         const double leftPadding = 10;
         const double rightAxisWidth = 44;
         const double topPadding = 4;

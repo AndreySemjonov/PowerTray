@@ -2,8 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings"
-        Width="560"
-        Height="560"
+        Width="600"
+        Height="650"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         WindowStyle="None"
@@ -45,6 +45,12 @@
             <CheckBox Content="Start with Windows" IsChecked="{Binding StartWithWindows}" />
             <CheckBox Content="Start minimized to tray" IsChecked="{Binding StartMinimized}" />
             <CheckBox Content="Enable HWiNFO shared-memory sensors" IsChecked="{Binding EnableHwinfoIntegration}" />
+            <CheckBox Content="Auto-restart HWiNFO if shared memory disappears" IsChecked="{Binding EnableHwinfoAutoRestart}" />
+            <CheckBox Content="Run personal HWiNFO recovery script" IsChecked="{Binding EnableHwinfoPersonalRecoveryScript}" />
+            <DockPanel Margin="0,3,0,12">
+                <Button DockPanel.Dock="Right" Content="Browse" Command="{Binding BrowseHwinfoRecoveryScriptCommand}" Margin="8,0,0,0" />
+                <TextBox Text="{Binding HwinfoPersonalRecoveryScriptPath, UpdateSourceTrigger=PropertyChanged}" />
+            </DockPanel>
             <CheckBox Content="Enable built-in LibreHardwareMonitor sensors" IsChecked="{Binding EnableLibreHardwareMonitorIntegration}" Margin="0,0,0,16" />
 
             <Grid Margin="0,0,0,14">

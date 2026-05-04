@@ -1,40 +1,44 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using System.IO;
 using XPSBatteryTray.Models;
 
 namespace XPSBatteryTray.Services;
 
 public sealed class BatteryUsageService
 {
+    private const int RetentionDays = 7;
+    private const int BucketCount = 96;
+    private static readonly TimeSpan BucketSize = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan MissingDataThreshold = TimeSpan.FromMinutes(30);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+
     private readonly string _historyPath = Path.Combine(LogService.AppDataRoot, "battery-usage-history.json");
     private BatteryUsageState _state = new();
     private bool _loaded;
     private DateTimeOffset _lastSave = DateTimeOffset.MinValue;
     private DateTimeOffset? _lastRecordTime;
-    private bool? _lastPluggedIn;
 
-    public BatteryUsageSnapshot Record(BatteryStatus battery)
+    public BatteryUsageSnapshot Record(BatteryStatus battery, DateTime selectedDate)
     {
         EnsureLoaded();
         DateTimeOffset now = DateTimeOffset.Now;
 
-        if (_state.SessionStart == default || (!_lastPluggedIn.GetValueOrDefault(battery.IsPluggedIn) && battery.IsPluggedIn))
+        if (_state.SessionStart == default)
         {
-            StartSession(now);
-        }
-
-        if (_lastPluggedIn == true && !battery.IsPluggedIn)
-        {
-            StartSession(now);
+            _state.SessionStart = now;
         }
 
         AddActivityTime(now);
         AddOrUpdateSample(now, battery);
-        _lastPluggedIn = battery.IsPluggedIn;
         SaveIfNeeded(now, force: false);
-        return BuildSnapshot(now);
+        return BuildSnapshot(selectedDate.Date, now);
+    }
+
+    public BatteryUsageSnapshot GetSnapshot(DateTime selectedDate)
+    {
+        EnsureLoaded();
+        return BuildSnapshot(selectedDate.Date, DateTimeOffset.Now);
     }
 
     private void EnsureLoaded()
@@ -50,9 +54,8 @@ public sealed class BatteryUsageService
             if (File.Exists(_historyPath))
             {
                 _state = JsonSerializer.Deserialize<BatteryUsageState>(File.ReadAllText(_historyPath), JsonOptions) ?? new BatteryUsageState();
-                DateTimeOffset cutoff = DateTimeOffset.Now.AddDays(-7);
+                DateTimeOffset cutoff = DateTimeOffset.Now.AddDays(-RetentionDays);
                 _state.Samples = _state.Samples.Where(s => s.Timestamp >= cutoff).ToList();
-                _lastPluggedIn = _state.Samples.LastOrDefault()?.IsPluggedIn;
             }
         }
         catch (Exception ex)
@@ -60,18 +63,6 @@ public sealed class BatteryUsageService
             LogService.Error(ex, "Failed to load battery usage history; starting fresh.");
             _state = new BatteryUsageState();
         }
-    }
-
-    private void StartSession(DateTimeOffset now)
-    {
-        _state = new BatteryUsageState
-        {
-            SessionStart = now,
-            ActiveSeconds = 0,
-            IdleSeconds = 0
-        };
-        _lastRecordTime = null;
-        SaveIfNeeded(now, force: true);
     }
 
     private void AddActivityTime(DateTimeOffset now)
@@ -107,7 +98,9 @@ public sealed class BatteryUsageService
             Timestamp = now,
             BatteryPercent = Math.Clamp(battery.Percentage, 0, 100),
             IsPluggedIn = battery.IsPluggedIn,
-            BatteryWatts = battery.ChargeRateWatts
+            BatteryWatts = battery.ChargeRateWatts,
+            IsPowerSave = battery.IsPowerSave,
+            IsCritical = battery.IsCritical
         };
 
         BatteryUsageSample? last = _state.Samples.LastOrDefault();
@@ -121,19 +114,19 @@ public sealed class BatteryUsageService
             _state.Samples.Add(sample);
         }
 
-        DateTimeOffset cutoff = now.AddDays(-7);
+        DateTimeOffset cutoff = now.AddDays(-RetentionDays);
         _state.Samples.RemoveAll(s => s.Timestamp < cutoff);
     }
 
-    private BatteryUsageSnapshot BuildSnapshot(DateTimeOffset now)
+    private BatteryUsageSnapshot BuildSnapshot(DateTime selectedDate, DateTimeOffset now)
     {
-        IReadOnlyList<BatteryUsageBucket> buckets = BuildBuckets(now);
-        TimeSpan age = now - _state.SessionStart;
-        string sessionText = FormatDuration(age);
+        IReadOnlyList<BatteryUsageBucket> buckets = BuildBuckets(selectedDate, now);
+        TimeSpan age = _state.SessionStart == default ? TimeSpan.Zero : now - _state.SessionStart;
         return new BatteryUsageSnapshot
         {
-            Title = $"Battery Usage Since Charge ({sessionText})",
-            SessionText = sessionText,
+            Title = "Battery Usage Since Charge (24h)",
+            Date = selectedDate,
+            SessionText = FormatDuration(age),
             ActiveText = FormatDuration(TimeSpan.FromSeconds(_state.ActiveSeconds)),
             IdleText = FormatDuration(TimeSpan.FromSeconds(_state.IdleSeconds)),
             EstimatedDrainText = FormatMilliWattHours(EstimateDrainMilliWattHours()),
@@ -141,77 +134,85 @@ public sealed class BatteryUsageService
         };
     }
 
-    private IReadOnlyList<BatteryUsageBucket> BuildBuckets(DateTimeOffset now)
+    private IReadOnlyList<BatteryUsageBucket> BuildBuckets(DateTime selectedDate, DateTimeOffset now)
     {
-        DateTimeOffset start = _state.SessionStart == default ? now.AddHours(-1) : _state.SessionStart;
-        TimeSpan age = now - start;
-        TimeSpan visibleWindow = TimeSpan.FromTicks(Math.Min(TimeSpan.FromHours(2).Ticks, Math.Max(TimeSpan.FromMinutes(10).Ticks, age.Ticks)));
-        const int bucketCount = 24;
-        TimeSpan bucketSize = TimeSpan.FromTicks(visibleWindow.Ticks / bucketCount);
-        DateTimeOffset chartStart = now - visibleWindow;
+        DateTime day = DateTime.SpecifyKind(selectedDate.Date, DateTimeKind.Unspecified);
+        DateTimeOffset dayStart = new(day, TimeZoneInfo.Local.GetUtcOffset(day));
+        DateTimeOffset dayEnd = dayStart.AddDays(1);
 
-        var buckets = new List<BatteryUsageBucket>(bucketCount);
-        int firstSessionPercent = _state.Samples
-            .Where(s => s.Timestamp >= start)
+        BatteryUsageSample[] samples = _state.Samples
+            .Where(s => s.Timestamp >= dayStart && s.Timestamp < dayEnd)
             .OrderBy(s => s.Timestamp)
-            .FirstOrDefault()?.BatteryPercent ?? 0;
-        int lastKnownPercent = _state.Samples
-            .Where(s => s.Timestamp < chartStart)
-            .OrderBy(s => s.Timestamp)
-            .LastOrDefault()?.BatteryPercent ?? firstSessionPercent;
-        for (int i = 0; i < bucketCount; i++)
+            .ToArray();
+
+        var buckets = new List<BatteryUsageBucket>(BucketCount);
+        for (int i = 0; i < BucketCount; i++)
         {
-            DateTimeOffset bucketStart = chartStart + TimeSpan.FromTicks(bucketSize.Ticks * i);
-            DateTimeOffset bucketEnd = bucketStart + bucketSize;
-            BatteryUsageSample[] samples = _state.Samples
+            DateTimeOffset bucketStart = dayStart + TimeSpan.FromTicks(BucketSize.Ticks * i);
+            DateTimeOffset bucketEnd = bucketStart + BucketSize;
+            BatteryUsageSample[] bucketSamples = samples
                 .Where(s => s.Timestamp >= bucketStart && s.Timestamp < bucketEnd)
-                .OrderBy(s => s.Timestamp)
                 .ToArray();
 
-            if (samples.Length == 0)
+            BatteryUsageSample? representative = bucketSamples.LastOrDefault();
+            bool hasData = representative is not null;
+            bool isFuture = bucketStart > now;
+            if (!hasData && !isFuture)
             {
-                buckets.Add(new BatteryUsageBucket
-                {
-                    Start = bucketStart,
-                    Label = BuildBucketLabel(bucketStart, now),
-                    BatteryPercent = lastKnownPercent,
-                    IsCurrent = i == bucketCount - 1
-                });
-                continue;
+                representative = FindNearestSample(samples, bucketStart + BucketSize / 2);
+                hasData = representative is not null && Distance(representative.Timestamp, bucketStart + BucketSize / 2) <= MissingDataThreshold;
             }
 
-            int firstPercent = samples.First().BatteryPercent;
-            int lastPercent = samples.Last().BatteryPercent;
-            lastKnownPercent = lastPercent;
-            double delta = lastPercent - firstPercent;
-            double averageWatts = samples.Where(s => s.BatteryWatts.HasValue).Select(s => s.BatteryWatts!.Value).DefaultIfEmpty(0).Average();
-            bool charging = samples.Count(s => s.IsPluggedIn || s.BatteryWatts is > 0.5) > samples.Length / 2;
-            double drainPercent = Math.Max(0, -delta);
-            double chargePercent = Math.Max(0, delta);
-            if (drainPercent < 0.05 && averageWatts < -0.05)
-            {
-                drainPercent = Math.Clamp(Math.Abs(averageWatts) / 4d, 0.4, 8);
-            }
-            else if (chargePercent < 0.05 && averageWatts > 0.05)
-            {
-                chargePercent = Math.Clamp(averageWatts / 10d, 0.4, 8);
-            }
+            int percent = hasData ? representative!.BatteryPercent : 0;
+            double averageWatts = bucketSamples
+                .Where(s => s.BatteryWatts.HasValue)
+                .Select(s => s.BatteryWatts!.Value)
+                .DefaultIfEmpty(representative?.BatteryWatts ?? 0)
+                .Average();
+            bool charging = hasData && (bucketSamples.Length > 0
+                ? bucketSamples.Count(s => s.IsCharging) >= Math.Max(1, bucketSamples.Length / 2)
+                : representative!.IsCharging);
+            bool powerSave = hasData && (bucketSamples.Length > 0
+                ? bucketSamples.Any(s => s.IsPowerSave)
+                : representative!.IsPowerSave);
+            bool critical = hasData && (bucketSamples.Length > 0
+                ? bucketSamples.Any(s => s.IsCritical || s.BatteryPercent <= 10)
+                : representative!.IsCritical || representative.BatteryPercent <= 10);
 
             buckets.Add(new BatteryUsageBucket
             {
                 Start = bucketStart,
-                Label = BuildBucketLabel(bucketStart, now),
-                BatteryPercent = lastPercent,
-                DrainPercent = drainPercent,
-                ChargePercent = chargePercent,
+                End = bucketEnd,
+                Label = BuildBucketLabel(i, bucketStart),
+                BatteryPercent = percent,
                 AverageWatts = averageWatts,
                 IsCharging = charging,
-                IsCurrent = i == bucketCount - 1,
-                HasData = true
+                IsPowerSave = powerSave,
+                IsCritical = critical,
+                IsMissingData = !hasData && !isFuture,
+                IsCurrent = now >= bucketStart && now < bucketEnd,
+                HasData = hasData
             });
         }
 
         return buckets;
+    }
+
+    private static BatteryUsageSample? FindNearestSample(IReadOnlyList<BatteryUsageSample> samples, DateTimeOffset target)
+    {
+        BatteryUsageSample? nearest = null;
+        TimeSpan nearestDistance = TimeSpan.MaxValue;
+        foreach (BatteryUsageSample sample in samples)
+        {
+            TimeSpan distance = Distance(sample.Timestamp, target);
+            if (distance < nearestDistance)
+            {
+                nearest = sample;
+                nearestDistance = distance;
+            }
+        }
+
+        return nearest;
     }
 
     private void SaveIfNeeded(DateTimeOffset now, bool force)
@@ -233,26 +234,18 @@ public sealed class BatteryUsageService
         }
     }
 
-    private static string BuildBucketLabel(DateTimeOffset bucketStart, DateTimeOffset now)
+    private static string BuildBucketLabel(int bucketIndex, DateTimeOffset bucketStart)
     {
-        TimeSpan age = now - bucketStart;
-        if (age.TotalSeconds < 45)
+        if (bucketIndex == BucketCount - 1)
         {
-            return "Now";
+            return "24";
         }
 
-        if (age.TotalMinutes < 60)
-        {
-            return $"{Math.Max(1, (int)Math.Round(age.TotalMinutes))}m";
-        }
-
-        if (age.TotalHours < 6)
-        {
-            return $"{Math.Round(age.TotalHours, 1):0.#}h";
-        }
-
-        return bucketStart.ToString("HH");
+        return bucketStart.Hour % 2 == 0 && bucketStart.Minute == 0 ? bucketStart.ToString("HH") : string.Empty;
     }
+
+    private static TimeSpan Distance(DateTimeOffset left, DateTimeOffset right) =>
+        TimeSpan.FromTicks(Math.Abs((left - right).Ticks));
 
     private static string FormatDuration(TimeSpan duration)
     {
@@ -266,8 +259,9 @@ public sealed class BatteryUsageService
 
     private double EstimateDrainMilliWattHours()
     {
+        DateTimeOffset cutoff = DateTimeOffset.Now.AddDays(-1);
         BatteryUsageSample[] samples = _state.Samples
-            .Where(s => s.Timestamp >= _state.SessionStart)
+            .Where(s => s.Timestamp >= cutoff)
             .OrderBy(s => s.Timestamp)
             .ToArray();
         if (samples.Length < 2)
@@ -346,5 +340,9 @@ public sealed class BatteryUsageService
         public int BatteryPercent { get; set; }
         public bool IsPluggedIn { get; set; }
         public double? BatteryWatts { get; set; }
+        public bool IsPowerSave { get; set; }
+        public bool IsCritical { get; set; }
+
+        public bool IsCharging => IsPluggedIn || BatteryWatts is > 0.5;
     }
 }

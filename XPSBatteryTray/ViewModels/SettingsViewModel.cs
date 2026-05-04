@@ -14,6 +14,9 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _startMinimized;
     private int _sensorSampleIntervalSeconds;
     private bool _enableHwinfoIntegration;
+    private bool _enableHwinfoAutoRestart;
+    private bool _enableHwinfoPersonalRecoveryScript;
+    private string _hwinfoPersonalRecoveryScriptPath;
     private bool _enableLibreHardwareMonitorIntegration;
     private int _healthStart;
     private int _healthStop;
@@ -32,6 +35,9 @@ public sealed class SettingsViewModel : ObservableObject
         _startMinimized = settings.StartMinimized;
         _sensorSampleIntervalSeconds = settings.SensorSampleIntervalSeconds;
         _enableHwinfoIntegration = settings.EnableHwinfoIntegration;
+        _enableHwinfoAutoRestart = settings.EnableHwinfoAutoRestart;
+        _enableHwinfoPersonalRecoveryScript = settings.EnableHwinfoPersonalRecoveryScript;
+        _hwinfoPersonalRecoveryScriptPath = settings.HwinfoPersonalRecoveryScriptPath;
         _enableLibreHardwareMonitorIntegration = settings.EnableLibreHardwareMonitorIntegration;
         _healthStart = settings.HealthStart;
         _healthStop = settings.HealthStop;
@@ -40,6 +46,7 @@ public sealed class SettingsViewModel : ObservableObject
         _theme = settings.Theme;
 
         BrowseCommand = new RelayCommand(Browse);
+        BrowseHwinfoRecoveryScriptCommand = new RelayCommand(BrowseHwinfoRecoveryScript);
         SaveCommand = new RelayCommand(Save);
     }
 
@@ -75,6 +82,24 @@ public sealed class SettingsViewModel : ObservableObject
     {
         get => _enableHwinfoIntegration;
         set => SetProperty(ref _enableHwinfoIntegration, value);
+    }
+
+    public bool EnableHwinfoAutoRestart
+    {
+        get => _enableHwinfoAutoRestart;
+        set => SetProperty(ref _enableHwinfoAutoRestart, value);
+    }
+
+    public bool EnableHwinfoPersonalRecoveryScript
+    {
+        get => _enableHwinfoPersonalRecoveryScript;
+        set => SetProperty(ref _enableHwinfoPersonalRecoveryScript, value);
+    }
+
+    public string HwinfoPersonalRecoveryScriptPath
+    {
+        get => _hwinfoPersonalRecoveryScriptPath;
+        set => SetProperty(ref _hwinfoPersonalRecoveryScriptPath, value);
     }
 
     public bool EnableLibreHardwareMonitorIntegration
@@ -120,6 +145,7 @@ public sealed class SettingsViewModel : ObservableObject
     }
 
     public ICommand BrowseCommand { get; }
+    public ICommand BrowseHwinfoRecoveryScriptCommand { get; }
     public ICommand SaveCommand { get; }
 
     private void Browse()
@@ -134,6 +160,21 @@ public sealed class SettingsViewModel : ObservableObject
         if (dialog.ShowDialog() == true)
         {
             CctkPath = dialog.FileName;
+        }
+    }
+
+    private void BrowseHwinfoRecoveryScript()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "Scripts and executables (*.ps1;*.cmd;*.bat;*.exe)|*.ps1;*.cmd;*.bat;*.exe|PowerShell scripts (*.ps1)|*.ps1|Executable files (*.exe)|*.exe|All files (*.*)|*.*",
+            Title = "Select personal HWiNFO recovery script",
+            CheckFileExists = true
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            HwinfoPersonalRecoveryScriptPath = dialog.FileName;
         }
     }
 
@@ -153,6 +194,9 @@ public sealed class SettingsViewModel : ObservableObject
             StartMinimized = StartMinimized,
             SensorSampleIntervalSeconds = Math.Clamp(SensorSampleIntervalSeconds, 1, 60),
             EnableHwinfoIntegration = EnableHwinfoIntegration,
+            EnableHwinfoAutoRestart = EnableHwinfoAutoRestart,
+            EnableHwinfoPersonalRecoveryScript = EnableHwinfoPersonalRecoveryScript,
+            HwinfoPersonalRecoveryScriptPath = HwinfoPersonalRecoveryScriptPath,
             EnableLibreHardwareMonitorIntegration = EnableLibreHardwareMonitorIntegration,
             HealthStart = HealthStart,
             HealthStop = HealthStop,

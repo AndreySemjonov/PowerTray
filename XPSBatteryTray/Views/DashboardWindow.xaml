@@ -188,72 +188,47 @@
 
             <Grid Grid.Row="5" Margin="10,0,10,8">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="280" />
+                    <RowDefinition Height="314" />
                     <RowDefinition Height="10" />
-                    <RowDefinition Height="156" />
+                    <RowDefinition Height="146" />
                 </Grid.RowDefinitions>
 
                 <Border Grid.Row="0" Style="{StaticResource CardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="32" />
-                        <RowDefinition Height="72" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Text="{Binding BatteryUsageTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-
-                    <Grid Grid.Row="1" Margin="0,2,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" Background="#1D2227" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Padding="6,6">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Session" Foreground="{StaticResource MutedTextBrush}" FontSize="12" HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding BatteryUsageSessionText}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Column="2" Background="#1D2227" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Padding="6,6">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Active" Foreground="{StaticResource MutedTextBrush}" FontSize="12" HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding BatteryUsageActiveText}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Column="4" Background="#1D2227" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Padding="6,6">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Idle" Foreground="{StaticResource MutedTextBrush}" FontSize="12" HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding BatteryUsageIdleText}" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
-                            </StackPanel>
-                        </Border>
-                        <Border Grid.Column="6" Background="#1D2227" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Padding="6,6">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Estimated drain" Foreground="{StaticResource MutedTextBrush}" FontSize="12" HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding BatteryUsageEstimatedDrainText}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,2,0,0" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-
-                    <Grid Grid.Row="2">
+                    <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="21" />
+                            <RowDefinition Height="34" />
                             <RowDefinition Height="*" />
+                            <RowDefinition Height="30" />
                         </Grid.RowDefinitions>
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Fill="{StaticResource AccentBrush}" Width="7" Height="7" Margin="2,0,7,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Battery level %" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,0,18,0" />
-                            <Ellipse Fill="{StaticResource BatteryAccentBrush}" Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Activity" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,0,18,0" />
-                            <Ellipse Fill="{StaticResource GoodAccentBrush}" Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Charging" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                        </StackPanel>
-                        <controls:BatteryUsageCombinedControl Grid.Row="1" Buckets="{Binding BatteryUsageBuckets}" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding BatteryUsageTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="&lt;" Command="{Binding PreviousBatteryUsageDayCommand}" Width="30" MinWidth="30" Height="26" MinHeight="26" Padding="0" FontSize="12" ToolTip="Previous day" />
+                                <Button Content="{Binding BatteryUsageDateText}" Command="{Binding TodayBatteryUsageCommand}" Width="68" MinWidth="68" Height="26" MinHeight="26" Padding="4,0" FontSize="11" Margin="5,0" ToolTip="Today" />
+                                <Button Content="&gt;" Command="{Binding NextBatteryUsageDayCommand}" IsEnabled="{Binding CanShowNextBatteryUsageDay}" Width="30" MinWidth="30" Height="26" MinHeight="26" Padding="0" FontSize="12" ToolTip="Next day" />
+                            </StackPanel>
+                        </Grid>
+
+                        <controls:BatteryUsageCombinedControl Grid.Row="1" Buckets="{Binding BatteryUsageBuckets}" Margin="0,2,0,0" />
+
+                        <WrapPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Ellipse Fill="#8E949A" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Battery level" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,12,0" />
+                            <Ellipse Fill="#9AD76C" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Charging" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,12,0" />
+                            <Ellipse Fill="#EDB848" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Power save" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,12,0" />
+                            <Ellipse Fill="#D65C53" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Critical" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,0,12,0" />
+                            <Border Background="#2A2E34" BorderBrush="#585E66" BorderThickness="1" Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="No data" Foreground="{StaticResource MutedTextBrush}" FontSize="11" />
+                        </WrapPanel>
                     </Grid>
-                </Grid>
                 </Border>
 
                 <Border Grid.Row="2" Style="{StaticResource CardStyle}">
