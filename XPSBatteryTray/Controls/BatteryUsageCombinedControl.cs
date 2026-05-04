@@ -115,10 +115,20 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
     private static void DrawGrid(DrawingContext context, double left, double width, double top, double height)
     {
         var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(74, 85, 91, 99)), 1);
-        for (int i = 0; i <= 2; i++)
+        foreach (double percent in new[] { 100d, 50d, 0d })
         {
-            double y = top + i * height / 2d;
+            double y = PercentToY(percent, top, height);
             context.DrawLine(gridPen, new WindowsPoint(left, y), new WindowsPoint(left + width, y));
+        }
+
+        var thresholdPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(52, 85, 91, 99)), 1)
+        {
+            DashStyle = new DashStyle([4, 4], 0)
+        };
+        foreach (double percent in new[] { 75d, 25d })
+        {
+            double y = PercentToY(percent, top, height);
+            context.DrawLine(thresholdPen, new WindowsPoint(left, y), new WindowsPoint(left + width, y));
         }
     }
 
@@ -223,14 +233,21 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
 
     private static void DrawAxisLabels(DrawingContext context, double x, double top, double height)
     {
-        var brush = new SolidColorBrush(MediaColor.FromRgb(188, 193, 200));
-        string[] labels = ["100%", "50%", "0%"];
-        for (int i = 0; i < labels.Length; i++)
+        var majorBrush = new SolidColorBrush(MediaColor.FromRgb(188, 193, 200));
+        foreach (double percent in new[] { 100d, 50d, 0d })
         {
-            double y = top + i * height / 2d - 9;
-            DrawText(context, labels[i], 12, brush, x, y);
+            DrawText(context, $"{percent:N0}%", 12, majorBrush, x, PercentToY(percent, top, height) - 9);
+        }
+
+        var thresholdBrush = new SolidColorBrush(MediaColor.FromRgb(142, 149, 158));
+        foreach (double percent in new[] { 75d, 25d })
+        {
+            DrawText(context, $"{percent:N0}%", 10, thresholdBrush, x, PercentToY(percent, top, height) - 7);
         }
     }
+
+    private static double PercentToY(double percent, double top, double height) =>
+        top + (1d - Math.Clamp(percent, 0, 100) / 100d) * height;
 
     private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)
     {
