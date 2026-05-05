@@ -15,6 +15,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ProcessStatsService _processStatsService;
     private readonly WindowsPowerModeService _windowsPowerModeService;
     private readonly BatteryUsageService _batteryUsageService;
+    private readonly WindowsBatteryUsageService _windowsBatteryUsageService;
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
     private bool _isRefreshing;
@@ -47,11 +48,12 @@ public sealed class MainViewModel : ObservableObject
     private string _cpuPowerGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
     private string _energyImpactTitle = "Resource Impact";
     private string _energyImpactColumnHeader = "Score";
+    private string _windowsBatteryUsageStatusText = "Windows battery usage not loaded yet.";
     private WindowsPowerMode? _currentWindowsPowerMode;
     private BatteryUsageSnapshot _batteryUsage = new();
     private DateTime _selectedBatteryUsageDate = DateTime.Today;
 
-    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService)
+    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService, WindowsBatteryUsageService windowsBatteryUsageService)
     {
         _settingsService = settingsService;
         _cctkService = cctkService;
@@ -60,10 +62,12 @@ public sealed class MainViewModel : ObservableObject
         _processStatsService = processStatsService;
         _windowsPowerModeService = windowsPowerModeService;
         _batteryUsageService = batteryUsageService;
+        _windowsBatteryUsageService = windowsBatteryUsageService;
 
         TopCpuProcesses = new ObservableCollection<ProcessUsageInfo>();
         TopMemoryProcesses = new ObservableCollection<ProcessUsageInfo>();
         EnergyImpactProcesses = new ObservableCollection<ProcessUsageInfo>();
+        WindowsBatteryUsageProcesses = new ObservableCollection<WindowsBatteryUsageInfo>();
         FanReadings = new ObservableCollection<string>();
 
         RefreshDellChargeCommand = new RelayCommand(async () => await RefreshDellChargeAsync());
@@ -337,6 +341,12 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _energyImpactColumnHeader, value);
     }
 
+    public string WindowsBatteryUsageStatusText
+    {
+        get => _windowsBatteryUsageStatusText;
+        private set => SetProperty(ref _windowsBatteryUsageStatusText, value);
+    }
+
     public WindowsPowerMode? CurrentWindowsPowerMode
     {
         get => _currentWindowsPowerMode;
@@ -398,6 +408,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ProcessUsageInfo> TopCpuProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> TopMemoryProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> EnergyImpactProcesses { get; }
+    public ObservableCollection<WindowsBatteryUsageInfo> WindowsBatteryUsageProcesses { get; }
     public ObservableCollection<string> FanReadings { get; }
 
     public ICommand RefreshDellChargeCommand { get; }
@@ -492,6 +503,7 @@ public sealed class MainViewModel : ObservableObject
         : SelectedBatteryUsageDate.ToString("MMM d");
     public bool CanShowNextBatteryUsageDay => SelectedBatteryUsageDate < DateTime.Today;
     public string TopAppUsageEmptyText => EnergyImpactProcesses.Count == 0 ? "No resource impact data yet" : string.Empty;
+    public string WindowsBatteryUsageEmptyText => WindowsBatteryUsageProcesses.Count == 0 ? WindowsBatteryUsageStatusText : string.Empty;
     public string CpuNowDetailText => $"{CpuUsagePercent:N0}%";
     public string GpuNowDetailText => GpuUsagePercent is { } value ? $"{value:N0}%" : "--";
     public string CpuMaxDetailText => FormatMaxPercent(CpuGraphValues);
@@ -706,6 +718,7 @@ public sealed class MainViewModel : ObservableObject
                     string energyImpactColumnHeader) = _processStatsService.Sample(battery);
                 WindowsPowerMode? powerMode = ReadWindowsPowerMode(battery.IsPluggedIn);
                 BatteryUsageSnapshot batteryUsage = _batteryUsageService.Record(battery, selectedDate, powerMode);
+                WindowsBatteryUsageSnapshot windowsBatteryUsage = _windowsBatteryUsageService.GetSnapshot();
                 SystemMemoryInfo memory = _processStatsService.GetMemoryInfo();
 
                 return new RefreshSnapshot(
@@ -720,6 +733,7 @@ public sealed class MainViewModel : ObservableObject
                     energyImpactColumnHeader,
                     powerMode,
                     batteryUsage,
+                    windowsBatteryUsage,
                     memory,
                     DateTimeOffset.Now);
             });
@@ -747,7 +761,10 @@ public sealed class MainViewModel : ObservableObject
             Replace(TopCpuProcesses, snapshot.TopCpu);
             Replace(TopMemoryProcesses, snapshot.TopMemory);
             Replace(EnergyImpactProcesses, snapshot.EnergyImpact);
+            Replace(WindowsBatteryUsageProcesses, snapshot.WindowsBatteryUsage.Apps);
+            WindowsBatteryUsageStatusText = snapshot.WindowsBatteryUsage.StatusText;
             OnPropertyChanged(nameof(TopAppUsageEmptyText));
+            OnPropertyChanged(nameof(WindowsBatteryUsageEmptyText));
             OnPropertyChanged(nameof(TopCpuProcessText));
             Replace(FanReadings, sensors.FanRpm.Count == 0
                 ? ["Fan RPM unavailable"]
@@ -1203,6 +1220,7 @@ public sealed class MainViewModel : ObservableObject
         string EnergyImpactColumnHeader,
         WindowsPowerMode? PowerMode,
         BatteryUsageSnapshot BatteryUsage,
+        WindowsBatteryUsageSnapshot WindowsBatteryUsage,
         SystemMemoryInfo Memory,
         DateTimeOffset Timestamp);
 }
