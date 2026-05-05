@@ -108,7 +108,7 @@ public sealed class ProcessStatsService
         IReadOnlyList<ProcessUsageInfo> topCpu = usage.OrderByDescending(p => p.CpuPercent).Take(5).ToArray();
         IReadOnlyList<ProcessUsageInfo> topMemory = usage.OrderByDescending(p => p.WorkingSetBytes).Take(5).ToArray();
         IReadOnlyList<ProcessUsageInfo> energy = BuildEnergyImpactList(usage).Take(5).ToArray();
-        return (_lastOverallCpu, topCpu, topMemory, energy, BuildEnergyImpactTitle(now), _energyState.UsesBatteryRate ? "est. mWh" : "score");
+        return (_lastOverallCpu, topCpu, topMemory, energy, BuildEnergyImpactTitle(now), "Score");
     }
 
     public SystemMemoryInfo GetMemoryInfo()
@@ -269,14 +269,14 @@ public sealed class ProcessStatsService
     {
         if (!_energyState.IsActive || _energyState.SessionStart == default)
         {
-            return "Energy Since Charge";
+            return "Resource Impact";
         }
 
         TimeSpan age = now - _energyState.SessionStart;
         string ageText = age.TotalHours >= 1
             ? $"{(int)age.TotalHours}h {age.Minutes}m"
             : $"{Math.Max(1, age.Minutes)}m";
-        return $"Energy Since Charge ({ageText})";
+        return $"Resource Impact ({ageText})";
     }
 
     private string GetFriendlyProcessName(Process process)

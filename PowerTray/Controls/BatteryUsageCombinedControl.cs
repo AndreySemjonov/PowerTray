@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using XPSBatteryTray.Models;
 using MediaBrush = System.Windows.Media.Brush;
 using MediaColor = System.Windows.Media.Color;
@@ -57,24 +58,63 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
     }
 
     private HoverSelection? _hoverSelection;
+    private readonly Popup _hoverPopup;
+    private readonly TextBlock _hoverText;
+    private readonly DispatcherTimer _hoverCloseTimer;
 
     public BatteryUsageCombinedControl()
     {
-        ToolTip = new System.Windows.Controls.ToolTip
+        _hoverText = new TextBlock
         {
-            Placement = PlacementMode.Mouse,
-            StaysOpen = true
+            Foreground = new SolidColorBrush(MediaColor.FromRgb(242, 244, 247)),
+            FontFamily = new System.Windows.Media.FontFamily("Segoe UI"),
+            FontSize = 12,
+            LineHeight = 19,
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 280
         };
+        _hoverPopup = new Popup
+        {
+            AllowsTransparency = true,
+            Focusable = false,
+            IsHitTestVisible = false,
+            Placement = PlacementMode.Relative,
+            PlacementTarget = this,
+            StaysOpen = true,
+            Child = new Border
+            {
+                Background = new SolidColorBrush(MediaColor.FromRgb(32, 37, 43)),
+                BorderBrush = new SolidColorBrush(MediaColor.FromRgb(52, 56, 61)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(7),
+                IsHitTestVisible = false,
+                Padding = new Thickness(9, 6, 9, 6),
+                Child = _hoverText
+            }
+        };
+        _hoverCloseTimer = new DispatcherTimer(DispatcherPriority.Input)
+        {
+            Interval = TimeSpan.FromMilliseconds(80)
+        };
+        _hoverCloseTimer.Tick += OnHoverCloseTimerTick;
         MouseMove += OnMouseMove;
         MouseLeave += OnMouseLeave;
+        Unloaded += (_, _) => ClearHover();
+        IsVisibleChanged += (_, _) =>
+        {
+            if (!IsVisible)
+            {
+                ClearHover();
+            }
+        };
     }
 
     protected override void OnRender(DrawingContext context)
     {
         base.OnRender(context);
-        BatteryUsageBucket[] buckets = Buckets?.ToArray() ?? [];
+        IReadOnlyList<BatteryUsageBucket> buckets = GetBuckets();
         var bounds = new Rect(0, 0, ActualWidth, ActualHeight);
-        if (bounds.Width < Layout.MinimumRenderableWidth || bounds.Height < Layout.MinimumRenderableHeight || buckets.Length == 0)
+        if (bounds.Width < Layout.MinimumRenderableWidth || bounds.Height < Layout.MinimumRenderableHeight || buckets.Count == 0)
         {
             DrawCollecting(context, bounds);
             return;
@@ -418,8 +458,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
 
     private void OnMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        BatteryUsageBucket[] buckets = Buckets?.ToArray() ?? [];
-        if (buckets.Length == 0)
+        IReadOnlyList<BatteryUsageBucket> buckets = GetBuckets();
+        if (buckets.Count == 0)
         {
             ClearHover();
             return;
@@ -432,22 +472,47 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             return;
         }
 
-        SetHover(selection.Value, BuildHoverText(buckets, selection.Value));
-    }
-
-    private void OnMouseLeave(object sender, System.Windows.Input.MouseEventArgs e) => ClearHover();
-
-    private void SetHover(HoverSelection selection, string text)
-    {
-        bool changed = !_hoverSelection.Equals(selection);
-        _hoverSelection = selection;
-        if (ToolTip is System.Windows.Controls.ToolTip toolTip)
+        bool selectionChanged = !_hoverSelection.Equals(selection.Value);
+        WindowsPoint position = e.GetPosition(this);
+        if (!selectionChanged && _hoverPopup.IsOpen)
         {
-            toolTip.Content = text;
-            toolTip.IsOpen = true;
+            UpdateHoverPopupPosition(position);
+            return;
         }
 
-        if (changed)
+        SetHover(selection.Value, BuildHoverText(buckets, selection.Value), selectionChanged, position);
+    }
+
+    private IReadOnlyList<BatteryUsageBucket> GetBuckets() =>
+        Buckets as IReadOnlyList<BatteryUsageBucket> ?? Buckets?.ToArray() ?? [];
+
+    private void OnMouseLeave(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        WindowsPoint position = Mouse.GetPosition(this);
+        if (new Rect(0, 0, ActualWidth, ActualHeight).Contains(position))
+        {
+            return;
+        }
+
+        ClearHover();
+    }
+
+    private void SetHover(HoverSelection selection, string text, bool selectionChanged, WindowsPoint position)
+    {
+        _hoverSelection = selection;
+        if (!Equals(_hoverText.Text, text))
+        {
+            _hoverText.Text = text;
+        }
+
+        UpdateHoverPopupPosition(position);
+        _hoverPopup.IsOpen = true;
+        if (!_hoverCloseTimer.IsEnabled)
+        {
+            _hoverCloseTimer.Start();
+        }
+
+        if (selectionChanged)
         {
             InvalidateVisual();
         }
@@ -455,10 +520,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
 
     private void ClearHover()
     {
-        if (ToolTip is System.Windows.Controls.ToolTip toolTip)
-        {
-            toolTip.IsOpen = false;
-        }
+        _hoverCloseTimer.Stop();
+        _hoverPopup.IsOpen = false;
 
         if (_hoverSelection is null)
         {
@@ -467,6 +530,41 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
 
         _hoverSelection = null;
         InvalidateVisual();
+    }
+
+    private void OnHoverCloseTimerTick(object? sender, EventArgs e)
+    {
+        if (!_hoverPopup.IsOpen || !IsLoaded || !IsVisible)
+        {
+            ClearHover();
+            return;
+        }
+
+        WindowsPoint position = Mouse.GetPosition(this);
+        if (!new Rect(0, 0, ActualWidth, ActualHeight).Contains(position))
+        {
+            ClearHover();
+            return;
+        }
+
+        IReadOnlyList<BatteryUsageBucket> buckets = GetBuckets();
+        if (buckets.Count == 0 || HitTestHover(position, buckets, CreateLayout(ActualWidth, ActualHeight)) is null)
+        {
+            ClearHover();
+        }
+    }
+
+    private void UpdateHoverPopupPosition(WindowsPoint position)
+    {
+        const double edgePadding = 4;
+        double popupWidth = _hoverPopup.Child is FrameworkElement child && child.ActualWidth > 0 ? child.ActualWidth : 240;
+        ChartLayout layout = CreateLayout(ActualWidth, ActualHeight);
+        double maxX = Math.Max(edgePadding, ActualWidth - popupWidth - edgePadding);
+        double x = Math.Clamp(position.X - popupWidth / 2d, edgePadding, maxX);
+        double y = Math.Max(edgePadding, layout.Top - 22);
+
+        _hoverPopup.HorizontalOffset = x;
+        _hoverPopup.VerticalOffset = y;
     }
 
     private static HoverSelection? HitTestHover(WindowsPoint point, IReadOnlyList<BatteryUsageBucket> buckets, ChartLayout layout)

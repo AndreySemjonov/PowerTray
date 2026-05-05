@@ -423,7 +423,7 @@
                                     <Rectangle Margin="1.5" RadiusX="1.5" RadiusY="1.5" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" StrokeThickness="1.5" />
                                 </UniformGrid>
                             </Viewbox>
-                            <TextBlock Text="Apps" FontSize="12" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" VerticalAlignment="Center" />
+                            <TextBlock Text="Impact" FontSize="12" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TabItem}}" VerticalAlignment="Center" />
                         </StackPanel>
                     </TabItem.Header>
                 <Border Style="{StaticResource CardStyle}">
@@ -433,33 +433,42 @@
                             <RowDefinition Height="22" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="Top app usage" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock Text="Resource impact" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="180" />
-                                <ColumnDefinition Width="64" />
+                                <ColumnDefinition Width="56" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Process" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                            <TextBlock Grid.Column="2" Text="% used" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
+                            <TextBlock Text="Process / service" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
+                            <TextBlock Grid.Column="2" Text="Score" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
                         </Grid>
                         <Grid Grid.Row="2">
                             <TextBlock Text="{Binding TopAppUsageEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,0,0" />
                             <ItemsControl ItemsSource="{Binding EnergyImpactProcesses}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Height="22">
+                                        <Grid Height="25" ToolTip="{Binding ResourceImpactToolTip}">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="180" />
-                                                <ColumnDefinition Width="64" />
+                                                <ColumnDefinition Width="56" />
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" VerticalAlignment="Center" />
+                                            <Grid VerticalAlignment="Center">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" VerticalAlignment="Center" />
+                                                <Border Grid.Column="1" Background="#202A34" BorderBrush="#374351" BorderThickness="1" CornerRadius="5" Padding="5,1" Margin="7,0,0,0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding ResourceImpactBadgeText}" Foreground="{StaticResource MutedTextBrush}" FontSize="9" />
+                                                </Border>
+                                            </Grid>
                                             <Grid Grid.Column="1" Margin="8,0,12,0" VerticalAlignment="Center">
                                                 <Border Background="#232A31" Height="5" CornerRadius="2.5" />
                                                 <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding EstimatedEnergyImpactBarPercent}" Maximum="100" Height="5" Foreground="#6A9DFF" />
                                             </Grid>
-                                            <TextBlock Grid.Column="2" Text="{Binding EnergyText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding ResourceImpactText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
