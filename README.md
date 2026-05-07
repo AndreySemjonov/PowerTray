@@ -4,6 +4,10 @@ Lightweight Windows tray utility for laptop power, battery, thermal, and process
 
 ![PowerTray main dashboard](assets/main_view.png)
 
+## Status
+
+PowerTray is an early public beta. It was designed and tested on a Dell XPS 14 (2026), and Dell battery mode switching should also work on other Dell laptops supported by Dell Command | Configure. Hardware support can vary by model, BIOS version, Windows version, and available sensors.
+
 ## Requirements
 
 - Windows 11 x64
@@ -19,6 +23,12 @@ Default `cctk.exe` paths checked automatically:
 
 If neither path exists, open Settings and browse to `cctk.exe`.
 
+## Install
+
+Use the installer from the release page. The installer requests administrator access because it registers the optional PowerTray battery-impact helper service.
+
+The helper service lets the tray app read Windows battery impact data without running the full UI as Administrator. The dashboard, settings, power-plan switching, battery history, and basic monitoring work without running PowerTray as Administrator.
+
 ## Build
 
 From the repo root:
@@ -27,29 +37,34 @@ From the repo root:
 dotnet build .\PowerTray.slnx -c Release
 ```
 
-To publish a standalone x64 folder:
+To publish the app and helper service folders:
 
 ```powershell
-dotnet publish .\PowerTray\PowerTray.csproj -c Release -r win-x64 --self-contained false
+dotnet publish .\PowerTray\PowerTray.csproj -c Release -r win-x64 --self-contained false -p:UseAppHost=false
+dotnet publish .\PowerTray.Service\PowerTray.Service.csproj -c Release -r win-x64 --self-contained false -p:UseAppHost=false
 ```
 
-This development machine has a preview .NET 10 SDK that currently fails during apphost `.exe` generation with a Windows file-locking error in the synced Google Drive folder. The project sets `UseAppHost=false` so Visual Studio and CLI builds produce `PowerTray.dll` without creating `PowerTray.exe`.
-
-Run from the build folder with:
+The project uses `UseAppHost=false` by default, so CLI builds produce `PowerTray.dll` and `PowerTray.Service.dll`. Run the tray app from the publish folder with:
 
 ```powershell
 dotnet PowerTray.dll
 ```
 
-For a normal `.exe` publish, use the stable .NET 8 SDK outside a synced-drive build folder and temporarily remove or override `UseAppHost=false`.
-
 ## Admin Behavior
 
-The app does not require administrator rights for the dashboard, settings, or reading current status. Dell BIOS battery mode changes require elevation.
+The app does not require administrator rights for the dashboard, settings, reading current status, power-plan switching, or normal battery history. Dell BIOS battery mode changes require elevation because they are applied through Dell Command | Configure.
 
 When you manually select a battery preset, the app checks whether it is already elevated. If it is not, it launches only the needed helper command through UAC, captures the elevated `cctk.exe` result through a temp JSON handoff, and shows the command result in the dashboard status area.
 
-The app does not repeatedly write BIOS settings. It writes only when you manually choose a mode.
+Windows battery impact data also needs elevated access. The installer registers a local helper service named `PowerTrayBatteryImpact` for this, so the tray UI can stay unelevated. If the helper service is not installed or not running, PowerTray shows a message in the battery impact panel instead of silently failing.
+
+The app does not repeatedly write BIOS settings. It writes only when you manually choose a battery mode.
+
+## Uninstall
+
+Uninstall PowerTray from Windows Settings > Apps > Installed apps. The uninstaller removes the `PowerTrayBatteryImpact` helper service.
+
+User settings and logs are stored under `%AppData%\PowerTray`. You can delete that folder after uninstalling if you want to remove local app data too.
 
 ## Battery Presets
 
@@ -128,10 +143,14 @@ No telemetry, analytics, or network calls are used.
 ## Known Limitations
 
 - HWiNFO and LibreHardwareMonitor sensor names vary by machine; matching is flexible but should be validated on each target laptop.
-- Per-process battery drain is not available from Windows as exact watts. The “Estimated Energy Impact” view is an estimate based on accumulated CPU activity and battery discharge rate when available.
+- Per-process battery drain is not available from Windows as exact watts. The "Estimated Energy Impact" view is an estimate based on accumulated CPU activity and battery discharge rate when available.
 - The energy history is persisted to `%AppData%\PowerTray\energy-history.json` and resets when a new discharging session begins.
 - Windows usually does not expose fan RPM or CPU package temperature without vendor/third-party sensors.
 - The installer registers the PowerTray battery-impact helper service so Windows battery impact can be read without running the tray UI as Administrator.
+
+## License
+
+PowerTray is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
 
 ## Support / Donations
 
