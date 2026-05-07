@@ -42,6 +42,7 @@
                             <TextBlock Text="⚡" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Text="PowerTray" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding AppVersionText}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Bottom" Margin="8,3,0,0" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">

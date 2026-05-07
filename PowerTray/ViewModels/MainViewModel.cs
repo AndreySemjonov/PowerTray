@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Reflection;
 using System.Windows.Input;
 using System.Windows.Threading;
 using PowerTray.Models;
@@ -575,7 +576,7 @@ public sealed class MainViewModel : ObservableObject
     public string BatteryFlowChipText => BatteryPowerWatts switch
     {
         > 0.5 => "Charge",
-        < -0.5 => "Drain",
+        < -0.5 => "On battery",
         _ => Battery.IsPluggedIn ? "Hold" : "Idle"
     };
     public string ModeChipText => FriendlyChargeMode.Replace("Mode: ", string.Empty);
@@ -607,6 +608,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
     public string AdminChipText => IsAdministrator ? "Admin" : "User";
+    public string AppVersionText => $"v{GetAppVersion()}";
     public string CctkStatusText => _cctkService.IsConfigured ? "OK" : "missing";
     public string SampleIntervalText => $"Sample {_settingsService.Current.SensorSampleIntervalSeconds}s";
     public string PowerModeText => CurrentWindowsPowerMode is { } mode
@@ -1761,6 +1763,12 @@ public sealed class MainViewModel : ObservableObject
         }
 
         return value >= 1000 ? $"{value / 1000d:N1} Wh" : $"{value:N0} mWh";
+    }
+
+    private static string GetAppVersion()
+    {
+        Version? version = Assembly.GetExecutingAssembly().GetName().Version;
+        return version is null ? "0.1.0" : $"{version.Major}.{version.Minor}.{version.Build}";
     }
 
     private sealed record RefreshSnapshot(
