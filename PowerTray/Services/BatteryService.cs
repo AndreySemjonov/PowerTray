@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Management;
-using System.IO;
-using System.Security;
+using System.Reflection;
 using Microsoft.Win32;
 using PowerTray.Models;
 
@@ -176,17 +175,57 @@ public sealed class BatteryService
         }
     }
 
-    private static bool IsEnergySaverActive(SystemPowerStatus status) =>
-        status.SystemStatusFlag == 1 || TryReadEnergySaverState() == 2;
+    private static bool IsEnergySaverActive(SystemPowerStatus status)
+    {
+        bool? registryEnergySaverStatus = TryReadEnergySaverState();
+        if (registryEnergySaverStatus.HasValue)
+        {
+            return registryEnergySaverStatus.Value;
+        }
 
-    private static int? TryReadEnergySaverState()
+        bool? liveEnergySaverStatus = TryReadLiveEnergySaverStatus();
+        return liveEnergySaverStatus ?? status.SystemStatusFlag == 1;
+    }
+
+    private static bool? TryReadEnergySaverState()
     {
         try
         {
             object? value = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power", "EnergySaverState", null);
-            return value is null ? null : Convert.ToInt32(value);
+            return Convert.ToInt32(value) switch
+            {
+                1 => true,
+                0 or 2 => false,
+                _ => null
+            };
         }
-        catch (Exception ex) when (ex is SecurityException or IOException or UnauthorizedAccessException or InvalidCastException or FormatException or OverflowException)
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool? TryReadLiveEnergySaverStatus()
+    {
+        const string WindowsSystemPowerManager = "Windows.System.Power.PowerManager, Windows.System, ContentType=WindowsRuntime";
+        const string WindowsPowerManager = "Windows.System.Power.PowerManager, Windows, ContentType=WindowsRuntime";
+
+        try
+        {
+            Type? powerManagerType = Type.GetType(WindowsSystemPowerManager, throwOnError: false)
+                ?? Type.GetType(WindowsPowerManager, throwOnError: false);
+            object? status = powerManagerType?
+                .GetProperty("EnergySaverStatus", BindingFlags.Public | BindingFlags.Static)?
+                .GetValue(null);
+
+            return status?.ToString() switch
+            {
+                "On" => true,
+                "Off" or "Disabled" => false,
+                _ => null
+            };
+        }
+        catch
         {
             return null;
         }
