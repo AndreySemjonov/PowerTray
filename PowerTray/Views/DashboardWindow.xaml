@@ -101,11 +101,11 @@
 
                     <Grid Grid.Row="1" Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="1.18*" />
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="1" />
                             <ColumnDefinition Width="92" />
                             <ColumnDefinition Width="1" />
-                            <ColumnDefinition Width="145" />
+                            <ColumnDefinition Width="184" />
                         </Grid.ColumnDefinitions>
 
                         <Grid Grid.Column="0" Margin="0,0,14,0">
@@ -118,7 +118,7 @@
                                 <TextBlock Text="{Binding BatteryPercentText}" FontSize="24" FontWeight="Bold" LineHeight="30" Height="30" HorizontalAlignment="Center" Margin="0,4,0,0" />
                             </StackPanel>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <WrapPanel Margin="0,0,0,2">
+                                <WrapPanel Margin="0,0,0,1">
                                     <Border Style="{StaticResource DashboardChipStyle}">
                                         <TextBlock Text="{Binding PowerStateChipText}" FontSize="11" Foreground="{StaticResource AccentBrush}" />
                                     </Border>
@@ -129,9 +129,10 @@
                                         <TextBlock Text="{Binding PowerModeChipText}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
                                     </Border>
                                 </WrapPanel>
-                                <TextBlock Text="{Binding BatteryDrainSummaryText}" FontSize="12" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding BatteryDrainSummaryText}" />
-                                <TextBlock Text="{Binding BatteryTimeText}" Style="{StaticResource MutedStyle}" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding BatteryHealthSummaryText}" Style="{StaticResource MutedStyle}" FontSize="11" Margin="0,5,0,0" ToolTip="{Binding BatteryHealthToolTip}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding BatteryDrainSummaryTopText}" FontSize="12" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding BatteryDrainSummaryText}" />
+                                <TextBlock Text="{Binding BatteryDrainSummaryBottomText}" FontSize="12" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding BatteryDrainSummaryText}" />
+                                <TextBlock Text="{Binding BatteryTimeText}" Style="{StaticResource MutedStyle}" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding BatteryHealthSummaryText}" Style="{StaticResource MutedStyle}" FontSize="11" Margin="0,4,0,0" ToolTip="{Binding BatteryHealthToolTip}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </Grid>
 
@@ -144,15 +145,15 @@
 
                         <Border Grid.Column="3" Background="{StaticResource PanelBorder}" Opacity="0.75" Margin="0,10" />
 
-                        <Grid Grid.Column="4" Margin="14,0,0,0" VerticalAlignment="Center">
+                        <Grid Grid.Column="4" Margin="16,0,0,0" VerticalAlignment="Center">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="29" />
                                 <RowDefinition Height="1" />
                                 <RowDefinition Height="29" />
                                 <RowDefinition Height="1" />
-                                <RowDefinition Height="36" />
+                                <RowDefinition Height="32" />
                                 <RowDefinition Height="1" />
-                                <RowDefinition Height="24" />
+                                <RowDefinition Height="32" />
                             </Grid.RowDefinitions>
 
                             <Grid Grid.Row="0">
@@ -182,23 +183,16 @@
                             <Border Grid.Row="3" Background="{StaticResource PanelBorder}" Opacity="0.62" />
 
                             <Grid Grid.Row="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="24" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Width="17" Height="17" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1.5" CornerRadius="4" VerticalAlignment="Center">
-                                    <TextBlock Text="VS" Foreground="{StaticResource AccentBrush}" FontSize="7" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="Top process" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
-                                    <TextBlock Text="{Binding TopCpuProcessText}" FontSize="13" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding TopCpuProcessText}" />
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Top 1 avg process" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                    <TextBlock Text="{Binding PrimaryCpuDriverText}" FontSize="13" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding PrimaryCpuDriverToolTip}" />
                                 </StackPanel>
                             </Grid>
                             <Border Grid.Row="5" Background="{StaticResource PanelBorder}" Opacity="0.62" />
 
-                            <StackPanel Grid.Row="6" Orientation="Horizontal" VerticalAlignment="Center">
-                                <Ellipse Fill="{StaticResource GoodAccentBrush}" Width="7" Height="7" Margin="2,0,9,0" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding HwinfoChipText}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <StackPanel Grid.Row="6" VerticalAlignment="Center">
+                                <TextBlock Text="Top 2 avg process" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                <TextBlock Text="{Binding SecondaryCpuDriverText}" FontSize="13" Foreground="{StaticResource TextBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding SecondaryCpuDriverToolTip}" />
                             </StackPanel>
                         </Grid>
                     </Grid>

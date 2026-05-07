@@ -200,6 +200,8 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(BatteryPowerText));
                 OnPropertyChanged(nameof(BatteryHealthText));
                 OnPropertyChanged(nameof(BatteryCycleText));
+                OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
+                OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
                 OnPropertyChanged(nameof(BatteryHealthSummaryText));
                 OnPropertyChanged(nameof(BatteryCapacityText));
                 OnPropertyChanged(nameof(BatteryHealthToolTip));
@@ -304,6 +306,8 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(BatteryPowerText));
                 OnPropertyChanged(nameof(BatteryDrainSummaryText));
+                OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
+                OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
                 OnPropertyChanged(nameof(BatteryFlowChipText));
                 OnPropertyChanged(nameof(BatteryTimeText));
             }
@@ -684,12 +688,22 @@ public sealed class MainViewModel : ObservableObject
     {
         get
         {
-            string current = BatteryPowerWatts is { } watts ? $"{watts:N1} W" : "-- W";
-            string average = _averageBatteryDischargeWatts is { } avg ? $"-{avg:N1} W" : "-- W";
-            string rate = CalculateBatteryPercentRateText(Battery, _averageBatteryDischargeWatts);
-            return $"Cur: {current} | 10m Avg: {average} | Rate: {rate}";
+            return $"{BatteryDrainSummaryTopText} | {BatteryDrainSummaryBottomText}";
         }
     }
+
+    public string BatteryDrainSummaryTopText
+    {
+        get
+        {
+            string current = BatteryPowerWatts is { } watts ? $"{watts:N1} W" : "-- W";
+            string average = _averageBatteryDischargeWatts is { } avg ? $"-{avg:N1} W" : "-- W";
+            return $"Cur: {current} | 10m Avg: {average}";
+        }
+    }
+
+    public string BatteryDrainSummaryBottomText =>
+        $"Rate: {CalculateBatteryPercentRateText(Battery, _averageBatteryDischargeWatts)}";
 
     public string BatteryHealthText => Battery.BatteryHealth.HealthPercent is { } health
         ? $"Health {health:N0}%"
@@ -738,6 +752,10 @@ public sealed class MainViewModel : ObservableObject
     public string TopCpuProcessText => TopCpuProcesses.FirstOrDefault() is { } process
         ? process.Name
         : "--";
+    public string PrimaryCpuDriverText => CpuDriverProcesses.ElementAtOrDefault(0)?.Name ?? "--";
+    public string SecondaryCpuDriverText => CpuDriverProcesses.ElementAtOrDefault(1)?.Name ?? "--";
+    public string PrimaryCpuDriverToolTip => CpuDriverProcesses.ElementAtOrDefault(0)?.ToolTipText ?? "Collecting CPU driver history...";
+    public string SecondaryCpuDriverToolTip => CpuDriverProcesses.ElementAtOrDefault(1)?.ToolTipText ?? "Collecting CPU driver history...";
     public string MemoryText => $"{Memory.UsedText} / {Memory.TotalText} ({Memory.UsedPercent:N0}%)";
     public bool IsAdministrator => CctkService.IsAdministrator();
 
@@ -1070,6 +1088,10 @@ public sealed class MainViewModel : ObservableObject
                 ReplaceIfChanged(EnergyImpactProcesses, processStats.EnergyImpact, AreProcessRowsEquivalent);
                 OnPropertyChanged(nameof(TopAppUsageEmptyText));
                 OnPropertyChanged(nameof(CpuDriverEmptyText));
+                OnPropertyChanged(nameof(PrimaryCpuDriverText));
+                OnPropertyChanged(nameof(SecondaryCpuDriverText));
+                OnPropertyChanged(nameof(PrimaryCpuDriverToolTip));
+                OnPropertyChanged(nameof(SecondaryCpuDriverToolTip));
                 OnPropertyChanged(nameof(TopCpuProcessText));
             }
 
@@ -1133,6 +1155,8 @@ public sealed class MainViewModel : ObservableObject
         _averageBatteryDischargeWatts = CalculateAverageBatteryDischargeWatts(_samples);
         _averageBatteryTimeRemaining = CalculateAverageBatteryTimeRemaining(Battery, _averageBatteryDischargeWatts);
         OnPropertyChanged(nameof(BatteryDrainSummaryText));
+        OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
+        OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
         OnPropertyChanged(nameof(BatteryTimeText));
 
         if (!updateVisibleGraphs)
