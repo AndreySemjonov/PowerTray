@@ -105,7 +105,7 @@ public sealed class ProcessStatsService
         _lastOverallCpu = Math.Clamp(totalCpu, 0, 100);
         UpdateEnergyHistory(usage, elapsedSeconds, now, battery, totalCpu);
 
-        IReadOnlyList<ProcessUsageInfo> topCpu = usage.OrderByDescending(p => p.CpuPercent).Take(5).ToArray();
+        IReadOnlyList<ProcessUsageInfo> topCpu = usage.OrderByDescending(p => p.CpuPercent).Take(10).ToArray();
         IReadOnlyList<ProcessUsageInfo> topMemory = usage.OrderByDescending(p => p.WorkingSetBytes).Take(5).ToArray();
         IReadOnlyList<ProcessUsageInfo> energy = BuildEnergyImpactList(usage).Take(5).ToArray();
         return (_lastOverallCpu, topCpu, topMemory, energy, BuildEnergyImpactTitle(now), "Score");

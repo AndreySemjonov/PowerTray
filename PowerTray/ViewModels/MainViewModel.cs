@@ -10,8 +10,13 @@ namespace XPSBatteryTray.ViewModels;
 public sealed class MainViewModel : ObservableObject
 {
     private static readonly TimeSpan ProcessRefreshInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan DiagnosticProcessRefreshInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan WindowsBatteryUsageRefreshInterval = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan RefreshTimingLogInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan CpuDriverHistoryWindow = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan CpuDriverRecentWindow = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan CpuDriverShortWindow = TimeSpan.FromSeconds(30);
+    private const double CpuDriverActiveThreshold = 1.0;
     private const double SlowRefreshThresholdMs = 1000;
     private const double SlowUiRefreshThresholdMs = 200;
 
@@ -25,6 +30,8 @@ public sealed class MainViewModel : ObservableObject
     private readonly WindowsBatteryUsageService _windowsBatteryUsageService;
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
+    private readonly List<CpuDriverSample> _cpuDriverSamples = [];
+    private readonly List<DateTimeOffset> _cpuDriverSampleTimes = [];
     private bool _isRefreshing;
     private bool _isRefreshingWindowsBatteryUsage;
     private DateTimeOffset _lastProcessRefresh = DateTimeOffset.MinValue;
@@ -89,6 +96,7 @@ public sealed class MainViewModel : ObservableObject
         TopCpuProcesses = new ObservableCollection<ProcessUsageInfo>();
         TopMemoryProcesses = new ObservableCollection<ProcessUsageInfo>();
         EnergyImpactProcesses = new ObservableCollection<ProcessUsageInfo>();
+        CpuDriverProcesses = new ObservableCollection<CpuDriverInfo>();
         WindowsBatteryUsageProcesses = new ObservableCollection<WindowsBatteryUsageInfo>();
         SelectedWindowsBatteryUsageProcesses = new ObservableCollection<WindowsBatteryUsageInfo>();
         FanReadings = new ObservableCollection<string>();
@@ -116,9 +124,17 @@ public sealed class MainViewModel : ObservableObject
         get => _isUsageDetailsVisible;
         private set
         {
-            if (SetProperty(ref _isUsageDetailsVisible, value) && value)
+            if (!SetProperty(ref _isUsageDetailsVisible, value))
             {
-                NotifyUsageDetailMetricsChanged();
+                return;
+            }
+
+            ConfigureTimer();
+            OnPropertyChanged(nameof(DetailSamplingText));
+            NotifyUsageDetailMetricsChanged();
+            if (value)
+            {
+                _ = RefreshAsync();
             }
         }
     }
@@ -146,7 +162,14 @@ public sealed class MainViewModel : ObservableObject
         get => _isDashboardVisible;
         set
         {
-            if (!SetProperty(ref _isDashboardVisible, value) || !value)
+            if (!SetProperty(ref _isDashboardVisible, value))
+            {
+                return;
+            }
+
+            ConfigureTimer();
+            OnPropertyChanged(nameof(DetailSamplingText));
+            if (!value)
             {
                 return;
             }
@@ -519,6 +542,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ProcessUsageInfo> TopCpuProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> TopMemoryProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> EnergyImpactProcesses { get; }
+    public ObservableCollection<CpuDriverInfo> CpuDriverProcesses { get; }
     public ObservableCollection<WindowsBatteryUsageInfo> WindowsBatteryUsageProcesses { get; }
     public ObservableCollection<WindowsBatteryUsageInfo> SelectedWindowsBatteryUsageProcesses { get; }
     public ObservableCollection<string> FanReadings { get; }
@@ -618,13 +642,14 @@ public sealed class MainViewModel : ObservableObject
         : SelectedBatteryUsageDate.ToString("MMM d");
     public bool CanShowNextBatteryUsageDay => SelectedBatteryUsageDate < DateTime.Today;
     public string TopAppUsageEmptyText => EnergyImpactProcesses.Count == 0 ? "No resource impact data yet" : string.Empty;
+    public string CpuDriverEmptyText => CpuDriverProcesses.Count == 0 ? "Collecting CPU driver history..." : string.Empty;
     public string WindowsBatteryUsageEmptyText => WindowsBatteryUsageProcesses.Count == 0 ? WindowsBatteryUsageStatusText : string.Empty;
     public string SelectedWindowsBatteryUsageEmptyText => SelectedWindowsBatteryUsageProcesses.Count == 0 ? SelectedBatteryUsageImpactStatusText : string.Empty;
     public string CpuNowDetailText => $"{CpuUsagePercent:N0}%";
     public string GpuNowDetailText => GpuUsagePercent is { } value ? $"{value:N0}%" : "--";
     public string CpuMaxDetailText => FormatMaxPercent(CpuGraphValues);
     public string GpuMaxDetailText => FormatMaxPercent(GpuGraphValues);
-    public string DetailSamplingText => $"{_settingsService.Current.SensorSampleIntervalSeconds}s";
+    public string DetailSamplingText => $"{GetRefreshTimerInterval().TotalSeconds:N0}s";
     public string CpuAverageDetailText => FormatAveragePercent(CpuGraphValues);
     public string GpuAverageDetailText => FormatAveragePercent(GpuGraphValues);
     public string CpuTimeAbove50Text => FormatTimeAbove(CpuGraphValues, 50, _settingsService.Current.SensorSampleIntervalSeconds);
@@ -740,13 +765,153 @@ public sealed class MainViewModel : ObservableObject
 
     private void ConfigureTimer()
     {
+        bool wasEnabled = _timer.IsEnabled;
         _timer.Stop();
-        _timer.Interval = TimeSpan.FromSeconds(Math.Clamp(_settingsService.Current.SensorSampleIntervalSeconds, 1, 60));
+        _timer.Interval = GetRefreshTimerInterval();
         _timer.Tick -= OnTimerTick;
         _timer.Tick += OnTimerTick;
+        if (wasEnabled)
+        {
+            _timer.Start();
+        }
     }
 
     private async void OnTimerTick(object? sender, EventArgs e) => await RefreshAsync();
+
+    private TimeSpan GetRefreshTimerInterval() =>
+        IsDetailedCpuDiagnosticsActive
+            ? DiagnosticProcessRefreshInterval
+            : TimeSpan.FromSeconds(Math.Clamp(_settingsService.Current.SensorSampleIntervalSeconds, 1, 60));
+
+    private TimeSpan GetProcessRefreshInterval() =>
+        IsDetailedCpuDiagnosticsActive ? DiagnosticProcessRefreshInterval : ProcessRefreshInterval;
+
+    private bool IsDetailedCpuDiagnosticsActive => IsDashboardVisible && IsUsageDetailsVisible;
+
+    private void RecordCpuDriverSamples(IReadOnlyList<ProcessUsageInfo> processes, DateTimeOffset timestamp)
+    {
+        if (_cpuDriverSampleTimes.Count == 0 || _cpuDriverSampleTimes[^1] != timestamp)
+        {
+            _cpuDriverSampleTimes.Add(timestamp);
+        }
+
+        foreach (IGrouping<string, ProcessUsageInfo> group in processes
+            .Where(process => process.CpuPercent > 0.05)
+            .GroupBy(process => process.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            _cpuDriverSamples.Add(new CpuDriverSample(timestamp, group.Key, group.Sum(process => process.CpuPercent)));
+        }
+
+        DateTimeOffset cutoff = timestamp - CpuDriverHistoryWindow;
+        _cpuDriverSamples.RemoveAll(sample => sample.Timestamp < cutoff);
+        _cpuDriverSampleTimes.RemoveAll(sampleTime => sampleTime < cutoff);
+    }
+
+    private IReadOnlyList<CpuDriverInfo> BuildCpuDriverList(DateTimeOffset now)
+    {
+        DateTimeOffset recentStart = now - CpuDriverRecentWindow;
+        DateTimeOffset shortStart = now - CpuDriverShortWindow;
+        DateTimeOffset previousStart = shortStart - CpuDriverShortWindow;
+
+        DateTimeOffset[] recentTicks = _cpuDriverSampleTimes.Where(timestamp => timestamp >= recentStart).ToArray();
+        DateTimeOffset[] shortTicks = _cpuDriverSampleTimes.Where(timestamp => timestamp >= shortStart).ToArray();
+        DateTimeOffset[] previousTicks = _cpuDriverSampleTimes.Where(timestamp => timestamp >= previousStart && timestamp < shortStart).ToArray();
+        if (recentTicks.Length == 0)
+        {
+            return [];
+        }
+
+        CpuDriverTick[] ticks = _cpuDriverSamples
+            .Where(sample => sample.Timestamp >= now - CpuDriverHistoryWindow)
+            .GroupBy(sample => new CpuDriverTickKey(sample.Timestamp, sample.Name))
+            .Select(group => new CpuDriverTick(group.Key.Timestamp, group.Key.Name, group.Sum(sample => sample.CpuPercent)))
+            .ToArray();
+
+        DateTimeOffset latestTick = _cpuDriverSampleTimes.Count == 0 ? now : _cpuDriverSampleTimes[^1];
+        Dictionary<string, double> latestByName = ticks
+            .Where(tick => tick.Timestamp == latestTick)
+            .GroupBy(tick => tick.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Sum(tick => tick.CpuPercent), StringComparer.OrdinalIgnoreCase);
+
+        CpuDriverCandidate[] candidates = ticks
+            .GroupBy(tick => tick.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => BuildCpuDriverCandidate(group.Key, group.ToArray(), shortTicks.Length, recentTicks.Length, previousTicks.Length, shortStart, recentStart, previousStart, latestByName, EstimateCpuDriverSampleSeconds()))
+            .Where(candidate => candidate.Score > 0.05 || candidate.NowPercent > 0.05)
+            .OrderByDescending(candidate => candidate.Score)
+            .Take(10)
+            .ToArray();
+
+        double maxScore = Math.Max(1, candidates.Length == 0 ? 1 : candidates.Max(candidate => candidate.Score));
+        return candidates.Select(candidate => new CpuDriverInfo
+        {
+            Name = candidate.Name,
+            NowPercent = candidate.NowPercent,
+            AveragePercent = candidate.AveragePercent,
+            MaxPercent = candidate.MaxPercent,
+            ActiveTime = candidate.ActiveTime,
+            Trend = candidate.Trend,
+            BarPercent = Math.Clamp(candidate.Score / maxScore * 100d, 0, 100)
+        }).ToArray();
+    }
+
+    private static CpuDriverCandidate BuildCpuDriverCandidate(
+        string name,
+        IReadOnlyList<CpuDriverTick> ticks,
+        int shortTickCount,
+        int recentTickCount,
+        int previousTickCount,
+        DateTimeOffset shortStart,
+        DateTimeOffset recentStart,
+        DateTimeOffset previousStart,
+        IReadOnlyDictionary<string, double> latestByName,
+        double sampleSeconds)
+    {
+        double shortAverage = AverageAcrossSampleTicks(ticks, tick => tick.Timestamp >= shortStart, shortTickCount);
+        double recentAverage = AverageAcrossSampleTicks(ticks, tick => tick.Timestamp >= recentStart, recentTickCount);
+        double previousAverage = AverageAcrossSampleTicks(ticks, tick => tick.Timestamp >= previousStart && tick.Timestamp < shortStart, previousTickCount);
+        double maxRecent = ticks.Where(tick => tick.Timestamp >= recentStart).Select(tick => tick.CpuPercent).DefaultIfEmpty(0).Max();
+        int activeTicks = ticks.Count(tick => tick.CpuPercent >= CpuDriverActiveThreshold);
+        double nowPercent = latestByName.TryGetValue(name, out double latest) ? latest : 0;
+        string trend = shortAverage > previousAverage + 0.7
+            ? "rising"
+            : shortAverage < previousAverage - 0.7
+                ? "falling"
+                : "steady";
+
+        return new CpuDriverCandidate(
+            name,
+            nowPercent,
+            recentAverage,
+            maxRecent,
+            TimeSpan.FromSeconds(activeTicks * sampleSeconds),
+            trend,
+            shortAverage * 0.6 + recentAverage * 0.35 + maxRecent * 0.1);
+    }
+
+    private double EstimateCpuDriverSampleSeconds()
+    {
+        DateTimeOffset[] recent = _cpuDriverSampleTimes.TakeLast(20).ToArray();
+        if (recent.Length < 2)
+        {
+            return GetProcessRefreshInterval().TotalSeconds;
+        }
+
+        double[] deltas = recent
+            .Zip(recent.Skip(1), (previous, next) => (next - previous).TotalSeconds)
+            .Where(delta => delta is > 0.1 and < 30)
+            .ToArray();
+        return deltas.Length == 0 ? GetProcessRefreshInterval().TotalSeconds : deltas.Average();
+    }
+
+    private static double AverageAcrossSampleTicks(IReadOnlyList<CpuDriverTick> ticks, Func<CpuDriverTick, bool> predicate, int sampleTickCount)
+    {
+        if (sampleTickCount <= 0)
+        {
+            return 0;
+        }
+
+        return ticks.Where(predicate).Sum(tick => tick.CpuPercent) / sampleTickCount;
+    }
 
     private async Task ApplyBatteryPresetAsync(object? parameter)
     {
@@ -824,7 +989,8 @@ public sealed class MainViewModel : ObservableObject
             DateTime selectedDate = SelectedBatteryUsageDate;
             DateTimeOffset now = DateTimeOffset.Now;
             bool dashboardVisible = IsDashboardVisible;
-            bool shouldRefreshProcesses = dashboardVisible && (now - _lastProcessRefresh >= ProcessRefreshInterval || TopCpuProcesses.Count == 0);
+            TimeSpan processRefreshInterval = GetProcessRefreshInterval();
+            bool shouldRefreshProcesses = dashboardVisible && (now - _lastProcessRefresh >= processRefreshInterval || TopCpuProcesses.Count == 0);
             RefreshSnapshot snapshot = await Task.Run(() =>
             {
                 Stopwatch totalWatch = Stopwatch.StartNew();
@@ -897,10 +1063,13 @@ public sealed class MainViewModel : ObservableObject
                 EnergyImpactTitle = processStats.EnergyImpactTitle;
                 EnergyImpactColumnHeader = processStats.EnergyImpactColumnHeader;
 
+                RecordCpuDriverSamples(processStats.TopCpu, snapshot.Timestamp);
+                ReplaceIfChanged(CpuDriverProcesses, BuildCpuDriverList(snapshot.Timestamp), AreCpuDriverRowsEquivalent);
                 ReplaceIfChanged(TopCpuProcesses, processStats.TopCpu, AreProcessRowsEquivalent);
                 ReplaceIfChanged(TopMemoryProcesses, processStats.TopMemory, AreProcessRowsEquivalent);
                 ReplaceIfChanged(EnergyImpactProcesses, processStats.EnergyImpact, AreProcessRowsEquivalent);
                 OnPropertyChanged(nameof(TopAppUsageEmptyText));
+                OnPropertyChanged(nameof(CpuDriverEmptyText));
                 OnPropertyChanged(nameof(TopCpuProcessText));
             }
 
@@ -1208,6 +1377,15 @@ public sealed class MainViewModel : ObservableObject
         && left.WorkingSetBytes / (1024 * 1024) == right.WorkingSetBytes / (1024 * 1024)
         && Math.Round(left.EstimatedEnergyImpactBarPercent, 0) == Math.Round(right.EstimatedEnergyImpactBarPercent, 0)
         && Math.Round(left.EstimatedEnergyPercent, 1) == Math.Round(right.EstimatedEnergyPercent, 1);
+
+    private static bool AreCpuDriverRowsEquivalent(CpuDriverInfo left, CpuDriverInfo right) =>
+        left.Name.Equals(right.Name, StringComparison.Ordinal)
+        && Math.Round(left.NowPercent, 1) == Math.Round(right.NowPercent, 1)
+        && Math.Round(left.AveragePercent, 1) == Math.Round(right.AveragePercent, 1)
+        && Math.Round(left.MaxPercent, 0) == Math.Round(right.MaxPercent, 0)
+        && Math.Round(left.BarPercent, 0) == Math.Round(right.BarPercent, 0)
+        && left.ActiveTime == right.ActiveTime
+        && left.Trend.Equals(right.Trend, StringComparison.Ordinal);
 
     private static bool AreWindowsBatteryUsageRowsEquivalent(WindowsBatteryUsageInfo left, WindowsBatteryUsageInfo right) =>
         left.Name.Equals(right.Name, StringComparison.Ordinal)
@@ -1579,6 +1757,21 @@ public sealed class MainViewModel : ObservableObject
         double PowerModeMs,
         double BatteryUsageMs,
         bool ProcessSampled);
+
+    private sealed record CpuDriverSample(DateTimeOffset Timestamp, string Name, double CpuPercent);
+
+    private sealed record CpuDriverTickKey(DateTimeOffset Timestamp, string Name);
+
+    private sealed record CpuDriverTick(DateTimeOffset Timestamp, string Name, double CpuPercent);
+
+    private sealed record CpuDriverCandidate(
+        string Name,
+        double NowPercent,
+        double AveragePercent,
+        double MaxPercent,
+        TimeSpan ActiveTime,
+        string Trend,
+        double Score);
 
     private sealed record ProcessStatsSnapshot(
         double OverallCpu,

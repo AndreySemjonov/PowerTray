@@ -594,7 +594,7 @@
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="12">
+                <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource CardStyle}" Padding="12">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="30" />
@@ -691,12 +691,16 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="139" />
                     <RowDefinition Height="10" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="1.55*" />
                     <RowDefinition Height="10" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="0.75*" />
                 </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="206" />
+                </Grid.ColumnDefinitions>
 
-                <Border Grid.Row="0" Style="{StaticResource CardStyle}" Padding="12">
+                <Border Grid.Row="0" Grid.ColumnSpan="2" Style="{StaticResource CardStyle}" Padding="12">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="44" />
@@ -722,7 +726,7 @@
                                 ToolTip="Back" />
                         <StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Top">
                             <TextBlock Text="CPU / GPU Usage Details" FontSize="20" FontWeight="SemiBold" />
-                            <TextBlock Text="Detailed activity and top peak processes" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,2,0,0" />
+                            <TextBlock Text="Detailed activity and recent CPU driver processes" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,2,0,0" />
                         </StackPanel>
 
                         <UniformGrid Grid.Row="1" Grid.ColumnSpan="2" Columns="5" Margin="0,12,0,0">
@@ -804,7 +808,6 @@
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="112" />
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
@@ -818,9 +821,9 @@
                                                           Peaks="{Binding CpuUsagePeaks}"
                                                           Stroke="{StaticResource AccentBrush}"
                                                           Fill="#203A82C9"
-                                                          Margin="0,4,8,0" />
+                                                          Margin="0,4,0,0" />
 
-                        <Border Grid.Row="2" Grid.Column="0" Background="#1D2228" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,8,0">
+                        <Border Grid.Row="2" Grid.Column="0" Background="#1D2228" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,0,0">
                             <UniformGrid Columns="3" Margin="10,6">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                     <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource AccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
@@ -846,33 +849,83 @@
                             </UniformGrid>
                         </Border>
 
-                        <StackPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,2,0,0">
-                            <TextBlock Text="Top 3 Peaks" Foreground="{StaticResource TextBrush}" FontSize="13" Margin="0,0,0,18" HorizontalAlignment="Center" />
-                            <ItemsControl ItemsSource="{Binding CpuUsagePeaks}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,18">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="24" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border Width="18" Height="18" Background="{StaticResource AccentBrush}" CornerRadius="9" VerticalAlignment="Top" Margin="0,2,6,0">
-                                                <TextBlock Text="{Binding Rank}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="{Binding ValueText}" FontSize="15" FontWeight="SemiBold" />
-                                                <TextBlock Text="{Binding ProcessText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding ProcessText}" />
-                                                <TextBlock Text="{Binding TimeAgoText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
                     </Grid>
                 </Border>
 
-                <Border Grid.Row="4" Style="{StaticResource CardStyle}" Padding="12">
+                <Border Grid.Row="2" Grid.RowSpan="3" Grid.Column="1" Style="{StaticResource CardStyle}" Padding="12" Margin="10,0,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="CPU Drivers" Foreground="{StaticResource TextBrush}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" />
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <ScrollViewer.Resources>
+                                <Style TargetType="{x:Type ScrollBar}">
+                                    <Setter Property="Width" Value="6" />
+                                    <Setter Property="MinWidth" Value="6" />
+                                    <Setter Property="Background" Value="#111418" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                                <Grid Width="6" Background="#111418">
+                                                    <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                                        <Track.DecreaseRepeatButton>
+                                                            <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Opacity="0" IsTabStop="False" />
+                                                        </Track.DecreaseRepeatButton>
+                                                        <Track.Thumb>
+                                                            <Thumb>
+                                                                <Thumb.Template>
+                                                                    <ControlTemplate TargetType="{x:Type Thumb}">
+                                                                        <Border Width="6" Background="#4A5158" CornerRadius="3" />
+                                                                    </ControlTemplate>
+                                                                </Thumb.Template>
+                                                            </Thumb>
+                                                        </Track.Thumb>
+                                                        <Track.IncreaseRepeatButton>
+                                                            <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Opacity="0" IsTabStop="False" />
+                                                        </Track.IncreaseRepeatButton>
+                                                    </Track>
+                                                </Grid>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ScrollViewer.Resources>
+                            <StackPanel>
+                                <TextBlock Text="{Binding CpuDriverEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                <ItemsControl ItemsSource="{Binding CpuDriverProcesses}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,4,12" ToolTip="{Binding ToolTipText}">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Row="1" Text="{Binding NowAverageText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,1,0,0" />
+                                                <TextBlock Grid.Row="2" Text="{Binding MaxActiveText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,1,0,3" />
+                                                <Grid Grid.Row="3">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="42" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding TrendText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" HorizontalAlignment="Right" />
+                                                </Grid>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="4" Grid.Column="0" Style="{StaticResource CardStyle}" Padding="12">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="30" />
@@ -881,7 +934,6 @@
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="112" />
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
@@ -894,9 +946,9 @@
                                                           Peaks="{Binding GpuUsagePeaks}"
                                                           Stroke="#54D6C6"
                                                           Fill="#2040A695"
-                                                          Margin="0,4,8,0" />
+                                                          Margin="0,4,0,0" />
 
-                        <Border Grid.Row="2" Grid.Column="0" Background="#1D2228" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,8,0">
+                        <Border Grid.Row="2" Grid.Column="0" Background="#1D2228" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,0,0">
                             <UniformGrid Columns="3" Margin="10,6">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                     <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="#54D6C6" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
@@ -922,25 +974,6 @@
                             </UniformGrid>
                         </Border>
 
-                        <StackPanel Grid.Row="1" Grid.RowSpan="2" Grid.Column="1" Margin="8,2,0,0">
-                            <TextBlock Text="Top 3 Peaks" Foreground="{StaticResource TextBrush}" FontSize="13" Margin="0,0,0,18" HorizontalAlignment="Center" />
-                            <ItemsControl ItemsSource="{Binding GpuUsagePeaks}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,24">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="24" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border Width="18" Height="18" Background="#54D6C6" CornerRadius="9" VerticalAlignment="Top" Margin="0,2,6,0">
-                                                <TextBlock Text="{Binding Rank}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
-                                            <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Top" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>
