@@ -129,6 +129,20 @@
                                     <Border Style="{StaticResource DashboardChipStyle}">
                                         <TextBlock Text="{Binding PowerModeChipText}" FontSize="11" Foreground="{StaticResource MutedTextBrush}" />
                                     </Border>
+                                    <Border Style="{StaticResource DashboardChipStyle}">
+                                        <TextBlock Text="{Binding PowerSaveChipText}" FontSize="11">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Battery.IsPowerSave}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource BatteryAccentBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Border>
                                 </WrapPanel>
                                 <TextBlock Text="{Binding BatteryDrainSummaryTopText}" FontSize="12" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding BatteryDrainSummaryText}" />
                                 <TextBlock Text="{Binding BatteryDrainSummaryBottomText}" FontSize="12" Foreground="{StaticResource BatteryAccentBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding BatteryDrainSummaryText}" />

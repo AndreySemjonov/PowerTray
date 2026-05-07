@@ -1,5 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Management;
+using System.IO;
+using System.Security;
+using Microsoft.Win32;
 using PowerTray.Models;
 
 namespace PowerTray.Services;
@@ -28,7 +31,7 @@ public sealed class BatteryService
         {
             Percentage = status.BatteryLifePercent == 255 ? 0 : status.BatteryLifePercent,
             IsPluggedIn = status.ACLineStatus == 1,
-            IsPowerSave = status.SystemStatusFlag == 1,
+            IsPowerSave = IsEnergySaverActive(status),
             IsCritical = (status.BatteryFlag & 4) == 4 || (status.BatteryLifePercent != 255 && status.BatteryLifePercent <= 10),
             EstimatedTimeRemaining = remaining,
             ChargeRateWatts = sensorBatteryWatts ?? TryGetBatteryPowerWattsFromWmi(),
@@ -168,6 +171,22 @@ public sealed class BatteryService
             return milliwatts > 0 && milliwatts < 1_000_000 ? milliwatts / 1000d : null;
         }
         catch
+        {
+            return null;
+        }
+    }
+
+    private static bool IsEnergySaverActive(SystemPowerStatus status) =>
+        status.SystemStatusFlag == 1 || TryReadEnergySaverState() == 2;
+
+    private static int? TryReadEnergySaverState()
+    {
+        try
+        {
+            object? value = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Power", "EnergySaverState", null);
+            return value is null ? null : Convert.ToInt32(value);
+        }
+        catch (Exception ex) when (ex is SecurityException or IOException or UnauthorizedAccessException or InvalidCastException or FormatException or OverflowException)
         {
             return null;
         }

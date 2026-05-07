@@ -9,6 +9,7 @@ using MediaBrush = System.Windows.Media.Brush;
 using MediaColor = System.Windows.Media.Color;
 using MediaPen = System.Windows.Media.Pen;
 using WindowsPoint = System.Windows.Point;
+using WindowsSize = System.Windows.Size;
 
 namespace PowerTray.Controls;
 
@@ -202,6 +203,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         double slot = width / buckets.Count;
         DrawPowerBand(context, buckets, left, top, height, slot, b => b.IsCharging, MediaColor.FromArgb(70, 58, 122, 51), "\u26A1", MediaColor.FromRgb(163, 232, 105));
         DrawPowerBand(context, buckets, left, top, height, slot, b => b.Kind == BatteryUsageBucketKind.ChargeHold, MediaColor.FromArgb(74, 35, 107, 108), "\u2161", MediaColor.FromRgb(84, 214, 198));
+        DrawPowerBand(context, buckets, left, top, height, slot, IsPowerSaverRange, MediaColor.FromArgb(56, 110, 83, 24), "\uE895", MediaColor.FromRgb(237, 184, 72), DrawEnergySaverMarker);
     }
 
     private static void DrawPowerBand(
@@ -214,7 +216,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         Func<BatteryUsageBucket, bool> predicate,
         MediaColor bandColor,
         string markerText,
-        MediaColor markerColor)
+        MediaColor markerColor,
+        Action<DrawingContext, double, double>? drawMarker = null)
     {
         var bandBrush = new SolidColorBrush(bandColor);
         var markerBrush = new SolidColorBrush(markerColor);
@@ -224,9 +227,51 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             double w = Math.Max(Layout.MinRangeWidth, (end - start) * slot);
             context.DrawRoundedRectangle(bandBrush, null, new Rect(x, top, w, height), 4, 4);
 
-            var marker = FormatText(markerText, 20, markerBrush, "Segoe UI Symbol");
-            context.DrawText(marker, new WindowsPoint(x + w / 2d - marker.Width / 2d, Math.Max(0, top - 24)));
+            double markerCenterX = x + w / 2d;
+            double markerTop = Math.Max(0, top - 24);
+            if (drawMarker is not null)
+            {
+                drawMarker(context, markerCenterX, markerTop);
+            }
+            else
+            {
+                var marker = FormatText(markerText, 20, markerBrush, "Segoe UI Symbol");
+                context.DrawText(marker, new WindowsPoint(markerCenterX - marker.Width / 2d, markerTop));
+            }
         }
+    }
+
+    private static void DrawEnergySaverMarker(DrawingContext context, double centerX, double top)
+    {
+        var arrowPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(163, 207, 154)), 2)
+        {
+            StartLineCap = PenLineCap.Round,
+            EndLineCap = PenLineCap.Round,
+            LineJoin = PenLineJoin.Round
+        };
+        var boltBrush = new SolidColorBrush(MediaColor.FromRgb(237, 184, 72));
+
+        double x = centerX - 10;
+        double y = top + 2;
+        DrawArc(context, arrowPen, new WindowsPoint(x + 3.5, y + 10.5), new WindowsPoint(x + 10.5, y + 2.5), new WindowsSize(8.5, 8.5), SweepDirection.Clockwise);
+        DrawArc(context, arrowPen, new WindowsPoint(x + 16.5, y + 8.5), new WindowsPoint(x + 9.5, y + 16.5), new WindowsSize(8.5, 8.5), SweepDirection.Clockwise);
+
+        context.DrawGeometry(new SolidColorBrush(MediaColor.FromRgb(163, 207, 154)), null, Geometry.Parse($"M{x + 1.4},{y + 10.4} L{x + 4.5},{y + 6.8} L{x + 5.2},{y + 11.8} Z"));
+        context.DrawGeometry(new SolidColorBrush(MediaColor.FromRgb(163, 207, 154)), null, Geometry.Parse($"M{x + 18.6},{y + 8.6} L{x + 15.5},{y + 12.2} L{x + 14.8},{y + 7.2} Z"));
+        context.DrawGeometry(boltBrush, null, Geometry.Parse($"M{x + 10.4},{y + 4.2} L{x + 6.7},{y + 10.5} H{x + 10.1} L{x + 8.7},{y + 16.6} L{x + 14.0},{y + 8.8} H{x + 10.7} Z"));
+    }
+
+    private static void DrawArc(DrawingContext context, MediaPen pen, WindowsPoint start, WindowsPoint end, WindowsSize radius, SweepDirection sweepDirection)
+    {
+        var geometry = new StreamGeometry();
+        using (StreamGeometryContext stream = geometry.Open())
+        {
+            stream.BeginFigure(start, isFilled: false, isClosed: false);
+            stream.ArcTo(end, radius, rotationAngle: 0, isLargeArc: false, sweepDirection, isStroked: true, isSmoothJoin: true);
+        }
+
+        geometry.Freeze();
+        context.DrawGeometry(null, pen, geometry);
     }
 
     private static IEnumerable<(double Start, double End)> Ranges(IReadOnlyList<BatteryUsageBucket> buckets, Func<BatteryUsageBucket, bool> predicate)
@@ -502,6 +547,11 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             return "hold";
         }
 
+        if (IsPowerSaverRange(bucket))
+        {
+            return "powerSave";
+        }
+
         if (bucket.HasData && !bucket.IsPluggedIn)
         {
             return "discharge";
@@ -517,6 +567,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         {
             "charge" => MediaColor.FromRgb(154, 215, 108),
             "hold" => MediaColor.FromRgb(84, 214, 198),
+            "powerSave" => MediaColor.FromRgb(237, 184, 72),
             "sleep" => MediaColor.FromRgb(88, 166, 255),
             "missing" => MediaColor.FromRgb(196, 204, 214),
             _ => MediaColor.FromRgb(174, 180, 188)
@@ -745,7 +796,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             return "Critical";
         }
 
-        if (bucket.IsPowerSave && !bucket.IsPluggedIn)
+        if (IsPowerSaverRange(bucket))
         {
             return "Power Save";
         }
@@ -754,6 +805,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         {
             "charge" => "Charge",
             "hold" => "Charge Hold",
+            "powerSave" => "Power Save",
             "sleep" => "Sleep",
             "missing" => "Missing Data",
             "discharge" => "Battery Discharge",
@@ -837,7 +889,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             return new SolidColorBrush(MediaColor.FromRgb(214, 92, 83));
         }
 
-        if (bucket.IsPowerSave)
+        if (IsPowerSaverRange(bucket))
         {
             return new SolidColorBrush(MediaColor.FromRgb(237, 184, 72));
         }
@@ -852,6 +904,13 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         WindowsPowerMode.BestPerformance => new SolidColorBrush(MediaColor.FromRgb(225, 76, 70)),
         _ => new SolidColorBrush(MediaColor.FromRgb(142, 148, 154))
     };
+
+    private static bool IsPowerSaverRange(BatteryUsageBucket bucket) =>
+        !bucket.IsPluggedIn
+        && bucket.Kind is not BatteryUsageBucketKind.Sleep
+            and not BatteryUsageBucketKind.Missing
+            and not BatteryUsageBucketKind.NoData
+        && bucket.IsPowerSave;
 
     private static void DrawAxisLabels(DrawingContext context, double x, double top, double height)
     {

@@ -197,6 +197,7 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(PowerStateText));
                 OnPropertyChanged(nameof(PowerStateChipText));
                 OnPropertyChanged(nameof(BatteryFlowChipText));
+                OnPropertyChanged(nameof(PowerSaveChipText));
                 OnPropertyChanged(nameof(BatteryTimeText));
                 OnPropertyChanged(nameof(BatteryPowerText));
                 OnPropertyChanged(nameof(BatteryHealthText));
@@ -573,6 +574,7 @@ public sealed class MainViewModel : ObservableObject
     public double BatteryLevelPercent => Math.Clamp(Battery.Percentage, 0, 100);
     public string PowerStateText => Battery.IsPluggedIn ? "Plugged in" : "On battery";
     public string PowerStateChipText => Battery.IsPluggedIn ? "AC" : "Battery";
+    public string PowerSaveChipText => Battery.IsPowerSave ? "Energy saver on" : "Energy saver off";
     public string BatteryFlowChipText => BatteryPowerWatts switch
     {
         > 0.5 => "Charge",
