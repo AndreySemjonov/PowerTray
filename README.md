@@ -132,3 +132,11 @@ No telemetry, analytics, or network calls are used.
 - The energy history is persisted to `%AppData%\PowerTray\energy-history.json` and resets when a new discharging session begins.
 - Windows usually does not expose fan RPM or CPU package temperature without vendor/third-party sensors.
 - The installer registers the PowerTray battery-impact helper service so Windows battery impact can be read without running the tray UI as Administrator.
+
+## Support / Donations
+
+PowerTray is a personal project shared for free. If it saves you time and you want to support continued development, donations are welcome but completely optional.
+
+Donation link: ko-fi.com/andreys
+
+Testing on other Dell laptops, opening issues, sharing feedback, and suggesting useful features also helps a lot.

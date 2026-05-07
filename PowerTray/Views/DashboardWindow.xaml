@@ -410,8 +410,6 @@
 
                         <controls:BatteryUsageCombinedControl Grid.Row="1"
                                                               Buckets="{Binding BatteryUsageBuckets}"
-                                                              SelectedStart="{Binding SelectedBatteryUsageStart}"
-                                                              SelectedEnd="{Binding SelectedBatteryUsageEnd}"
                                                               SelectionCommand="{Binding SelectBatteryUsageRangeCommand}"
                                                               Height="170"
                                                               VerticalAlignment="Top"
