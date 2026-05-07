@@ -41,7 +41,7 @@ public sealed class TrayIconManager : IDisposable
     {
         Application.Current.Dispatcher.Invoke(() =>
         {
-            _dashboardWindow ??= new DashboardWindow(_viewModel);
+            _dashboardWindow ??= CreateDashboardWindow();
             if (_dashboardWindow.WindowState == WindowState.Minimized)
             {
                 _dashboardWindow.WindowState = WindowState.Normal;
@@ -55,6 +55,23 @@ public sealed class TrayIconManager : IDisposable
 
             _dashboardWindow.Activate();
         });
+    }
+
+    private DashboardWindow CreateDashboardWindow()
+    {
+        var window = new DashboardWindow(_viewModel);
+        window.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_dashboardWindow, window))
+            {
+                _dashboardWindow = null;
+            }
+
+            _viewModel.IsDashboardVisible = false;
+            GC.Collect(2, GCCollectionMode.Optimized, blocking: false, compacting: false);
+        };
+
+        return window;
     }
 
     public void ShowSettings()

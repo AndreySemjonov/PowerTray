@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using XPSBatteryTray.ViewModels;
@@ -7,17 +6,19 @@ namespace XPSBatteryTray.Views;
 
 public partial class DashboardWindow : Window
 {
+    private readonly MainViewModel _viewModel;
+
     public DashboardWindow(MainViewModel viewModel)
     {
         InitializeComponent();
+        _viewModel = viewModel;
         DataContext = viewModel;
+        IsVisibleChanged += OnDashboardIsVisibleChanged;
+        _viewModel.IsDashboardVisible = IsVisible;
     }
 
-    protected override void OnClosing(CancelEventArgs e)
-    {
-        e.Cancel = true;
-        Hide();
-    }
+    private void OnDashboardIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) =>
+        _viewModel.IsDashboardVisible = IsVisible;
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -33,10 +34,10 @@ public partial class DashboardWindow : Window
     private void MinimizeButton_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Normal;
-        Hide();
+        Close();
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e) => Hide();
+    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
     private void ModesButton_Click(object sender, RoutedEventArgs e)
     {

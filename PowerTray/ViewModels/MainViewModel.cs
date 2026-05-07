@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows.Input;
 using System.Windows.Threading;
 using XPSBatteryTray.Models;
@@ -10,6 +11,9 @@ public sealed class MainViewModel : ObservableObject
 {
     private static readonly TimeSpan ProcessRefreshInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan WindowsBatteryUsageRefreshInterval = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan RefreshTimingLogInterval = TimeSpan.FromMinutes(1);
+    private const double SlowRefreshThresholdMs = 1000;
+    private const double SlowUiRefreshThresholdMs = 200;
 
     private readonly SettingsService _settingsService;
     private readonly CctkService _cctkService;
@@ -25,8 +29,11 @@ public sealed class MainViewModel : ObservableObject
     private bool _isRefreshingWindowsBatteryUsage;
     private DateTimeOffset _lastProcessRefresh = DateTimeOffset.MinValue;
     private DateTimeOffset _lastWindowsBatteryUsageRefresh = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastRefreshTimingLog = DateTimeOffset.MinValue;
     private bool _isUsageDetailsVisible;
     private bool _isBatteryUsageDetailsVisible;
+    private bool _isDashboardVisible;
+    private bool _deferredGraphRefresh;
     private int _selectedSectionIndex;
     private TimeSpan? _averageBatteryTimeRemaining;
     private double? _averageBatteryDischargeWatts;
@@ -127,7 +134,26 @@ public sealed class MainViewModel : ObservableObject
         get => _selectedSectionIndex;
         set
         {
-            if (SetProperty(ref _selectedSectionIndex, value) && value == 1)
+            if (SetProperty(ref _selectedSectionIndex, value) && value == 1 && IsDashboardVisible)
+            {
+                _ = RefreshWindowsBatteryUsageAsync(force: false);
+            }
+        }
+    }
+
+    public bool IsDashboardVisible
+    {
+        get => _isDashboardVisible;
+        set
+        {
+            if (!SetProperty(ref _isDashboardVisible, value) || !value)
+            {
+                return;
+            }
+
+            RefreshGraphBindingsFromSamples();
+            _ = RefreshAsync();
+            if (SelectedSectionIndex == 1)
             {
                 _ = RefreshWindowsBatteryUsageAsync(force: false);
             }
@@ -797,14 +823,24 @@ public sealed class MainViewModel : ObservableObject
         {
             DateTime selectedDate = SelectedBatteryUsageDate;
             DateTimeOffset now = DateTimeOffset.Now;
-            bool shouldRefreshProcesses = now - _lastProcessRefresh >= ProcessRefreshInterval || TopCpuProcesses.Count == 0;
+            bool dashboardVisible = IsDashboardVisible;
+            bool shouldRefreshProcesses = dashboardVisible && (now - _lastProcessRefresh >= ProcessRefreshInterval || TopCpuProcesses.Count == 0);
             RefreshSnapshot snapshot = await Task.Run(() =>
             {
+                Stopwatch totalWatch = Stopwatch.StartNew();
+                Stopwatch stepWatch = Stopwatch.StartNew();
                 SensorReadings sensors = _sensorService.Read();
+                double sensorMs = stepWatch.Elapsed.TotalMilliseconds;
+
+                stepWatch.Restart();
                 BatteryStatus battery = _batteryService.GetStatus(sensors.BatteryPowerWatts);
+                double batteryStatusMs = stepWatch.Elapsed.TotalMilliseconds;
+
                 ProcessStatsSnapshot? processStats = null;
+                double processMs = 0;
                 if (shouldRefreshProcesses)
                 {
+                    stepWatch.Restart();
                     (double overallCpu,
                         IReadOnlyList<ProcessUsageInfo> topCpu,
                         IReadOnlyList<ProcessUsageInfo> topMemory,
@@ -819,10 +855,17 @@ public sealed class MainViewModel : ObservableObject
                         energyImpactTitle,
                         energyImpactColumnHeader,
                         _processStatsService.GetMemoryInfo());
+                    processMs = stepWatch.Elapsed.TotalMilliseconds;
                 }
 
+                stepWatch.Restart();
                 WindowsPowerMode? powerMode = ReadWindowsPowerMode(battery.IsPluggedIn);
+                double powerModeMs = stepWatch.Elapsed.TotalMilliseconds;
+
+                stepWatch.Restart();
                 BatteryUsageSnapshot batteryUsage = _batteryUsageService.Record(battery, selectedDate, powerMode);
+                double batteryUsageMs = stepWatch.Elapsed.TotalMilliseconds;
+                totalWatch.Stop();
 
                 return new RefreshSnapshot(
                     selectedDate,
@@ -831,14 +874,23 @@ public sealed class MainViewModel : ObservableObject
                     processStats,
                     powerMode,
                     batteryUsage,
-                    DateTimeOffset.Now);
+                    DateTimeOffset.Now,
+                    new RefreshTiming(
+                        totalWatch.Elapsed.TotalMilliseconds,
+                        sensorMs,
+                        batteryStatusMs,
+                        processMs,
+                        powerModeMs,
+                        batteryUsageMs,
+                        shouldRefreshProcesses));
             });
 
+            Stopwatch uiWatch = Stopwatch.StartNew();
             SensorReadings sensors = snapshot.Sensors;
             BatteryStatus battery = snapshot.Battery;
             HwinfoStatus = sensors.Status;
 
-            if (snapshot.ProcessStats is { } processStats)
+            if (dashboardVisible && snapshot.ProcessStats is { } processStats)
             {
                 _lastProcessRefresh = snapshot.Timestamp;
                 Memory = processStats.Memory;
@@ -864,10 +916,13 @@ public sealed class MainViewModel : ObservableObject
                 BatteryUsage = snapshot.BatteryUsage;
             }
 
-            ReplaceIfChanged(FanReadings, sensors.FanRpm.Count == 0
-                ? ["Fan RPM unavailable"]
-                : sensors.FanRpm.Select(f => $"{f.Key}: {f.Value:N0} RPM"),
-                StringComparer.Ordinal.Equals);
+            if (dashboardVisible)
+            {
+                ReplaceIfChanged(FanReadings, sensors.FanRpm.Count == 0
+                    ? ["Fan RPM unavailable"]
+                    : sensors.FanRpm.Select(f => $"{f.Key}: {f.Value:N0} RPM"),
+                    StringComparer.Ordinal.Equals);
+            }
 
             AddSample(new SensorSample
             {
@@ -879,12 +934,15 @@ public sealed class MainViewModel : ObservableObject
                 BatteryPowerWatts = Battery.ChargeRateWatts,
                 FanRpm = sensors.FanRpm.Values.FirstOrDefault(),
                 TopCpuProcessName = snapshot.ProcessStats?.TopCpu.FirstOrDefault()?.Name ?? TopCpuProcesses.FirstOrDefault()?.Name
-            });
+            }, dashboardVisible);
 
-            if (SelectedSectionIndex == 1)
+            if (dashboardVisible && SelectedSectionIndex == 1)
             {
                 _ = RefreshWindowsBatteryUsageAsync(force: false);
             }
+
+            uiWatch.Stop();
+            LogRefreshTiming(snapshot.Timing, uiWatch.Elapsed.TotalMilliseconds, dashboardVisible);
         }
         catch (Exception ex)
         {
@@ -897,20 +955,40 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private void AddSample(SensorSample sample)
+    private void AddSample(SensorSample sample, bool updateVisibleGraphs)
     {
         _samples.Add(sample);
         DateTimeOffset cutoff = DateTimeOffset.Now.AddMinutes(-10);
         _samples.RemoveAll(s => s.Timestamp < cutoff);
 
+        _averageBatteryDischargeWatts = CalculateAverageBatteryDischargeWatts(_samples);
+        _averageBatteryTimeRemaining = CalculateAverageBatteryTimeRemaining(Battery, _averageBatteryDischargeWatts);
+        OnPropertyChanged(nameof(BatteryDrainSummaryText));
+        OnPropertyChanged(nameof(BatteryTimeText));
+
+        if (!updateVisibleGraphs)
+        {
+            _deferredGraphRefresh = true;
+            return;
+        }
+
+        RefreshGraphBindingsFromSamples();
+    }
+
+    private void RefreshGraphBindingsFromSamples()
+    {
+        if (_samples.Count == 0)
+        {
+            return;
+        }
+
+        _deferredGraphRefresh = false;
         CpuGraphValues = _samples.Select(s => (double?)s.CpuUsagePercent).ToArray();
         GpuGraphValues = _samples.Select(s => s.GpuUsagePercent).ToArray();
         TemperatureGraphValues = _samples.Select(s => s.CpuTemperatureCelsius).ToArray();
         BatteryWattsGraphValues = _samples.Select(s => s.BatteryPowerWatts).ToArray();
         CpuPowerGraphValues = _samples.Select(s => s.CpuPackagePowerWatts).ToArray();
         FanGraphValues = _samples.Select(s => s.FanRpm).ToArray();
-        _averageBatteryDischargeWatts = CalculateAverageBatteryDischargeWatts(_samples);
-        _averageBatteryTimeRemaining = CalculateAverageBatteryTimeRemaining(Battery, _averageBatteryDischargeWatts);
         IReadOnlyList<UsagePeakInfo> cpuPeaks = BuildUsagePeaks(_samples, s => s.CpuUsagePercent, s => s.TopCpuProcessName, includeProcessName: true);
         if (!AreUsagePeakListsEquivalent(CpuUsagePeaks, cpuPeaks))
         {
@@ -927,12 +1005,24 @@ public sealed class MainViewModel : ObservableObject
         BatteryWattsGraphSummary = FormatGraphSummary(BatteryWattsGraphValues, "N1", " W");
         CpuPowerGraphSummary = FormatGraphSummary(CpuPowerGraphValues, "N1", " W");
         TemperatureGraphSummary = FormatGraphSummary(TemperatureGraphValues, "N0", " C");
-        OnPropertyChanged(nameof(BatteryDrainSummaryText));
-        OnPropertyChanged(nameof(BatteryTimeText));
         if (IsUsageDetailsVisible)
         {
             NotifyUsageDetailMetricsChanged();
         }
+    }
+
+    private void LogRefreshTiming(RefreshTiming timing, double uiMs, bool dashboardVisible)
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+        bool isSlow = timing.TotalMs >= SlowRefreshThresholdMs || uiMs >= SlowUiRefreshThresholdMs;
+        if (!isSlow && now - _lastRefreshTimingLog < RefreshTimingLogInterval)
+        {
+            return;
+        }
+
+        _lastRefreshTimingLog = now;
+        LogService.Info(
+            $"Refresh timing visible={dashboardVisible} total={timing.TotalMs:N0}ms sensor={timing.SensorMs:N0}ms battery={timing.BatteryStatusMs:N0}ms process={timing.ProcessMs:N0}ms powerMode={timing.PowerModeMs:N0}ms usageRecord={timing.BatteryUsageMs:N0}ms ui={uiMs:N0}ms processSampled={timing.ProcessSampled} deferredGraphs={_deferredGraphRefresh} samples={_samples.Count:N0}");
     }
 
     private async Task ShowPreviousBatteryUsageDayAsync()
@@ -1478,7 +1568,17 @@ public sealed class MainViewModel : ObservableObject
         ProcessStatsSnapshot? ProcessStats,
         WindowsPowerMode? PowerMode,
         BatteryUsageSnapshot BatteryUsage,
-        DateTimeOffset Timestamp);
+        DateTimeOffset Timestamp,
+        RefreshTiming Timing);
+
+    private sealed record RefreshTiming(
+        double TotalMs,
+        double SensorMs,
+        double BatteryStatusMs,
+        double ProcessMs,
+        double PowerModeMs,
+        double BatteryUsageMs,
+        bool ProcessSampled);
 
     private sealed record ProcessStatsSnapshot(
         double OverallCpu,
