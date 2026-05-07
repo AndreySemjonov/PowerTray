@@ -57,6 +57,36 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         set => SetValue(BucketsProperty, value);
     }
 
+    public static readonly DependencyProperty SelectedStartProperty =
+        DependencyProperty.Register(nameof(SelectedStart), typeof(DateTimeOffset?), typeof(BatteryUsageCombinedControl),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public DateTimeOffset? SelectedStart
+    {
+        get => (DateTimeOffset?)GetValue(SelectedStartProperty);
+        set => SetValue(SelectedStartProperty, value);
+    }
+
+    public static readonly DependencyProperty SelectedEndProperty =
+        DependencyProperty.Register(nameof(SelectedEnd), typeof(DateTimeOffset?), typeof(BatteryUsageCombinedControl),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public DateTimeOffset? SelectedEnd
+    {
+        get => (DateTimeOffset?)GetValue(SelectedEndProperty);
+        set => SetValue(SelectedEndProperty, value);
+    }
+
+    public static readonly DependencyProperty SelectionCommandProperty =
+        DependencyProperty.Register(nameof(SelectionCommand), typeof(ICommand), typeof(BatteryUsageCombinedControl),
+            new PropertyMetadata(null));
+
+    public ICommand? SelectionCommand
+    {
+        get => (ICommand?)GetValue(SelectionCommandProperty);
+        set => SetValue(SelectionCommandProperty, value);
+    }
+
     private HoverSelection? _hoverSelection;
     private readonly Popup _hoverPopup;
     private readonly TextBlock _hoverText;
@@ -99,6 +129,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         _hoverCloseTimer.Tick += OnHoverCloseTimerTick;
         MouseMove += OnMouseMove;
         MouseLeave += OnMouseLeave;
+        MouseLeftButtonDown += OnMouseLeftButtonDown;
         Unloaded += (_, _) => ClearHover();
         IsVisibleChanged += (_, _) =>
         {
@@ -124,6 +155,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
 
         DrawNoDataBands(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
         DrawExternalPowerBands(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
+        DrawSelectedRange(context, buckets, layout);
         DrawHoverHighlight(context, buckets, layout);
         DrawGrid(context, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
         DrawBars(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
@@ -324,6 +356,43 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.Top, width, layout.TimeLabelsY + Layout.HoverHighlightBottomPadding - layout.Top), 4, 4);
     }
 
+    private void DrawSelectedRange(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, ChartLayout layout)
+    {
+        if (SelectedStart is not { } selectedStart || SelectedEnd is not { } selectedEnd || selectedEnd <= selectedStart)
+        {
+            return;
+        }
+
+        int start = -1;
+        int end = -1;
+        for (int i = 0; i < buckets.Count; i++)
+        {
+            if (buckets[i].End <= selectedStart || buckets[i].Start >= selectedEnd)
+            {
+                continue;
+            }
+
+            if (start < 0)
+            {
+                start = i;
+            }
+
+            end = i + 1;
+        }
+
+        if (start < 0 || end <= start)
+        {
+            return;
+        }
+
+        double slot = layout.PlotWidth / buckets.Count;
+        double x = layout.Left + start * slot;
+        double width = Math.Max(2, (end - start) * slot);
+        var fill = new SolidColorBrush(MediaColor.FromArgb(38, 74, 168, 255));
+        var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(170, 116, 182, 255)), 1);
+        context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.Top, width, layout.TimeLabelsY + Layout.HoverHighlightBottomPadding - layout.Top), 4, 4);
+    }
+
     private static void DrawLaneSeparators(DrawingContext context, double left, double width, double powerModeLaneY, double averageWattsLaneY)
     {
         var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(88, 75, 82, 90)), 1);
@@ -497,6 +566,28 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         ClearHover();
     }
 
+    private void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        IReadOnlyList<BatteryUsageBucket> buckets = GetBuckets();
+        if (buckets.Count == 0)
+        {
+            return;
+        }
+
+        HoverSelection? selection = HitTestHover(e.GetPosition(this), buckets, CreateLayout(ActualWidth, ActualHeight));
+        if (selection is not { Kind: HoverKind.Usage })
+        {
+            return;
+        }
+
+        BatteryUsageSelection batterySelection = BuildBatterySelection(buckets, selection.Value);
+        if (SelectionCommand?.CanExecute(batterySelection) == true)
+        {
+            SelectionCommand.Execute(batterySelection);
+            e.Handled = true;
+        }
+    }
+
     private void SetHover(HoverSelection selection, string text, bool selectionChanged, WindowsPoint position)
     {
         _hoverSelection = selection;
@@ -626,6 +717,25 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         return selection.Kind == HoverKind.PowerMode
             ? $"{title}\n{FormatPowerMode(first.PowerMode)}\n{time} ({duration})\nAvg W: {averageWatts:N1}"
             : $"{title}\n{time} ({duration})\nBattery: {battery}\nAvg W: {averageWatts:N1}\nPower plan: {powerMode}";
+    }
+
+    private static BatteryUsageSelection BuildBatterySelection(IReadOnlyList<BatteryUsageBucket> buckets, HoverSelection selection)
+    {
+        BatteryUsageBucket[] range = buckets.Skip(selection.Start).Take(selection.End - selection.Start).ToArray();
+        BatteryUsageBucket first = range[0];
+        BatteryUsageBucket last = range[^1];
+        string title = FormatUsageCategory(first);
+        string duration = FormatDuration(last.End - first.Start);
+        string battery = $"{first.BatteryPercent:N0}% -> {last.BatteryPercent:N0}%";
+        double averageWatts = range.Select(bucket => bucket.AverageWatts).DefaultIfEmpty(0).Average();
+        string powerMode = MostCommonPowerMode(range) is { } mode ? FormatPowerMode(mode) : "Unavailable";
+        return new BatteryUsageSelection
+        {
+            Start = first.Start,
+            End = last.End,
+            Title = title,
+            Summary = $"{first.Start:HH:mm} - {last.End:HH:mm} ({duration}) | Battery {battery} | Avg W {averageWatts:N1} | {powerMode}"
+        };
     }
 
     private static string FormatUsageCategory(BatteryUsageBucket bucket)

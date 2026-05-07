@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Xml.Linq;
 using XPSBatteryTray.Models;
 
@@ -9,6 +10,8 @@ namespace XPSBatteryTray.Services;
 public sealed class WindowsBatteryUsageService
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan RangeMatchPadding = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan PowerCfgTimeout = TimeSpan.FromSeconds(30);
     private static readonly Dictionary<string, string> KnownNames = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Code"] = "Visual Studio Code",
@@ -31,28 +34,198 @@ public sealed class WindowsBatteryUsageService
         ["windows.immersivecontrolpanel"] = "Settings",
         ["Microsoft.ScreenSketch"] = "Snipping Tool"
     };
+    private static readonly HashSet<string> HiddenProcessNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "conhost",
+        "DSAService",
+        "dwm",
+        "LogonUI",
+        "lsass",
+        "MoUsoCoreWorker",
+        "MsMpEng",
+        "services",
+        "svchost",
+        "winlogon",
+        "WUDFHost"
+    };
 
     private readonly object _sync = new();
-    private WindowsBatteryUsageSnapshot? _cachedSnapshot;
+    private IReadOnlyList<SrumUsageRecord> _cachedRecords = [];
     private DateTimeOffset _lastAttempt = DateTimeOffset.MinValue;
+    private string _cachedStatusText = "Windows battery usage not loaded yet.";
 
     public WindowsBatteryUsageSnapshot GetSnapshot()
     {
         lock (_sync)
         {
             DateTimeOffset now = DateTimeOffset.Now;
-            if (_cachedSnapshot is not null && now - _lastAttempt < CacheDuration)
-            {
-                return _cachedSnapshot;
-            }
-
-            _lastAttempt = now;
-            _cachedSnapshot = LoadSnapshot(now);
-            return _cachedSnapshot;
+            EnsureRecords(now);
+            return BuildSnapshot(now, rangeStart: null, rangeEnd: null);
         }
     }
 
-    private static WindowsBatteryUsageSnapshot LoadSnapshot(DateTimeOffset now)
+    public WindowsBatteryUsageSnapshot GetSnapshot(DateTimeOffset rangeStart, DateTimeOffset rangeEnd)
+    {
+        lock (_sync)
+        {
+            DateTimeOffset now = DateTimeOffset.Now;
+            EnsureRecords(now);
+            return BuildSnapshot(now, rangeStart, rangeEnd);
+        }
+    }
+
+    private void EnsureRecords(DateTimeOffset now, bool force = false)
+    {
+        if (!force && now - _lastAttempt < CacheDuration)
+        {
+            return;
+        }
+
+        _lastAttempt = now;
+        SrumRecordLoadResult result = LoadRecords();
+        _cachedRecords = result.Records;
+        _cachedStatusText = result.StatusText;
+    }
+
+    private WindowsBatteryUsageSnapshot BuildSnapshot(DateTimeOffset now, DateTimeOffset? rangeStart, DateTimeOffset? rangeEnd)
+    {
+        IEnumerable<SrumUsageRecord> records = _cachedRecords;
+        bool isRange = rangeStart.HasValue && rangeEnd.HasValue;
+        if (isRange)
+        {
+            DateTimeOffset paddedStart = rangeStart!.Value - RangeMatchPadding;
+            DateTimeOffset paddedEnd = rangeEnd!.Value + RangeMatchPadding;
+            records = records
+                .Select(record => record with { RangeScale = CalculateRangeScale(record, paddedStart, paddedEnd) })
+                .Where(record => record.RangeScale > 0);
+        }
+        else
+        {
+            DateTimeOffset cutoff = now.AddHours(-24);
+            records = records.Where(record => record.Timestamp is null || record.Timestamp >= cutoff);
+        }
+
+        SrumUsageRecord[] matchedRecords = records.ToArray();
+        SrumUsageRecord[] comparableRecords = matchedRecords.Where(record => record.IsComparable).ToArray();
+        IReadOnlyList<WindowsBatteryUsageInfo> apps = BuildAppRows(comparableRecords);
+        bool usedComparableRows = true;
+        if (isRange && apps.Count == 0)
+        {
+            apps = BuildAppRows(matchedRecords);
+            usedComparableRows = false;
+        }
+
+        string status = apps.Count > 0
+            ? $"Updated {now:HH:mm} from Windows SRUM."
+            : isRange
+                ? $"No Windows app impact found for {rangeStart!.Value:HH:mm} - {rangeEnd!.Value:HH:mm}."
+                : _cachedStatusText;
+        string auditText = apps.Count > 0 ? BuildAuditText(apps, usedComparableRows ? comparableRecords.Length : matchedRecords.Length, isRange, usedComparableRows) : string.Empty;
+
+        return new WindowsBatteryUsageSnapshot { Apps = apps, StatusText = status, AuditText = auditText, UpdatedAt = now };
+    }
+
+    private static IReadOnlyList<WindowsBatteryUsageInfo> BuildAppRows(IReadOnlyList<SrumUsageRecord> records)
+    {
+        var totals = new Dictionary<string, UsageAccumulator>(StringComparer.OrdinalIgnoreCase);
+        foreach (SrumUsageRecord record in records)
+        {
+            if (record.EnergyMilliJoules <= 0)
+            {
+                continue;
+            }
+
+            UsageAccumulator accumulator = totals.GetValueOrDefault(record.Name);
+            double scale = record.RangeScale > 0 ? record.RangeScale : 1;
+            accumulator.EnergyMilliJoules += record.EnergyMilliJoules * scale;
+            accumulator.ForegroundMinutes += record.ForegroundMinutes * scale;
+            accumulator.BackgroundMinutes += record.BackgroundMinutes * scale;
+            accumulator.SourceRowCount++;
+            totals[record.Name] = accumulator;
+        }
+
+        double totalEnergy = totals.Values.Sum(item => item.EnergyMilliJoules);
+        double maxEnergy = totals.Values.Select(item => item.EnergyMilliJoules).DefaultIfEmpty(1).Max();
+        if (totalEnergy <= 0)
+        {
+            return [];
+        }
+
+        WindowsBatteryUsageInfo[] ranked = totals
+            .OrderByDescending(pair => pair.Value.EnergyMilliJoules)
+            .Select(pair => new WindowsBatteryUsageInfo
+            {
+                Name = pair.Key,
+                EnergyMilliJoules = pair.Value.EnergyMilliJoules,
+                Percent = Math.Clamp(pair.Value.EnergyMilliJoules / totalEnergy * 100d, 0, 100),
+                BarPercent = Math.Clamp(pair.Value.EnergyMilliJoules / maxEnergy * 100d, 0, 100),
+                ForegroundMinutes = pair.Value.ForegroundMinutes,
+                BackgroundMinutes = pair.Value.BackgroundMinutes,
+                SourceRowCount = pair.Value.SourceRowCount
+            })
+            .ToArray();
+
+        WindowsBatteryUsageInfo[] topApps = ranked.Take(5).ToArray();
+        WindowsBatteryUsageInfo[] otherApps = ranked.Skip(5).ToArray();
+        if (otherApps.Length == 0)
+        {
+            return topApps;
+        }
+
+        double otherEnergy = otherApps.Sum(app => app.EnergyMilliJoules);
+        double otherForeground = otherApps.Sum(app => app.ForegroundMinutes);
+        double otherBackground = otherApps.Sum(app => app.BackgroundMinutes);
+        int otherRows = otherApps.Sum(app => app.SourceRowCount);
+        double otherPercent = Math.Clamp(otherEnergy / totalEnergy * 100d, 0, 100);
+        return topApps
+            .Append(new WindowsBatteryUsageInfo
+            {
+                Name = "Other apps/services",
+                EnergyMilliJoules = otherEnergy,
+                Percent = otherPercent,
+                BarPercent = Math.Clamp(otherEnergy / maxEnergy * 100d, 0, 100),
+                ForegroundMinutes = otherForeground,
+                BackgroundMinutes = otherBackground,
+                SourceRowCount = otherRows,
+                IsOther = true
+            })
+            .ToArray();
+    }
+
+    private static string BuildAuditText(IReadOnlyList<WindowsBatteryUsageInfo> apps, int matchedRows, bool isRange, bool isComparable)
+    {
+        double topPercent = apps.Where(app => !app.IsOther).Sum(app => app.Percent);
+        double otherPercent = apps.FirstOrDefault(app => app.IsOther)?.Percent ?? 0;
+        string scope = isRange ? "Selected range" : "Last 24h";
+        string mode = isComparable ? "Windows comparable" : "all matched SRUM rows";
+        return $"{scope}: top apps {topPercent:N0}% | Other {otherPercent:N0}% | SRUM rows {matchedRows:N0} | {mode}";
+    }
+
+    private static double CalculateRangeScale(SrumUsageRecord record, DateTimeOffset rangeStart, DateTimeOffset rangeEnd)
+    {
+        if (record.Timestamp is not { } timestamp)
+        {
+            return 0;
+        }
+
+        if (record.Duration <= TimeSpan.Zero)
+        {
+            return timestamp >= rangeStart && timestamp < rangeEnd ? 1 : 0;
+        }
+
+        DateTimeOffset recordStart = timestamp - record.Duration;
+        DateTimeOffset overlapStart = recordStart > rangeStart ? recordStart : rangeStart;
+        DateTimeOffset overlapEnd = timestamp < rangeEnd ? timestamp : rangeEnd;
+        double overlapMilliseconds = (overlapEnd - overlapStart).TotalMilliseconds;
+        if (overlapMilliseconds <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp(overlapMilliseconds / record.Duration.TotalMilliseconds, 0, 1);
+    }
+
+    private static SrumRecordLoadResult LoadRecords()
     {
         string folder = Path.Combine(Path.GetTempPath(), "PowerTray");
         Directory.CreateDirectory(folder);
@@ -67,49 +240,21 @@ public sealed class WindowsBatteryUsageService
                 string message = CctkService.IsAdministrator()
                     ? $"Windows battery usage unavailable: {CleanMessage(result.Message)}"
                     : "Windows battery usage needs administrator access.";
-                return new WindowsBatteryUsageSnapshot { StatusText = message, UpdatedAt = now };
+                return new SrumRecordLoadResult([], message);
             }
 
-            string csv = File.ReadAllText(outputPath);
-            SrumParseResult parseResult = ParseCsv(csv, now);
-            if (parseResult.Apps.Count == 0 && parseResult.ShouldTryXmlFallback)
-            {
-                CommandResult xmlResult = RunPowerCfg(xmlOutputPath, xml: true);
-                if (xmlResult.Success && File.Exists(xmlOutputPath))
-                {
-                    parseResult = ParseXml(File.ReadAllText(xmlOutputPath), now);
-                }
-            }
-
-            IReadOnlyList<WindowsBatteryUsageInfo> apps = parseResult.Apps.Take(5).ToArray();
-            string status = apps.Count == 0
-                ? parseResult.StatusText
-                : $"Updated {now:HH:mm} from Windows SRUM.";
-            return new WindowsBatteryUsageSnapshot { Apps = apps, StatusText = status, UpdatedAt = now };
+            SrumRecordParseResult parseResult = ParseCsvRecords(File.ReadAllText(outputPath));
+            return new SrumRecordLoadResult(parseResult.Records, parseResult.StatusText);
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Failed to load Windows battery usage.");
-            return new WindowsBatteryUsageSnapshot { StatusText = $"Windows battery usage unavailable: {ex.Message}", UpdatedAt = now };
+            return new SrumRecordLoadResult([], $"Windows battery usage unavailable: {ex.Message}");
         }
         finally
         {
-            try
-            {
-                if (File.Exists(outputPath))
-                {
-                    File.Delete(outputPath);
-                }
-
-                if (File.Exists(xmlOutputPath))
-                {
-                    File.Delete(xmlOutputPath);
-                }
-            }
-            catch
-            {
-                // Temporary SRUM export cleanup is best-effort.
-            }
+            TryDelete(outputPath);
+            TryDelete(xmlOutputPath);
         }
     }
 
@@ -128,9 +273,48 @@ public sealed class WindowsBatteryUsageService
             };
 
             using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start powercfg.exe.");
-            string stdout = process.StandardOutput.ReadToEnd();
-            string stderr = process.StandardError.ReadToEnd();
+            var stdoutBuilder = new StringBuilder();
+            var stderrBuilder = new StringBuilder();
+            process.OutputDataReceived += (_, args) =>
+            {
+                if (args.Data is not null)
+                {
+                    stdoutBuilder.AppendLine(args.Data);
+                }
+            };
+            process.ErrorDataReceived += (_, args) =>
+            {
+                if (args.Data is not null)
+                {
+                    stderrBuilder.AppendLine(args.Data);
+                }
+            };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            if (!process.WaitForExit((int)PowerCfgTimeout.TotalMilliseconds))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    // Best-effort cleanup for a stuck powercfg process.
+                }
+
+                return new CommandResult
+                {
+                    Success = false,
+                    ExitCode = -1,
+                    Message = $"powercfg /srumutil timed out after {PowerCfgTimeout.TotalSeconds:N0}s.",
+                    StandardOutput = stdoutBuilder.ToString(),
+                    StandardError = stderrBuilder.ToString()
+                };
+            }
+
             process.WaitForExit();
+            string stdout = stdoutBuilder.ToString();
+            string stderr = stderrBuilder.ToString();
 
             string message = string.IsNullOrWhiteSpace(stderr) ? stdout.Trim() : stderr.Trim();
             if (string.IsNullOrWhiteSpace(message))
@@ -154,19 +338,20 @@ public sealed class WindowsBatteryUsageService
         }
     }
 
-    private static SrumParseResult ParseCsv(string csv, DateTimeOffset now)
+    private static SrumRecordParseResult ParseCsvRecords(string csv)
     {
-        var totals = new Dictionary<string, UsageAccumulator>(StringComparer.OrdinalIgnoreCase);
+        var records = new List<SrumUsageRecord>();
         string[] lines = csv.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
         string[] header = [];
         Dictionary<string, int> columns = new(StringComparer.OrdinalIgnoreCase);
         int appColumn = -1;
         int timeColumn = -1;
         int[] energyColumns = [];
+        int[] networkEnergyColumns = [];
         int[] foregroundColumns = [];
         int[] backgroundColumns = [];
+        int durationColumn = -1;
         int dataRows = 0;
-        int rowsWithEnergy = 0;
         string lastHeaderSummary = "no AppId header found";
 
         foreach (string line in lines)
@@ -184,8 +369,10 @@ public sealed class WindowsBatteryUsageService
                 appColumn = FindColumn(columns, "appid", "application", "processname", "imagename");
                 timeColumn = FindTimestampColumn(columns);
                 energyColumns = FindEnergyColumns(header);
+                networkEnergyColumns = FindExactOrContainsColumns(header, "networkenergyconsumption", "networkenergy");
                 foregroundColumns = FindDurationColumns(header, "foreground", "inuse");
                 backgroundColumns = FindDurationColumns(header, "background");
+                durationColumn = FindColumn(columns, "timeinmsec", "durationms", "durationmilliseconds");
                 lastHeaderSummary = energyColumns.Length == 0
                     ? $"found AppId header but no energy columns: {string.Join(", ", header.Take(8))}"
                     : $"found {energyColumns.Length} energy column(s)";
@@ -198,71 +385,54 @@ public sealed class WindowsBatteryUsageService
             }
 
             dataRows++;
-            if (timeColumn >= 0 && timeColumn < fields.Length && TryParseTimestamp(fields[timeColumn], out DateTimeOffset timestamp)
-                && timestamp < now.AddHours(-24))
-            {
-                continue;
-            }
-
             string rawAppId = fields[appColumn];
-            if (IsIgnoredAppId(rawAppId))
+            if (IsInvalidAppId(rawAppId))
             {
                 continue;
             }
 
             string appName = FriendlyName(rawAppId);
-            if (string.IsNullOrWhiteSpace(appName))
+            double energy = AdjustComparableEnergy(rawAppId, SumNumeric(fields, energyColumns), SumNumeric(fields, networkEnergyColumns));
+            if (string.IsNullOrWhiteSpace(appName) || energy <= 0)
             {
                 continue;
             }
 
-            double energy = SumNumeric(fields, energyColumns);
-            if (energy <= 0)
-            {
-                continue;
-            }
-
-            rowsWithEnergy++;
-            UsageAccumulator accumulator = totals.GetValueOrDefault(appName);
-            accumulator.EnergyMilliJoules += energy;
-            accumulator.ForegroundMinutes += SumNumeric(fields, foregroundColumns) / 60d;
-            accumulator.BackgroundMinutes += SumNumeric(fields, backgroundColumns) / 60d;
-            totals[appName] = accumulator;
+            DateTimeOffset? timestamp = timeColumn >= 0 && timeColumn < fields.Length && TryParseTimestamp(fields[timeColumn], out DateTimeOffset parsedTimestamp)
+                ? parsedTimestamp
+                : null;
+            TimeSpan duration = durationColumn >= 0 && durationColumn < fields.Length && TryParseMetric(fields[durationColumn], out double durationMilliseconds)
+                ? TimeSpan.FromMilliseconds(Math.Max(0, durationMilliseconds))
+                : TimeSpan.Zero;
+            records.Add(new SrumUsageRecord(
+                appName,
+                timestamp,
+                duration,
+                energy,
+                SumNumeric(fields, foregroundColumns) / 60d,
+                SumNumeric(fields, backgroundColumns) / 60d,
+                IsComparableAppId(rawAppId),
+                RangeScale: 1));
         }
 
-        double totalEnergy = totals.Values.Sum(item => item.EnergyMilliJoules);
-        double maxEnergy = totals.Values.Select(item => item.EnergyMilliJoules).DefaultIfEmpty(1).Max();
-        if (totalEnergy <= 0)
+        if (records.Count == 0)
         {
             string status = dataRows == 0
                 ? $"Windows SRUM export did not contain parsable app energy rows ({lastHeaderSummary})."
-                : $"Windows SRUM export had {dataRows} app row(s), but no positive energy values in the parsed columns.";
-            return new SrumParseResult([], status, ShouldTryXmlFallback: true);
+                : $"Windows SRUM export had {dataRows} app row(s), but no positive app energy values.";
+            return new SrumRecordParseResult([], status, ShouldTryXmlFallback: true);
         }
 
-        WindowsBatteryUsageInfo[] apps = totals
-            .OrderByDescending(pair => pair.Value.EnergyMilliJoules)
-            .Select(pair => new WindowsBatteryUsageInfo
-            {
-                Name = pair.Key,
-                EnergyMilliJoules = pair.Value.EnergyMilliJoules,
-                Percent = Math.Clamp(pair.Value.EnergyMilliJoules / totalEnergy * 100d, 0, 100),
-                BarPercent = Math.Clamp(pair.Value.EnergyMilliJoules / maxEnergy * 100d, 0, 100),
-                ForegroundMinutes = pair.Value.ForegroundMinutes,
-                BackgroundMinutes = pair.Value.BackgroundMinutes
-            })
-            .ToArray();
-        return new SrumParseResult(apps, $"Parsed {rowsWithEnergy} Windows SRUM energy row(s).", ShouldTryXmlFallback: false);
+        return new SrumRecordParseResult(records, $"Parsed {records.Count} Windows SRUM energy row(s).", ShouldTryXmlFallback: false);
     }
 
-    private static SrumParseResult ParseXml(string xml, DateTimeOffset now)
+    private static SrumRecordParseResult ParseXmlRecords(string xml)
     {
         try
         {
             var document = XDocument.Parse(xml);
-            var totals = new Dictionary<string, UsageAccumulator>(StringComparer.OrdinalIgnoreCase);
+            var records = new List<SrumUsageRecord>();
             int appRows = 0;
-            int rowsWithEnergy = 0;
 
             foreach (XElement element in document.Descendants())
             {
@@ -273,72 +443,68 @@ public sealed class WindowsBatteryUsageService
                 }
 
                 appRows++;
-                if (TryGetField(fields, out string timestampText, "timestamp", "time", "datetime", "endtime", "starttime")
-                    && TryParseTimestamp(timestampText, out DateTimeOffset timestamp)
-                    && timestamp < now.AddHours(-24))
-                {
-                    continue;
-                }
-
-                if (IsIgnoredAppId(appId))
+                if (IsInvalidAppId(appId))
                 {
                     continue;
                 }
 
                 string appName = FriendlyName(appId);
-                if (string.IsNullOrWhiteSpace(appName))
+                double energy = AdjustComparableEnergy(appId, SumEnergyFields(fields), SumSpecificEnergyFields(fields, "networkenergyconsumption", "networkenergy"));
+                if (string.IsNullOrWhiteSpace(appName) || energy <= 0)
                 {
                     continue;
                 }
 
-                double energy = SumEnergyFields(fields);
-                if (energy <= 0)
-                {
-                    continue;
-                }
-
-                rowsWithEnergy++;
-                UsageAccumulator accumulator = totals.GetValueOrDefault(appName);
-                accumulator.EnergyMilliJoules += energy;
-                accumulator.ForegroundMinutes += SumDurationFields(fields, "foreground", "inuse") / 60d;
-                accumulator.BackgroundMinutes += SumDurationFields(fields, "background") / 60d;
-                totals[appName] = accumulator;
+                DateTimeOffset? timestamp = TryGetField(fields, out string timestampText, "timestamp", "time", "datetime", "endtime", "starttime")
+                    && TryParseTimestamp(timestampText, out DateTimeOffset parsedTimestamp)
+                        ? parsedTimestamp
+                        : null;
+                TimeSpan duration = TryGetField(fields, out string durationText, "timeinmsec", "durationms", "durationmilliseconds")
+                    && TryParseMetric(durationText, out double durationMilliseconds)
+                        ? TimeSpan.FromMilliseconds(Math.Max(0, durationMilliseconds))
+                        : TimeSpan.Zero;
+                records.Add(new SrumUsageRecord(
+                    appName,
+                    timestamp,
+                    duration,
+                    energy,
+                    SumDurationFields(fields, "foreground", "inuse") / 60d,
+                    SumDurationFields(fields, "background") / 60d,
+                    IsComparableAppId(appId),
+                    RangeScale: 1));
             }
 
-            double totalEnergy = totals.Values.Sum(item => item.EnergyMilliJoules);
-            double maxEnergy = totals.Values.Select(item => item.EnergyMilliJoules).DefaultIfEmpty(1).Max();
-            if (totalEnergy <= 0)
+            if (records.Count == 0)
             {
                 string status = appRows == 0
                     ? "Windows SRUM XML export did not contain parsable AppId rows."
-                    : $"Windows SRUM XML export had {appRows} app row(s), but no positive energy values.";
-                return new SrumParseResult([], status, ShouldTryXmlFallback: false);
+                    : $"Windows SRUM XML export had {appRows} app row(s), but no positive app energy values.";
+                return new SrumRecordParseResult([], status, ShouldTryXmlFallback: false);
             }
 
-            WindowsBatteryUsageInfo[] apps = totals
-                .OrderByDescending(pair => pair.Value.EnergyMilliJoules)
-                .Select(pair => new WindowsBatteryUsageInfo
-                {
-                    Name = pair.Key,
-                    EnergyMilliJoules = pair.Value.EnergyMilliJoules,
-                    Percent = Math.Clamp(pair.Value.EnergyMilliJoules / totalEnergy * 100d, 0, 100),
-                    BarPercent = Math.Clamp(pair.Value.EnergyMilliJoules / maxEnergy * 100d, 0, 100),
-                    ForegroundMinutes = pair.Value.ForegroundMinutes,
-                    BackgroundMinutes = pair.Value.BackgroundMinutes
-                })
-                .ToArray();
-            return new SrumParseResult(apps, $"Parsed {rowsWithEnergy} Windows SRUM XML energy row(s).", ShouldTryXmlFallback: false);
+            return new SrumRecordParseResult(records, $"Parsed {records.Count} Windows SRUM XML energy row(s).", ShouldTryXmlFallback: false);
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Failed to parse Windows SRUM XML.");
-            return new SrumParseResult([], $"Windows SRUM XML parse failed: {ex.Message}", ShouldTryXmlFallback: false);
+            return new SrumRecordParseResult([], $"Windows SRUM XML parse failed: {ex.Message}", ShouldTryXmlFallback: false);
         }
     }
 
-    private static bool LooksLikeHeader(IReadOnlyList<string> fields) =>
-        fields.Any(field => NormalizeColumnName(field) == "appid")
-        || fields.Any(field => NormalizeColumnName(field).Contains("application", StringComparison.OrdinalIgnoreCase));
+    private static bool LooksLikeHeader(IReadOnlyList<string> fields)
+    {
+        string[] normalizedFields = fields.Select(NormalizeColumnName).ToArray();
+        bool hasAppColumn = normalizedFields.Any(field => field is "appid" or "application" or "processname" or "imagename");
+        if (!hasAppColumn)
+        {
+            return false;
+        }
+
+        bool hasTimeColumn = normalizedFields.Any(field => field.Contains("timestamp", StringComparison.OrdinalIgnoreCase)
+            || field is "time" or "datetime" or "endtime" or "starttime");
+        bool hasEnergyColumn = normalizedFields.Any(IsEnergyField);
+        return hasTimeColumn || hasEnergyColumn;
+    }
 
     private static Dictionary<string, int> BuildColumnMap(IReadOnlyList<string> header)
     {
@@ -382,6 +548,17 @@ public sealed class WindowsBatteryUsageService
         return -1;
     }
 
+    private static int[] FindEnergyColumns(IReadOnlyList<string> header)
+    {
+        int[] totalColumns = FindExactOrContainsColumns(header, "totalenergyconsumption", "totalenergy");
+        if (totalColumns.Length > 0)
+        {
+            return totalColumns;
+        }
+
+        return FindMetricColumns(header, "energy", "joule", "mj");
+    }
+
     private static int[] FindMetricColumns(IReadOnlyList<string> header, params string[] tokens)
     {
         var matches = new List<int>();
@@ -398,17 +575,6 @@ public sealed class WindowsBatteryUsageService
         }
 
         return matches.ToArray();
-    }
-
-    private static int[] FindEnergyColumns(IReadOnlyList<string> header)
-    {
-        int[] totalColumns = FindExactOrContainsColumns(header, "totalenergyconsumption", "totalenergy");
-        if (totalColumns.Length > 0)
-        {
-            return totalColumns;
-        }
-
-        return FindMetricColumns(header, "energy", "joule", "mj");
     }
 
     private static int[] FindExactOrContainsColumns(IReadOnlyList<string> header, params string[] names)
@@ -446,9 +612,7 @@ public sealed class WindowsBatteryUsageService
         for (int i = 0; i < header.Count; i++)
         {
             string name = NormalizeColumnName(header[i]);
-            bool isDuration = name.Contains("time", StringComparison.OrdinalIgnoreCase)
-                || name.Contains("duration", StringComparison.OrdinalIgnoreCase)
-                || name.Contains("seconds", StringComparison.OrdinalIgnoreCase);
+            bool isDuration = IsDurationField(name);
             if (isDuration && tokens.Any(token => name.Contains(token, StringComparison.OrdinalIgnoreCase)))
             {
                 matches.Add(i);
@@ -494,6 +658,23 @@ public sealed class WindowsBatteryUsageService
             .Select(pair => TryParseMetric(pair.Value, out double value) ? value : 0)
             .Where(value => value > 0)
             .Sum();
+    }
+
+    private static double SumSpecificEnergyFields(IReadOnlyDictionary<string, string> fields, params string[] names) =>
+        names
+            .Where(fields.ContainsKey)
+            .Select(key => TryParseMetric(fields[key], out double value) ? value : 0)
+            .Where(value => value > 0)
+            .Sum();
+
+    private static double AdjustComparableEnergy(string appId, double totalEnergy, double networkEnergy)
+    {
+        if (appId.Equals("System", StringComparison.OrdinalIgnoreCase) && networkEnergy > 0)
+        {
+            return Math.Max(0, totalEnergy - networkEnergy);
+        }
+
+        return totalEnergy;
     }
 
     private static double SumDurationFields(IReadOnlyDictionary<string, string> fields, params string[] tokens) =>
@@ -587,14 +768,41 @@ public sealed class WindowsBatteryUsageService
 
     private static bool TryParseTimestamp(string value, out DateTimeOffset timestamp)
     {
-        if (DateTimeOffset.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out timestamp)
-            || DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out timestamp))
+        DateTimeStyles styles = HasExplicitOffset(value)
+            ? DateTimeStyles.None
+            : DateTimeStyles.AssumeUniversal;
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.CurrentCulture, styles, out timestamp)
+            || DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, styles, out timestamp))
         {
+            timestamp = timestamp.ToLocalTime();
             return true;
         }
 
         timestamp = default;
         return false;
+    }
+
+    private static bool HasExplicitOffset(string value)
+    {
+        string text = value.Trim();
+        if (text.EndsWith("Z", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        int timeSeparatorIndex = text.IndexOf('T');
+        if (timeSeparatorIndex < 0)
+        {
+            timeSeparatorIndex = text.IndexOf(' ');
+        }
+
+        if (timeSeparatorIndex < 0)
+        {
+            return false;
+        }
+
+        return text.IndexOf('+', timeSeparatorIndex) >= 0 || text.IndexOf('-', timeSeparatorIndex) >= 0;
     }
 
     private static string FriendlyName(string value)
@@ -643,13 +851,59 @@ public sealed class WindowsBatteryUsageService
         return KnownNames.TryGetValue(name, out string? friendlyName) ? friendlyName : name;
     }
 
-    private static bool IsIgnoredAppId(string value)
+    private static bool IsInvalidAppId(string value)
     {
         string name = value.Trim();
         return string.IsNullOrWhiteSpace(name)
             || name.Equals("Unknown", StringComparison.OrdinalIgnoreCase)
             || name.StartsWith("EMI_", StringComparison.OrdinalIgnoreCase)
             || name.StartsWith("E3_", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsComparableAppId(string value) =>
+        !IsInvalidAppId(value)
+        && !value.Trim().Equals("System Interrupts", StringComparison.OrdinalIgnoreCase)
+        && !IsHiddenWindowsComponent(value.Trim());
+
+    private static bool IsHiddenWindowsComponent(string value)
+    {
+        string processName = ExtractProcessName(value);
+        if (HiddenProcessNames.Contains(processName))
+        {
+            return true;
+        }
+
+        return value.Contains("MicrosoftWindows.Client.CBS", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Microsoft.AAD.BrokerPlugin", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Microsoft.LockApp", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Microsoft.Windows.ContentDeliveryManager", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Microsoft.Windows.ShellExperienceHost", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Microsoft.WindowsStore", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("Microsoft.StorePurchaseApp", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ExtractProcessName(string value)
+    {
+        string name = value.Trim();
+        int bracketIndex = name.IndexOf(" [", StringComparison.Ordinal);
+        if (bracketIndex > 0)
+        {
+            name = name[..bracketIndex];
+        }
+
+        if (name.Contains('\\') || name.Contains('/'))
+        {
+            try
+            {
+                name = Path.GetFileNameWithoutExtension(name);
+            }
+            catch
+            {
+                name = name.Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? name;
+            }
+        }
+
+        return name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? name[..^4] : name;
     }
 
     private static bool TryGetPackageFriendlyName(string value, out string friendlyName)
@@ -803,12 +1057,39 @@ public sealed class WindowsBatteryUsageService
         return count;
     }
 
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Temporary SRUM export cleanup is best-effort.
+        }
+    }
+
+    private readonly record struct SrumUsageRecord(
+        string Name,
+        DateTimeOffset? Timestamp,
+        TimeSpan Duration,
+        double EnergyMilliJoules,
+        double ForegroundMinutes,
+        double BackgroundMinutes,
+        bool IsComparable,
+        double RangeScale);
+
     private struct UsageAccumulator
     {
         public double EnergyMilliJoules;
         public double ForegroundMinutes;
         public double BackgroundMinutes;
+        public int SourceRowCount;
     }
 
-    private sealed record SrumParseResult(IReadOnlyList<WindowsBatteryUsageInfo> Apps, string StatusText, bool ShouldTryXmlFallback);
+    private sealed record SrumRecordLoadResult(IReadOnlyList<SrumUsageRecord> Records, string StatusText);
+    private sealed record SrumRecordParseResult(IReadOnlyList<SrumUsageRecord> Records, string StatusText, bool ShouldTryXmlFallback);
 }

@@ -8,6 +8,9 @@ namespace XPSBatteryTray.ViewModels;
 
 public sealed class MainViewModel : ObservableObject
 {
+    private static readonly TimeSpan ProcessRefreshInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan WindowsBatteryUsageRefreshInterval = TimeSpan.FromMinutes(15);
+
     private readonly SettingsService _settingsService;
     private readonly CctkService _cctkService;
     private readonly BatteryService _batteryService;
@@ -19,7 +22,12 @@ public sealed class MainViewModel : ObservableObject
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
     private bool _isRefreshing;
+    private bool _isRefreshingWindowsBatteryUsage;
+    private DateTimeOffset _lastProcessRefresh = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastWindowsBatteryUsageRefresh = DateTimeOffset.MinValue;
     private bool _isUsageDetailsVisible;
+    private bool _isBatteryUsageDetailsVisible;
+    private int _selectedSectionIndex;
     private TimeSpan? _averageBatteryTimeRemaining;
     private double? _averageBatteryDischargeWatts;
 
@@ -49,6 +57,13 @@ public sealed class MainViewModel : ObservableObject
     private string _energyImpactTitle = "Resource Impact";
     private string _energyImpactColumnHeader = "Score";
     private string _windowsBatteryUsageStatusText = "Windows battery usage not loaded yet.";
+    private string _windowsBatteryUsageAuditText = string.Empty;
+    private string _selectedBatteryUsageTitle = "Battery Usage Details";
+    private string _selectedBatteryUsageSummary = "Select a battery usage block.";
+    private string _selectedBatteryUsageImpactStatusText = "Select a battery usage block.";
+    private string _selectedBatteryUsageImpactAuditText = string.Empty;
+    private DateTimeOffset? _selectedBatteryUsageStart;
+    private DateTimeOffset? _selectedBatteryUsageEnd;
     private WindowsPowerMode? _currentWindowsPowerMode;
     private BatteryUsageSnapshot _batteryUsage = new();
     private DateTime _selectedBatteryUsageDate = DateTime.Today;
@@ -68,6 +83,7 @@ public sealed class MainViewModel : ObservableObject
         TopMemoryProcesses = new ObservableCollection<ProcessUsageInfo>();
         EnergyImpactProcesses = new ObservableCollection<ProcessUsageInfo>();
         WindowsBatteryUsageProcesses = new ObservableCollection<WindowsBatteryUsageInfo>();
+        SelectedWindowsBatteryUsageProcesses = new ObservableCollection<WindowsBatteryUsageInfo>();
         FanReadings = new ObservableCollection<string>();
 
         RefreshDellChargeCommand = new RelayCommand(async () => await RefreshDellChargeAsync());
@@ -76,6 +92,9 @@ public sealed class MainViewModel : ObservableObject
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
         ShowUsageDetailsCommand = new RelayCommand(() => IsUsageDetailsVisible = true);
         HideUsageDetailsCommand = new RelayCommand(() => IsUsageDetailsVisible = false);
+        SelectBatteryUsageRangeCommand = new RelayCommand(async parameter => await SelectBatteryUsageRangeAsync(parameter, showDetails: true));
+        UpdateBatteryUsageRangeCommand = new RelayCommand(async parameter => await SelectBatteryUsageRangeAsync(parameter, showDetails: false));
+        HideBatteryUsageDetailsCommand = new RelayCommand(() => IsBatteryUsageDetailsVisible = false);
         PreviousBatteryUsageDayCommand = new RelayCommand(async () => await ShowPreviousBatteryUsageDayAsync());
         NextBatteryUsageDayCommand = new RelayCommand(async () => await ShowNextBatteryUsageDayAsync());
         TodayBatteryUsageCommand = new RelayCommand(async () => await ShowTodayBatteryUsageAsync());
@@ -89,6 +108,24 @@ public sealed class MainViewModel : ObservableObject
     {
         get => _isUsageDetailsVisible;
         private set => SetProperty(ref _isUsageDetailsVisible, value);
+    }
+
+    public bool IsBatteryUsageDetailsVisible
+    {
+        get => _isBatteryUsageDetailsVisible;
+        private set => SetProperty(ref _isBatteryUsageDetailsVisible, value);
+    }
+
+    public int SelectedSectionIndex
+    {
+        get => _selectedSectionIndex;
+        set
+        {
+            if (SetProperty(ref _selectedSectionIndex, value) && value == 1)
+            {
+                _ = RefreshWindowsBatteryUsageAsync(force: false);
+            }
+        }
     }
 
     public BatteryStatus Battery
@@ -347,6 +384,48 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _windowsBatteryUsageStatusText, value);
     }
 
+    public string WindowsBatteryUsageAuditText
+    {
+        get => _windowsBatteryUsageAuditText;
+        private set => SetProperty(ref _windowsBatteryUsageAuditText, value);
+    }
+
+    public string SelectedBatteryUsageTitle
+    {
+        get => _selectedBatteryUsageTitle;
+        private set => SetProperty(ref _selectedBatteryUsageTitle, value);
+    }
+
+    public string SelectedBatteryUsageSummary
+    {
+        get => _selectedBatteryUsageSummary;
+        private set => SetProperty(ref _selectedBatteryUsageSummary, value);
+    }
+
+    public string SelectedBatteryUsageImpactStatusText
+    {
+        get => _selectedBatteryUsageImpactStatusText;
+        private set => SetProperty(ref _selectedBatteryUsageImpactStatusText, value);
+    }
+
+    public string SelectedBatteryUsageImpactAuditText
+    {
+        get => _selectedBatteryUsageImpactAuditText;
+        private set => SetProperty(ref _selectedBatteryUsageImpactAuditText, value);
+    }
+
+    public DateTimeOffset? SelectedBatteryUsageStart
+    {
+        get => _selectedBatteryUsageStart;
+        private set => SetProperty(ref _selectedBatteryUsageStart, value);
+    }
+
+    public DateTimeOffset? SelectedBatteryUsageEnd
+    {
+        get => _selectedBatteryUsageEnd;
+        private set => SetProperty(ref _selectedBatteryUsageEnd, value);
+    }
+
     public WindowsPowerMode? CurrentWindowsPowerMode
     {
         get => _currentWindowsPowerMode;
@@ -409,6 +488,7 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<ProcessUsageInfo> TopMemoryProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> EnergyImpactProcesses { get; }
     public ObservableCollection<WindowsBatteryUsageInfo> WindowsBatteryUsageProcesses { get; }
+    public ObservableCollection<WindowsBatteryUsageInfo> SelectedWindowsBatteryUsageProcesses { get; }
     public ObservableCollection<string> FanReadings { get; }
 
     public ICommand RefreshDellChargeCommand { get; }
@@ -417,6 +497,9 @@ public sealed class MainViewModel : ObservableObject
     public ICommand OpenSettingsCommand { get; }
     public ICommand ShowUsageDetailsCommand { get; }
     public ICommand HideUsageDetailsCommand { get; }
+    public ICommand SelectBatteryUsageRangeCommand { get; }
+    public ICommand UpdateBatteryUsageRangeCommand { get; }
+    public ICommand HideBatteryUsageDetailsCommand { get; }
     public ICommand PreviousBatteryUsageDayCommand { get; }
     public ICommand NextBatteryUsageDayCommand { get; }
     public ICommand TodayBatteryUsageCommand { get; }
@@ -504,6 +587,7 @@ public sealed class MainViewModel : ObservableObject
     public bool CanShowNextBatteryUsageDay => SelectedBatteryUsageDate < DateTime.Today;
     public string TopAppUsageEmptyText => EnergyImpactProcesses.Count == 0 ? "No resource impact data yet" : string.Empty;
     public string WindowsBatteryUsageEmptyText => WindowsBatteryUsageProcesses.Count == 0 ? WindowsBatteryUsageStatusText : string.Empty;
+    public string SelectedWindowsBatteryUsageEmptyText => SelectedWindowsBatteryUsageProcesses.Count == 0 ? SelectedBatteryUsageImpactStatusText : string.Empty;
     public string CpuNowDetailText => $"{CpuUsagePercent:N0}%";
     public string GpuNowDetailText => GpuUsagePercent is { } value ? $"{value:N0}%" : "--";
     public string CpuMaxDetailText => FormatMaxPercent(CpuGraphValues);
@@ -706,35 +790,41 @@ public sealed class MainViewModel : ObservableObject
         try
         {
             DateTime selectedDate = SelectedBatteryUsageDate;
+            DateTimeOffset now = DateTimeOffset.Now;
+            bool shouldRefreshProcesses = now - _lastProcessRefresh >= ProcessRefreshInterval || TopCpuProcesses.Count == 0;
             RefreshSnapshot snapshot = await Task.Run(() =>
             {
                 SensorReadings sensors = _sensorService.Read();
                 BatteryStatus battery = _batteryService.GetStatus(sensors.BatteryPowerWatts);
-                (double overallCpu,
-                    IReadOnlyList<ProcessUsageInfo> topCpu,
-                    IReadOnlyList<ProcessUsageInfo> topMemory,
-                    IReadOnlyList<ProcessUsageInfo> energyImpact,
-                    string energyImpactTitle,
-                    string energyImpactColumnHeader) = _processStatsService.Sample(battery);
+                ProcessStatsSnapshot? processStats = null;
+                if (shouldRefreshProcesses)
+                {
+                    (double overallCpu,
+                        IReadOnlyList<ProcessUsageInfo> topCpu,
+                        IReadOnlyList<ProcessUsageInfo> topMemory,
+                        IReadOnlyList<ProcessUsageInfo> energyImpact,
+                        string energyImpactTitle,
+                        string energyImpactColumnHeader) = _processStatsService.Sample(battery);
+                    processStats = new ProcessStatsSnapshot(
+                        overallCpu,
+                        topCpu,
+                        topMemory,
+                        energyImpact,
+                        energyImpactTitle,
+                        energyImpactColumnHeader,
+                        _processStatsService.GetMemoryInfo());
+                }
+
                 WindowsPowerMode? powerMode = ReadWindowsPowerMode(battery.IsPluggedIn);
                 BatteryUsageSnapshot batteryUsage = _batteryUsageService.Record(battery, selectedDate, powerMode);
-                WindowsBatteryUsageSnapshot windowsBatteryUsage = _windowsBatteryUsageService.GetSnapshot();
-                SystemMemoryInfo memory = _processStatsService.GetMemoryInfo();
 
                 return new RefreshSnapshot(
                     selectedDate,
                     sensors,
                     battery,
-                    overallCpu,
-                    topCpu,
-                    topMemory,
-                    energyImpact,
-                    energyImpactTitle,
-                    energyImpactColumnHeader,
+                    processStats,
                     powerMode,
                     batteryUsage,
-                    windowsBatteryUsage,
-                    memory,
                     DateTimeOffset.Now);
             });
 
@@ -742,7 +832,21 @@ public sealed class MainViewModel : ObservableObject
             BatteryStatus battery = snapshot.Battery;
             HwinfoStatus = sensors.Status;
 
-            CpuUsagePercent = snapshot.OverallCpu;
+            if (snapshot.ProcessStats is { } processStats)
+            {
+                _lastProcessRefresh = snapshot.Timestamp;
+                CpuUsagePercent = processStats.OverallCpu;
+                Memory = processStats.Memory;
+                EnergyImpactTitle = processStats.EnergyImpactTitle;
+                EnergyImpactColumnHeader = processStats.EnergyImpactColumnHeader;
+
+                Replace(TopCpuProcesses, processStats.TopCpu);
+                Replace(TopMemoryProcesses, processStats.TopMemory);
+                Replace(EnergyImpactProcesses, processStats.EnergyImpact);
+                OnPropertyChanged(nameof(TopAppUsageEmptyText));
+                OnPropertyChanged(nameof(TopCpuProcessText));
+            }
+
             GpuUsagePercent = sensors.GpuUsagePercent;
             CpuTemperatureCelsius = sensors.CpuTemperatureCelsius;
             CpuPackagePowerWatts = sensors.CpuPackagePowerWatts;
@@ -754,18 +858,6 @@ public sealed class MainViewModel : ObservableObject
                 BatteryUsage = snapshot.BatteryUsage;
             }
 
-            Memory = snapshot.Memory;
-            EnergyImpactTitle = snapshot.EnergyImpactTitle;
-            EnergyImpactColumnHeader = "Score";
-
-            Replace(TopCpuProcesses, snapshot.TopCpu);
-            Replace(TopMemoryProcesses, snapshot.TopMemory);
-            Replace(EnergyImpactProcesses, snapshot.EnergyImpact);
-            Replace(WindowsBatteryUsageProcesses, snapshot.WindowsBatteryUsage.Apps);
-            WindowsBatteryUsageStatusText = snapshot.WindowsBatteryUsage.StatusText;
-            OnPropertyChanged(nameof(TopAppUsageEmptyText));
-            OnPropertyChanged(nameof(WindowsBatteryUsageEmptyText));
-            OnPropertyChanged(nameof(TopCpuProcessText));
             Replace(FanReadings, sensors.FanRpm.Count == 0
                 ? ["Fan RPM unavailable"]
                 : sensors.FanRpm.Select(f => $"{f.Key}: {f.Value:N0} RPM"));
@@ -773,14 +865,19 @@ public sealed class MainViewModel : ObservableObject
             AddSample(new SensorSample
             {
                 Timestamp = snapshot.Timestamp,
-                CpuUsagePercent = snapshot.OverallCpu,
+                CpuUsagePercent = snapshot.ProcessStats?.OverallCpu ?? CpuUsagePercent,
                 GpuUsagePercent = sensors.GpuUsagePercent,
                 CpuTemperatureCelsius = sensors.CpuTemperatureCelsius,
                 CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,
                 BatteryPowerWatts = Battery.ChargeRateWatts,
                 FanRpm = sensors.FanRpm.Values.FirstOrDefault(),
-                TopCpuProcessName = snapshot.TopCpu.FirstOrDefault()?.Name
+                TopCpuProcessName = snapshot.ProcessStats?.TopCpu.FirstOrDefault()?.Name ?? TopCpuProcesses.FirstOrDefault()?.Name
             });
+
+            if (SelectedSectionIndex == 1)
+            {
+                _ = RefreshWindowsBatteryUsageAsync(force: false);
+            }
         }
         catch (Exception ex)
         {
@@ -856,6 +953,92 @@ public sealed class MainViewModel : ObservableObject
             LogService.Error(ex, "Failed to refresh battery usage snapshot.");
             StatusMessage = ex.Message;
         }
+    }
+
+    private async Task RefreshWindowsBatteryUsageAsync(bool force)
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+        if (_isRefreshingWindowsBatteryUsage ||
+            (!force && now - _lastWindowsBatteryUsageRefresh < WindowsBatteryUsageRefreshInterval && WindowsBatteryUsageProcesses.Count > 0))
+        {
+            return;
+        }
+
+        _isRefreshingWindowsBatteryUsage = true;
+        try
+        {
+            WindowsBatteryUsageStatusText = "Loading Windows battery usage...";
+            OnPropertyChanged(nameof(WindowsBatteryUsageEmptyText));
+            WindowsBatteryUsageSnapshot snapshot = await Task.Run(() => _windowsBatteryUsageService.GetSnapshot());
+            Replace(WindowsBatteryUsageProcesses, snapshot.Apps);
+            WindowsBatteryUsageStatusText = snapshot.StatusText;
+            WindowsBatteryUsageAuditText = snapshot.AuditText;
+            _lastWindowsBatteryUsageRefresh = DateTimeOffset.Now;
+            OnPropertyChanged(nameof(WindowsBatteryUsageEmptyText));
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to load Windows battery usage.");
+            WindowsBatteryUsageStatusText = ex.Message;
+            WindowsBatteryUsageAuditText = string.Empty;
+            OnPropertyChanged(nameof(WindowsBatteryUsageEmptyText));
+        }
+        finally
+        {
+            _isRefreshingWindowsBatteryUsage = false;
+        }
+    }
+
+    private async Task SelectBatteryUsageRangeAsync(object? parameter, bool showDetails)
+    {
+        if (parameter is not BatteryUsageSelection selection)
+        {
+            return;
+        }
+
+        SelectedBatteryUsageStart = selection.Start;
+        SelectedBatteryUsageEnd = selection.End;
+        SelectedBatteryUsageTitle = selection.Title;
+        SelectedBatteryUsageSummary = selection.Summary;
+        SelectedBatteryUsageImpactStatusText = "Loading Windows battery impact...";
+        SelectedBatteryUsageImpactAuditText = string.Empty;
+        Replace(SelectedWindowsBatteryUsageProcesses, Array.Empty<WindowsBatteryUsageInfo>());
+        OnPropertyChanged(nameof(SelectedWindowsBatteryUsageEmptyText));
+        if (showDetails)
+        {
+            IsBatteryUsageDetailsVisible = true;
+        }
+
+        try
+        {
+            WindowsBatteryUsageSnapshot snapshot = await Task.Run(() => _windowsBatteryUsageService.GetSnapshot(selection.Start, selection.End));
+            if (SelectedBatteryUsageStart == selection.Start && SelectedBatteryUsageEnd == selection.End)
+            {
+                Replace(SelectedWindowsBatteryUsageProcesses, snapshot.Apps);
+                SelectedBatteryUsageImpactStatusText = snapshot.Apps.Count == 0
+                    ? BuildSelectedWindowsBatteryUsageEmptyText(snapshot, selection)
+                    : snapshot.StatusText;
+                SelectedBatteryUsageImpactAuditText = snapshot.AuditText;
+                OnPropertyChanged(nameof(SelectedWindowsBatteryUsageEmptyText));
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to load selected Windows battery usage.");
+            SelectedBatteryUsageImpactStatusText = ex.Message;
+            SelectedBatteryUsageImpactAuditText = string.Empty;
+            OnPropertyChanged(nameof(SelectedWindowsBatteryUsageEmptyText));
+        }
+    }
+
+    private static string BuildSelectedWindowsBatteryUsageEmptyText(WindowsBatteryUsageSnapshot snapshot, BatteryUsageSelection selection)
+    {
+        if (snapshot.StatusText.Contains("administrator", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Windows battery impact needs administrator access. Run PowerTray as Administrator to see selected-range app impact.";
+        }
+
+        return $"No Windows app impact found for {selection.Start:HH:mm} - {selection.End:HH:mm}.";
     }
 
     private void RefreshWindowsPowerMode(bool pluggedIn)
@@ -1212,15 +1395,17 @@ public sealed class MainViewModel : ObservableObject
         DateTime SelectedDate,
         SensorReadings Sensors,
         BatteryStatus Battery,
+        ProcessStatsSnapshot? ProcessStats,
+        WindowsPowerMode? PowerMode,
+        BatteryUsageSnapshot BatteryUsage,
+        DateTimeOffset Timestamp);
+
+    private sealed record ProcessStatsSnapshot(
         double OverallCpu,
         IReadOnlyList<ProcessUsageInfo> TopCpu,
         IReadOnlyList<ProcessUsageInfo> TopMemory,
         IReadOnlyList<ProcessUsageInfo> EnergyImpact,
         string EnergyImpactTitle,
         string EnergyImpactColumnHeader,
-        WindowsPowerMode? PowerMode,
-        BatteryUsageSnapshot BatteryUsage,
-        WindowsBatteryUsageSnapshot WindowsBatteryUsage,
-        SystemMemoryInfo Memory,
-        DateTimeOffset Timestamp);
+        SystemMemoryInfo Memory);
 }

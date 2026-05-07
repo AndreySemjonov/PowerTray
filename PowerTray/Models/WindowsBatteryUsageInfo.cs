@@ -8,6 +8,8 @@ public sealed class WindowsBatteryUsageInfo
     public double EnergyMilliJoules { get; init; }
     public double ForegroundMinutes { get; init; }
     public double BackgroundMinutes { get; init; }
+    public int SourceRowCount { get; init; }
+    public bool IsOther { get; init; }
 
     public string PercentText => $"{Percent:N0}%";
     public string DetailText
@@ -16,13 +18,13 @@ public sealed class WindowsBatteryUsageInfo
         {
             string foreground = ForegroundMinutes > 0 ? FormatMinutes(ForegroundMinutes) : "--";
             string background = BackgroundMinutes > 0 ? FormatMinutes(BackgroundMinutes) : "--";
-            return $"In use {foreground} | Background {background}";
+            return IsOther ? $"{SourceRowCount:N0} smaller apps/services" : $"In use {foreground} | Background {background}";
         }
     }
 
     public string ToolTipText => string.Join(Environment.NewLine,
         Name,
-        $"Windows estimate: {Percent:N1}%",
+        $"Share: {Percent:N1}%",
         $"Energy: {EnergyMilliJoules:N0} mJ",
         DetailText,
         "Source: Windows SRUM / Energy Estimation Engine.");

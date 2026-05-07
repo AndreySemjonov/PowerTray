@@ -7,6 +7,8 @@ namespace XPSBatteryTray.Services;
 public sealed class SensorService
 {
     private static readonly TimeSpan CachedSensorGracePeriod = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan MinimumSensorCacheSaveInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan MaximumSensorCacheSaveInterval = TimeSpan.FromMinutes(5);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     private readonly SettingsService _settingsService;
@@ -17,6 +19,7 @@ public sealed class SensorService
     private double? _lastCpuTemperatureCelsius;
     private double? _lastCpuPackagePowerWatts;
     private DateTimeOffset _lastCpuSensorUpdate = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastCpuSensorCacheSave = DateTimeOffset.MinValue;
 
     public SensorService(SettingsService settingsService)
     {
@@ -78,14 +81,38 @@ public sealed class SensorService
     {
         if (readings.CpuTemperatureCelsius is not null || readings.CpuPackagePowerWatts is not null)
         {
+            double? previousCpuTemperature = _lastCpuTemperatureCelsius;
+            double? previousCpuPower = _lastCpuPackagePowerWatts;
             _lastCpuTemperatureCelsius = readings.CpuTemperatureCelsius ?? _lastCpuTemperatureCelsius;
             _lastCpuPackagePowerWatts = readings.CpuPackagePowerWatts ?? _lastCpuPackagePowerWatts;
             _lastCpuSensorUpdate = DateTimeOffset.Now;
-            SaveCachedCpuSensors();
+            if (ShouldSaveCachedCpuSensors(previousCpuTemperature, previousCpuPower, _lastCpuSensorUpdate))
+            {
+                SaveCachedCpuSensors();
+            }
         }
 
         return readings;
     }
+
+    private bool ShouldSaveCachedCpuSensors(double? previousCpuTemperature, double? previousCpuPower, DateTimeOffset now)
+    {
+        if (now - _lastCpuSensorCacheSave < MinimumSensorCacheSaveInterval)
+        {
+            return false;
+        }
+
+        if (_lastCpuSensorCacheSave == DateTimeOffset.MinValue || now - _lastCpuSensorCacheSave >= MaximumSensorCacheSaveInterval)
+        {
+            return true;
+        }
+
+        return HasMeaningfulChange(previousCpuTemperature, _lastCpuTemperatureCelsius, 0.5)
+            || HasMeaningfulChange(previousCpuPower, _lastCpuPackagePowerWatts, 0.5);
+    }
+
+    private static bool HasMeaningfulChange(double? previous, double? current, double threshold) =>
+        previous.HasValue != current.HasValue || (previous.HasValue && current.HasValue && Math.Abs(previous.Value - current.Value) >= threshold);
 
     private SensorReadings MergeRecentCpuSensors(SensorReadings readings)
     {
@@ -157,6 +184,7 @@ public sealed class SensorService
                 CpuTemperatureCelsius = _lastCpuTemperatureCelsius,
                 CpuPackagePowerWatts = _lastCpuPackagePowerWatts
             }, JsonOptions));
+            _lastCpuSensorCacheSave = DateTimeOffset.Now;
         }
         catch (Exception ex)
         {

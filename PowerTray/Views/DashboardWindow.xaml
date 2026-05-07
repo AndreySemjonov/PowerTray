@@ -363,7 +363,8 @@
             <TabControl Grid.Row="3"
                         Margin="10,0,10,8"
                         Style="{StaticResource SectionTabControlStyle}"
-                        ItemContainerStyle="{StaticResource SectionTabItemStyle}">
+                        ItemContainerStyle="{StaticResource SectionTabItemStyle}"
+                        SelectedIndex="{Binding SelectedSectionIndex, Mode=TwoWay}">
                 <TabItem>
                     <TabItem.Header>
                         <StackPanel Orientation="Horizontal">
@@ -398,7 +399,15 @@
                             </StackPanel>
                         </Grid>
 
-                        <controls:BatteryUsageCombinedControl Grid.Row="1" Buckets="{Binding BatteryUsageBuckets}" Height="170" VerticalAlignment="Top" Margin="0,0,0,0" />
+                        <controls:BatteryUsageCombinedControl Grid.Row="1"
+                                                              Buckets="{Binding BatteryUsageBuckets}"
+                                                              SelectedStart="{Binding SelectedBatteryUsageStart}"
+                                                              SelectedEnd="{Binding SelectedBatteryUsageEnd}"
+                                                              SelectionCommand="{Binding SelectBatteryUsageRangeCommand}"
+                                                              Height="170"
+                                                              VerticalAlignment="Top"
+                                                              Margin="0,0,0,0"
+                                                              Cursor="Hand" />
 
                         <Grid Grid.Row="2" Margin="0,-2,0,0">
                             <Grid.RowDefinitions>
@@ -439,8 +448,9 @@
                                 <RowDefinition Height="25" />
                                 <RowDefinition Height="22" />
                                 <RowDefinition Height="*" />
+                                <RowDefinition Height="26" />
                             </Grid.RowDefinitions>
-                            <TextBlock Text="Windows battery usage" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                            <TextBlock Text="Windows battery usage (last 24h)" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -448,7 +458,7 @@
                                     <ColumnDefinition Width="52" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="App" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                                <TextBlock Grid.Column="2" Text="Win" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
+                                <TextBlock Grid.Column="2" Text="Share" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
                             </Grid>
                             <Grid Grid.Row="2">
                                 <TextBlock Text="{Binding WindowsBatteryUsageEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,8,0" TextWrapping="Wrap" />
@@ -475,6 +485,13 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </Grid>
+                            <TextBlock Grid.Row="3"
+                                       Text="{Binding WindowsBatteryUsageAuditText}"
+                                       Foreground="{StaticResource MutedTextBrush}"
+                                       FontSize="10"
+                                       VerticalAlignment="Bottom"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding WindowsBatteryUsageAuditText}" />
                         </Grid>
 
                         <Border Grid.Column="1" Background="{StaticResource PanelBorder}" Opacity="0.65" Margin="10,2" />
@@ -531,6 +548,134 @@
                 </Border>
                 </TabItem>
             </TabControl>
+
+            <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="21" Margin="10,8,10,8" Background="{StaticResource WindowBg}">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsBatteryUsageDetailsVisible}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="94" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="292" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Border Grid.Row="0" Style="{StaticResource CardStyle}" Padding="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="42" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0"
+                                Command="{Binding HideBatteryUsageDetailsCommand}"
+                                Content="&#xE72B;"
+                                FontFamily="Segoe MDL2 Assets"
+                                Width="32"
+                                Height="32"
+                                MinWidth="32"
+                                MinHeight="32"
+                                Padding="0"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                ToolTip="Back" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                            <TextBlock Text="Battery Usage Details" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding SelectedBatteryUsageTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="13" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding SelectedBatteryUsageSummary}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{Binding BatteryUsageTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Content="&lt;" Command="{Binding PreviousBatteryUsageDayCommand}" Width="30" MinWidth="30" Height="26" MinHeight="26" Padding="0" FontSize="12" ToolTip="Previous day" />
+                                <Button Content="{Binding BatteryUsageDateText}" Command="{Binding TodayBatteryUsageCommand}" Width="68" MinWidth="68" Height="26" MinHeight="26" Padding="4,0" FontSize="11" Margin="5,0" ToolTip="Today" />
+                                <Button Content="&gt;" Command="{Binding NextBatteryUsageDayCommand}" IsEnabled="{Binding CanShowNextBatteryUsageDay}" Width="30" MinWidth="30" Height="26" MinHeight="26" Padding="0" FontSize="12" ToolTip="Next day" />
+                            </StackPanel>
+                        </Grid>
+                        <controls:BatteryUsageCombinedControl Grid.Row="1"
+                                                              Buckets="{Binding BatteryUsageBuckets}"
+                                                              SelectedStart="{Binding SelectedBatteryUsageStart}"
+                                                              SelectedEnd="{Binding SelectedBatteryUsageEnd}"
+                                                              SelectionCommand="{Binding UpdateBatteryUsageRangeCommand}"
+                                                              Height="230"
+                                                              VerticalAlignment="Top"
+                                                              Cursor="Hand" />
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="4" Style="{StaticResource CardStyle}" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30" />
+                            <RowDefinition Height="22" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="28" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="Windows battery impact during selected range" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="64" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="App" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
+                            <TextBlock Grid.Column="2" Text="Share" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <TextBlock Text="{Binding SelectedWindowsBatteryUsageEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,0,0" TextWrapping="Wrap" />
+                            <ItemsControl ItemsSource="{Binding SelectedWindowsBatteryUsageProcesses}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Height="30" ToolTip="{Binding ToolTipText}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="180" />
+                                                <ColumnDefinition Width="64" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" />
+                                                <TextBlock Text="{Binding DetailText}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource MutedTextBrush}" FontSize="9" />
+                                            </StackPanel>
+                                            <Grid Grid.Column="1" Margin="8,0,12,0" VerticalAlignment="Center">
+                                                <Border Background="#232A31" Height="5" CornerRadius="2.5" />
+                                                <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{StaticResource BatteryAccentBrush}" />
+                                            </Grid>
+                                            <TextBlock Grid.Column="2" Text="{Binding PercentText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Grid>
+                        <TextBlock Grid.Row="3"
+                                   Text="{Binding SelectedBatteryUsageImpactAuditText}"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   FontSize="11"
+                                   VerticalAlignment="Bottom"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding SelectedBatteryUsageImpactAuditText}" />
+                    </Grid>
+                </Border>
+            </Grid>
 
             <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="20" Margin="10,8,10,8" Background="{StaticResource WindowBg}">
                 <Grid.Style>
