@@ -107,7 +107,13 @@ public sealed class MainViewModel : ObservableObject
     public bool IsUsageDetailsVisible
     {
         get => _isUsageDetailsVisible;
-        private set => SetProperty(ref _isUsageDetailsVisible, value);
+        private set
+        {
+            if (SetProperty(ref _isUsageDetailsVisible, value) && value)
+            {
+                NotifyUsageDetailMetricsChanged();
+            }
+        }
     }
 
     public bool IsBatteryUsageDetailsVisible
@@ -839,9 +845,9 @@ public sealed class MainViewModel : ObservableObject
                 EnergyImpactTitle = processStats.EnergyImpactTitle;
                 EnergyImpactColumnHeader = processStats.EnergyImpactColumnHeader;
 
-                Replace(TopCpuProcesses, processStats.TopCpu);
-                Replace(TopMemoryProcesses, processStats.TopMemory);
-                Replace(EnergyImpactProcesses, processStats.EnergyImpact);
+                ReplaceIfChanged(TopCpuProcesses, processStats.TopCpu, AreProcessRowsEquivalent);
+                ReplaceIfChanged(TopMemoryProcesses, processStats.TopMemory, AreProcessRowsEquivalent);
+                ReplaceIfChanged(EnergyImpactProcesses, processStats.EnergyImpact, AreProcessRowsEquivalent);
                 OnPropertyChanged(nameof(TopAppUsageEmptyText));
                 OnPropertyChanged(nameof(TopCpuProcessText));
             }
@@ -858,9 +864,10 @@ public sealed class MainViewModel : ObservableObject
                 BatteryUsage = snapshot.BatteryUsage;
             }
 
-            Replace(FanReadings, sensors.FanRpm.Count == 0
+            ReplaceIfChanged(FanReadings, sensors.FanRpm.Count == 0
                 ? ["Fan RPM unavailable"]
-                : sensors.FanRpm.Select(f => $"{f.Key}: {f.Value:N0} RPM"));
+                : sensors.FanRpm.Select(f => $"{f.Key}: {f.Value:N0} RPM"),
+                StringComparer.Ordinal.Equals);
 
             AddSample(new SensorSample
             {
@@ -904,8 +911,17 @@ public sealed class MainViewModel : ObservableObject
         FanGraphValues = _samples.Select(s => s.FanRpm).ToArray();
         _averageBatteryDischargeWatts = CalculateAverageBatteryDischargeWatts(_samples);
         _averageBatteryTimeRemaining = CalculateAverageBatteryTimeRemaining(Battery, _averageBatteryDischargeWatts);
-        CpuUsagePeaks = BuildUsagePeaks(_samples, s => s.CpuUsagePercent, s => s.TopCpuProcessName, includeProcessName: true);
-        GpuUsagePeaks = BuildUsagePeaks(_samples, s => s.GpuUsagePercent, _ => null, includeProcessName: false);
+        IReadOnlyList<UsagePeakInfo> cpuPeaks = BuildUsagePeaks(_samples, s => s.CpuUsagePercent, s => s.TopCpuProcessName, includeProcessName: true);
+        if (!AreUsagePeakListsEquivalent(CpuUsagePeaks, cpuPeaks))
+        {
+            CpuUsagePeaks = cpuPeaks;
+        }
+
+        IReadOnlyList<UsagePeakInfo> gpuPeaks = BuildUsagePeaks(_samples, s => s.GpuUsagePercent, _ => null, includeProcessName: false);
+        if (!AreUsagePeakListsEquivalent(GpuUsagePeaks, gpuPeaks))
+        {
+            GpuUsagePeaks = gpuPeaks;
+        }
         CpuGraphSummary = FormatGraphSummary(CpuGraphValues, "N1", "%");
         SystemUsageGraphSummary = FormatUsageGraphSummary(CpuGraphValues, GpuGraphValues);
         BatteryWattsGraphSummary = FormatGraphSummary(BatteryWattsGraphValues, "N1", " W");
@@ -913,7 +929,10 @@ public sealed class MainViewModel : ObservableObject
         TemperatureGraphSummary = FormatGraphSummary(TemperatureGraphValues, "N0", " C");
         OnPropertyChanged(nameof(BatteryDrainSummaryText));
         OnPropertyChanged(nameof(BatteryTimeText));
-        NotifyUsageDetailMetricsChanged();
+        if (IsUsageDetailsVisible)
+        {
+            NotifyUsageDetailMetricsChanged();
+        }
     }
 
     private async Task ShowPreviousBatteryUsageDayAsync()
@@ -970,7 +989,7 @@ public sealed class MainViewModel : ObservableObject
             WindowsBatteryUsageStatusText = "Loading Windows battery usage...";
             OnPropertyChanged(nameof(WindowsBatteryUsageEmptyText));
             WindowsBatteryUsageSnapshot snapshot = await Task.Run(() => _windowsBatteryUsageService.GetSnapshot());
-            Replace(WindowsBatteryUsageProcesses, snapshot.Apps);
+            ReplaceIfChanged(WindowsBatteryUsageProcesses, snapshot.Apps, AreWindowsBatteryUsageRowsEquivalent);
             WindowsBatteryUsageStatusText = snapshot.StatusText;
             WindowsBatteryUsageAuditText = snapshot.AuditText;
             _lastWindowsBatteryUsageRefresh = DateTimeOffset.Now;
@@ -1002,7 +1021,7 @@ public sealed class MainViewModel : ObservableObject
         SelectedBatteryUsageSummary = selection.Summary;
         SelectedBatteryUsageImpactStatusText = "Loading Windows battery impact...";
         SelectedBatteryUsageImpactAuditText = string.Empty;
-        Replace(SelectedWindowsBatteryUsageProcesses, Array.Empty<WindowsBatteryUsageInfo>());
+        ReplaceIfChanged(SelectedWindowsBatteryUsageProcesses, Array.Empty<WindowsBatteryUsageInfo>(), AreWindowsBatteryUsageRowsEquivalent);
         OnPropertyChanged(nameof(SelectedWindowsBatteryUsageEmptyText));
         if (showDetails)
         {
@@ -1014,7 +1033,7 @@ public sealed class MainViewModel : ObservableObject
             WindowsBatteryUsageSnapshot snapshot = await Task.Run(() => _windowsBatteryUsageService.GetSnapshot(selection.Start, selection.End));
             if (SelectedBatteryUsageStart == selection.Start && SelectedBatteryUsageEnd == selection.End)
             {
-                Replace(SelectedWindowsBatteryUsageProcesses, snapshot.Apps);
+                ReplaceIfChanged(SelectedWindowsBatteryUsageProcesses, snapshot.Apps, AreWindowsBatteryUsageRowsEquivalent);
                 SelectedBatteryUsageImpactStatusText = snapshot.Apps.Count == 0
                     ? BuildSelectedWindowsBatteryUsageEmptyText(snapshot, selection)
                     : snapshot.StatusText;
@@ -1066,6 +1085,67 @@ public sealed class MainViewModel : ObservableObject
         {
             collection.Add(value);
         }
+    }
+
+    private static void ReplaceIfChanged<T>(ObservableCollection<T> collection, IEnumerable<T> values, Func<T, T, bool> equivalent)
+    {
+        T[] next = values.ToArray();
+        if (collection.Count == next.Length)
+        {
+            bool unchanged = true;
+            for (int i = 0; i < next.Length; i++)
+            {
+                if (!equivalent(collection[i], next[i]))
+                {
+                    unchanged = false;
+                    break;
+                }
+            }
+
+            if (unchanged)
+            {
+                return;
+            }
+        }
+
+        Replace(collection, next);
+    }
+
+    private static bool AreProcessRowsEquivalent(ProcessUsageInfo left, ProcessUsageInfo right) =>
+        left.ProcessId == right.ProcessId
+        && left.Name.Equals(right.Name, StringComparison.Ordinal)
+        && Math.Round(left.CpuPercent, 1) == Math.Round(right.CpuPercent, 1)
+        && left.WorkingSetBytes / (1024 * 1024) == right.WorkingSetBytes / (1024 * 1024)
+        && Math.Round(left.EstimatedEnergyImpactBarPercent, 0) == Math.Round(right.EstimatedEnergyImpactBarPercent, 0)
+        && Math.Round(left.EstimatedEnergyPercent, 1) == Math.Round(right.EstimatedEnergyPercent, 1);
+
+    private static bool AreWindowsBatteryUsageRowsEquivalent(WindowsBatteryUsageInfo left, WindowsBatteryUsageInfo right) =>
+        left.Name.Equals(right.Name, StringComparison.Ordinal)
+        && left.IsOther == right.IsOther
+        && left.PercentText.Equals(right.PercentText, StringComparison.Ordinal)
+        && Math.Round(left.BarPercent, 0) == Math.Round(right.BarPercent, 0)
+        && left.DetailText.Equals(right.DetailText, StringComparison.Ordinal);
+
+    private static bool AreUsagePeakListsEquivalent(IReadOnlyList<UsagePeakInfo> left, IReadOnlyList<UsagePeakInfo> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < left.Count; i++)
+        {
+            if (left[i].Rank != right[i].Rank
+                || left[i].Index != right[i].Index
+                || Math.Round(left[i].Value, 0) != Math.Round(right[i].Value, 0)
+                || !string.Equals(left[i].ProcessName, right[i].ProcessName, StringComparison.Ordinal)
+                || !left[i].TimeAgoText.Equals(right[i].TimeAgoText, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string CleanCctkOutput(string output)
