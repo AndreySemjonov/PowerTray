@@ -2,11 +2,13 @@
 
 Lightweight Windows tray utility for laptop power, battery, thermal, and process monitoring. It can switch Dell BIOS battery charge settings through Dell Command | Configure `cctk.exe` when Dell hardware/tools are available, and it shows a compact live dashboard for battery, CPU, processes, power modes, and optional HWiNFO sensors.
 
+![PowerTray main dashboard](assets/main_view.png)
+
 ## Requirements
 
 - Windows 11 x64
 - .NET 8 Desktop Runtime or .NET 8 SDK
-- Optional: Dell Command | Configure for Dell battery BIOS setting changes
+- Dell Command | Configure Application is required for Dell BIOS battery charge setting changes. Download it from Dell: [Dell Command | Configure Application](https://www.dell.com/support/home/en-us/drivers/DriversDetails?driverId=F2V9N).
 - Optional: HWiNFO with Shared Memory Support enabled for the most reliable advanced sensors
 - Optional: built-in LibreHardwareMonitor sensor provider for advanced sensors without running HWiNFO
 
@@ -64,13 +66,26 @@ The custom ranges can be changed in Settings.
 The dashboard is a compact fixed-size dark window designed to show the key tray-utility information without scrolling:
 
 - Header with app title, Modes flyout, Settings, and window controls
-- Status chips for current Dell charge mode, HWiNFO state, and AC/battery power state
+- Status chips for AC/battery state, power mode, Energy saver state, and current Dell charge mode
 - Battery and CPU summary cards with friendly labels instead of raw `cctk.exe` output
-- Three rolling 10-minute chart strips: battery watts, CPU package power, and CPU temperature
+- Rolling 10-minute chart cards for battery watts and CPU / GPU usage
 - Current / average / minimum / maximum stats in each chart header
-- Two compact process tables for top CPU processes and estimated energy impact since the current battery session started
+- Battery usage history with power-plan, charge, charge-hold, sleep, missing-data, and Energy saver indicators
+- Windows battery impact data when the helper service or administrator access is available
 
 Memory, fan, and raw sensor details are intentionally kept out of the main dashboard so the tray popup stays dense and readable.
+
+## CPU / GPU Details
+
+Click the CPU / GPU usage card to open the detailed usage view. It expands the CPU graph, keeps GPU usage visible, and replaces the older top-peaks list with a smoothed CPU driver/process list. This helps answer "what has been driving CPU recently?" without relying on the constantly jumping process order in Task Manager.
+
+![CPU and GPU usage details](assets/CPU_GPU_details.png)
+
+## Battery Usage Details
+
+Click a battery usage block to open the detailed battery usage view. The selected range stays highlighted, and the lower panel shows Windows battery impact data for that time range when elevated access or the helper service is available. The graph also shows charge, charge-hold, sleep, missing-data, power plan, average watts, and Energy saver periods.
+
+![Battery usage details](assets/Battery_usage_details.png)
 
 ## Advanced Sensors
 
