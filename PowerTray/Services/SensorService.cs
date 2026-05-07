@@ -69,6 +69,7 @@ public sealed class SensorService
         {
             IsAvailable = readings.IsAvailable,
             Status = $"{primaryReadings.Status}; {readings.Status}",
+            CpuUsagePercent = readings.CpuUsagePercent ?? primaryReadings.CpuUsagePercent,
             CpuTemperatureCelsius = readings.CpuTemperatureCelsius,
             CpuPackagePowerWatts = readings.CpuPackagePowerWatts,
             GpuUsagePercent = readings.GpuUsagePercent,
@@ -136,6 +137,7 @@ public sealed class SensorService
         {
             IsAvailable = readings.IsAvailable || cpuTemp is not null || cpuPower is not null || readings.BatteryPowerWatts is not null,
             Status = status,
+            CpuUsagePercent = readings.CpuUsagePercent,
             CpuTemperatureCelsius = cpuTemp,
             CpuPackagePowerWatts = cpuPower,
             GpuUsagePercent = readings.GpuUsagePercent,

@@ -835,7 +835,6 @@ public sealed class MainViewModel : ObservableObject
             if (snapshot.ProcessStats is { } processStats)
             {
                 _lastProcessRefresh = snapshot.Timestamp;
-                CpuUsagePercent = processStats.OverallCpu;
                 Memory = processStats.Memory;
                 EnergyImpactTitle = processStats.EnergyImpactTitle;
                 EnergyImpactColumnHeader = processStats.EnergyImpactColumnHeader;
@@ -847,6 +846,7 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(TopCpuProcessText));
             }
 
+            CpuUsagePercent = sensors.CpuUsagePercent ?? snapshot.ProcessStats?.OverallCpu ?? CpuUsagePercent;
             GpuUsagePercent = sensors.GpuUsagePercent;
             CpuTemperatureCelsius = sensors.CpuTemperatureCelsius;
             CpuPackagePowerWatts = sensors.CpuPackagePowerWatts;
@@ -865,7 +865,7 @@ public sealed class MainViewModel : ObservableObject
             AddSample(new SensorSample
             {
                 Timestamp = snapshot.Timestamp,
-                CpuUsagePercent = snapshot.ProcessStats?.OverallCpu ?? CpuUsagePercent,
+                CpuUsagePercent = sensors.CpuUsagePercent ?? snapshot.ProcessStats?.OverallCpu ?? CpuUsagePercent,
                 GpuUsagePercent = sensors.GpuUsagePercent,
                 CpuTemperatureCelsius = sensors.CpuTemperatureCelsius,
                 CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,

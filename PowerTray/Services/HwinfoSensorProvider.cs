@@ -98,6 +98,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
 
         double? cpuTemp = null;
         double? cpuPower = null;
+        double? cpuUsage = null;
         double? gpuUsage = null;
         double? batteryPower = null;
         int batteryPowerScore = 0;
@@ -130,6 +131,12 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             {
                 cpuTemp = reading.Value;
             }
+            else if (cpuUsage is null && reading.Type == ReadingType.Usage &&
+                     ContainsAny(sensorName, "CPU", "Intel Core", "Core Ultra", "Processor") &&
+                     ContainsAny(haystack, "CPU Total", "Total CPU", "CPU Usage", "Core Usage"))
+            {
+                cpuUsage = Math.Clamp(reading.Value, 0, 100);
+            }
             else if (cpuPower is null && reading.Type == ReadingType.Power &&
                      (ContainsAny(haystack, "CPU Package Power", "Package Power", "IA Cores Power", "Processor Power") ||
                       (ContainsAny(sensorName, "CPU", "Intel Core", "Core Ultra", "Processor") && ContainsAny(haystack, "Power"))))
@@ -159,6 +166,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
         {
             IsAvailable = true,
             Status = "HWiNFO sensors detected",
+            CpuUsagePercent = cpuUsage,
             CpuTemperatureCelsius = cpuTemp,
             CpuPackagePowerWatts = cpuPower,
             GpuUsagePercent = gpuUsage,

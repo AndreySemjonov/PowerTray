@@ -21,6 +21,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
                 Computer computer = EnsureComputer();
                 double? cpuTemp = null;
                 double? cpuPower = null;
+                double? cpuUsage = null;
                 double? gpuUsage = null;
                 double? batteryPower = null;
                 int batteryPowerScore = 0;
@@ -29,10 +30,10 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
 
                 foreach (IHardware hardware in computer.Hardware)
                 {
-                    ReadHardware(hardware, diagnostics, ref cpuTemp, ref cpuPower, ref gpuUsage, ref batteryPower, ref batteryPowerScore, fans);
+                    ReadHardware(hardware, diagnostics, ref cpuTemp, ref cpuPower, ref cpuUsage, ref gpuUsage, ref batteryPower, ref batteryPowerScore, fans);
                 }
 
-                bool hasAnySensor = cpuTemp is not null || cpuPower is not null || gpuUsage is not null || batteryPower is not null || fans.Count > 0;
+                bool hasAnySensor = cpuTemp is not null || cpuPower is not null || cpuUsage is not null || gpuUsage is not null || batteryPower is not null || fans.Count > 0;
                 if (!hasAnySensor)
                 {
                     LogDiagnosticsIfNeeded("no matching sensors", diagnostics);
@@ -51,6 +52,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
                     Status = isPartial
                         ? "LibreHardwareMonitor partial; CPU sensors may require administrator rights"
                         : "LibreHardwareMonitor sensors active",
+                    CpuUsagePercent = cpuUsage,
                     CpuTemperatureCelsius = cpuTemp,
                     CpuPackagePowerWatts = cpuPower,
                     GpuUsagePercent = gpuUsage,
@@ -107,6 +109,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
         List<string> diagnostics,
         ref double? cpuTemp,
         ref double? cpuPower,
+        ref double? cpuUsage,
         ref double? gpuUsage,
         ref double? batteryPower,
         ref int batteryPowerScore,
@@ -117,7 +120,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
 
         foreach (IHardware subHardware in hardware.SubHardware)
         {
-            ReadHardware(subHardware, diagnostics, ref cpuTemp, ref cpuPower, ref gpuUsage, ref batteryPower, ref batteryPowerScore, fans);
+            ReadHardware(subHardware, diagnostics, ref cpuTemp, ref cpuPower, ref cpuUsage, ref gpuUsage, ref batteryPower, ref batteryPowerScore, fans);
         }
 
         foreach (ISensor sensor in hardware.Sensors)
@@ -152,6 +155,15 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
                  hardware.HardwareType == HardwareType.Cpu))
             {
                 cpuPower = Math.Abs(value);
+                continue;
+            }
+
+            if (cpuUsage is null &&
+                sensor.SensorType == SensorType.Load &&
+                hardware.HardwareType == HardwareType.Cpu &&
+                ContainsAny(haystack, "CPU Total", "Total", "CPU Package", "Processor"))
+            {
+                cpuUsage = Math.Clamp(value, 0, 100);
                 continue;
             }
 
