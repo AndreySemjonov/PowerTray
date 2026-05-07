@@ -2,7 +2,7 @@
 
 Lightweight Windows tray utility for laptop power, battery, thermal, and process monitoring. It can switch Dell BIOS battery charge settings through Dell Command | Configure `cctk.exe` when Dell hardware/tools are available, and it shows a compact live dashboard for battery, CPU, processes, power modes, and optional HWiNFO sensors.
 
-![PowerTray main dashboard](assets/main_view.png)
+<img src="assets/main_view.png" alt="PowerTray main dashboard" width="560">
 
 ## Status
 
@@ -94,13 +94,13 @@ Memory, fan, and raw sensor details are intentionally kept out of the main dashb
 
 Click the CPU / GPU usage card to open the detailed usage view. It expands the CPU graph, keeps GPU usage visible, and replaces the older top-peaks list with a smoothed CPU driver/process list. This helps answer "what has been driving CPU recently?" without relying on the constantly jumping process order in Task Manager.
 
-![CPU and GPU usage details](assets/CPU_GPU_details.png)
+<img src="assets/CPU_GPU_details.png" alt="CPU and GPU usage details" width="560">
 
 ## Battery Usage Details
 
 Click a battery usage block to open the detailed battery usage view. The selected range stays highlighted, and the lower panel shows Windows battery impact data for that time range when elevated access or the helper service is available. The graph also shows charge, charge-hold, sleep, missing-data, power plan, average watts, and Energy saver periods.
 
-![Battery usage details](assets/Battery_usage_details.png)
+<img src="assets/Battery_usage_details.png" alt="Battery usage details" width="560">
 
 ## Advanced Sensors
 
