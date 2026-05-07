@@ -1,8 +1,8 @@
 using System.IO;
 using System.Text.Json;
-using XPSBatteryTray.Models;
+using PowerTray.Models;
 
-namespace XPSBatteryTray.Services;
+namespace PowerTray.Services;
 
 public sealed class SettingsService
 {

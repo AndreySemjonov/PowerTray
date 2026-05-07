@@ -5,13 +5,13 @@ using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Resources;
-using XPSBatteryTray.Models;
-using XPSBatteryTray.Services;
-using XPSBatteryTray.ViewModels;
-using XPSBatteryTray.Views;
+using PowerTray.Models;
+using PowerTray.Services;
+using PowerTray.ViewModels;
+using PowerTray.Views;
 using Application = System.Windows.Application;
 
-namespace XPSBatteryTray;
+namespace PowerTray;
 
 public sealed class TrayIconManager : IDisposable
 {

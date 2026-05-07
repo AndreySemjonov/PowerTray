@@ -2,10 +2,10 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Input;
 using System.Windows.Threading;
-using XPSBatteryTray.Models;
-using XPSBatteryTray.Services;
+using PowerTray.Models;
+using PowerTray.Services;
 
-namespace XPSBatteryTray.ViewModels;
+namespace PowerTray.ViewModels;
 
 public sealed class MainViewModel : ObservableObject
 {
@@ -27,7 +27,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly ProcessStatsService _processStatsService;
     private readonly WindowsPowerModeService _windowsPowerModeService;
     private readonly BatteryUsageService _batteryUsageService;
-    private readonly WindowsBatteryUsageService _windowsBatteryUsageService;
+    private readonly IWindowsBatteryUsageService _windowsBatteryUsageService;
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
     private readonly List<CpuDriverSample> _cpuDriverSamples = [];
@@ -82,7 +82,7 @@ public sealed class MainViewModel : ObservableObject
     private BatteryUsageSnapshot _batteryUsage = new();
     private DateTime _selectedBatteryUsageDate = DateTime.Today;
 
-    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService, WindowsBatteryUsageService windowsBatteryUsageService)
+    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService, IWindowsBatteryUsageService windowsBatteryUsageService)
     {
         _settingsService = settingsService;
         _cctkService = cctkService;
@@ -1313,7 +1313,7 @@ public sealed class MainViewModel : ObservableObject
     {
         if (snapshot.StatusText.Contains("administrator", StringComparison.OrdinalIgnoreCase))
         {
-            return "Windows battery impact needs administrator access. Run PowerTray as Administrator to see selected-range app impact.";
+            return "Windows battery impact needs elevated access. Install or restart the PowerTray helper service, or run PowerTray as Administrator.";
         }
 
         return $"No Windows app impact found for {selection.Start:HH:mm} - {selection.End:HH:mm}.";

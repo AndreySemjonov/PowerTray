@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -10,7 +10,7 @@
     <UseAppHost>false</UseAppHost>
     <PlatformTarget>x64</PlatformTarget>
     <AssemblyName>PowerTray</AssemblyName>
-    <RootNamespace>XPSBatteryTray</RootNamespace>
+    <RootNamespace>PowerTray</RootNamespace>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 

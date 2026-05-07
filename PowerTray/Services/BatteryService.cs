@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Management;
-using XPSBatteryTray.Models;
+using PowerTray.Models;
 
-namespace XPSBatteryTray.Services;
+namespace PowerTray.Services;
 
 public sealed class BatteryService
 {

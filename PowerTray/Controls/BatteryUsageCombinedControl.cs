@@ -4,13 +4,13 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using XPSBatteryTray.Models;
+using PowerTray.Models;
 using MediaBrush = System.Windows.Media.Brush;
 using MediaColor = System.Windows.Media.Color;
 using MediaPen = System.Windows.Media.Pen;
 using WindowsPoint = System.Windows.Point;
 
-namespace XPSBatteryTray.Controls;
+namespace PowerTray.Controls;
 
 public sealed class BatteryUsageCombinedControl : FrameworkElement
 {

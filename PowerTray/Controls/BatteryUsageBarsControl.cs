@@ -1,13 +1,13 @@
 using System.Windows;
 using System.Windows.Media;
-using XPSBatteryTray.Models;
+using PowerTray.Models;
 using MediaBrush = System.Windows.Media.Brush;
 using MediaBrushes = System.Windows.Media.Brushes;
 using MediaColor = System.Windows.Media.Color;
 using MediaPen = System.Windows.Media.Pen;
 using WindowsPoint = System.Windows.Point;
 
-namespace XPSBatteryTray.Controls;
+namespace PowerTray.Controls;
 
 public sealed class BatteryUsageBarsControl : FrameworkElement
 {

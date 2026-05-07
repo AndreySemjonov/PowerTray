@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>PowerTray.Service</AssemblyName>
+    <RootNamespace>PowerTray.Service</RootNamespace>
+    <UseAppHost>false</UseAppHost>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Pipes.AccessControl" Version="5.0.0" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\PowerTray\Models\CommandResult.cs" Link="Shared\Models\CommandResult.cs" />
+    <Compile Include="..\PowerTray\Models\WindowsBatteryUsageInfo.cs" Link="Shared\Models\WindowsBatteryUsageInfo.cs" />
+    <Compile Include="..\PowerTray\Models\WindowsBatteryUsageRequest.cs" Link="Shared\Models\WindowsBatteryUsageRequest.cs" />
+    <Compile Include="..\PowerTray\Models\WindowsBatteryUsageSnapshot.cs" Link="Shared\Models\WindowsBatteryUsageSnapshot.cs" />
+    <Compile Include="..\PowerTray\Services\IWindowsBatteryUsageService.cs" Link="Shared\Services\IWindowsBatteryUsageService.cs" />
+    <Compile Include="..\PowerTray\Services\LogService.cs" Link="Shared\Services\LogService.cs" />
+    <Compile Include="..\PowerTray\Services\WindowsBatteryUsageIpc.cs" Link="Shared\Services\WindowsBatteryUsageIpc.cs" />
+    <Compile Include="..\PowerTray\Services\WindowsBatteryUsageService.cs" Link="Shared\Services\WindowsBatteryUsageService.cs" />
+  </ItemGroup>
+
+</Project>

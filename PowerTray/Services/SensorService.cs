@@ -1,8 +1,8 @@
-using XPSBatteryTray.Models;
+using PowerTray.Models;
 using System.IO;
 using System.Text.Json;
 
-namespace XPSBatteryTray.Services;
+namespace PowerTray.Services;
 
 public sealed class SensorService
 {

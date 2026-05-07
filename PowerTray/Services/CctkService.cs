@@ -4,9 +4,9 @@ using System.IO;
 using System.Reflection;
 using System.Security.Principal;
 using System.Text.Json;
-using XPSBatteryTray.Models;
+using PowerTray.Models;
 
-namespace XPSBatteryTray.Services;
+namespace PowerTray.Services;
 
 public sealed class CctkService
 {

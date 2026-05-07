@@ -80,7 +80,7 @@ The dashboard tries advanced sensors in this order:
 2. Built-in LibreHardwareMonitor provider, if enabled
 3. Windows fallback stats
 
-HWiNFO remains the most reliable source for this Dell laptop. Enable HWiNFO Shared Memory Support and keep the HWiNFO sensors window active when you want its exact sensor table.
+HWiNFO remains the most reliable source. Enable HWiNFO Shared Memory Support and keep the HWiNFO sensors window active when you want its exact sensor table.
 
 LibreHardwareMonitor runs inside this app, so you do not need a separate HWiNFO background process. It can expose CPU temperature, CPU package power, fan RPM, and sometimes battery charge/discharge watts depending on hardware and permissions. On some systems it may require administrator rights or may not expose every Dell sensor. If only some sensors are available, the dashboard shows `LHM partial` and logs the visible sensor list for troubleshooting.
 
@@ -114,7 +114,6 @@ No telemetry, analytics, or network calls are used.
 
 - HWiNFO and LibreHardwareMonitor sensor names vary by machine; matching is flexible but should be validated on each target laptop.
 - Per-process battery drain is not available from Windows as exact watts. The “Estimated Energy Impact” view is an estimate based on accumulated CPU activity and battery discharge rate when available.
-- Existing data from `%AppData%\DellBatteryTray` is copied into `%AppData%\PowerTray` on first run after the rename.
 - The energy history is persisted to `%AppData%\PowerTray\energy-history.json` and resets when a new discharging session begins.
 - Windows usually does not expose fan RPM or CPU package temperature without vendor/third-party sensors.
-- The current tray icon uses the default application icon; a custom `.ico` would be a good polish pass.
+- The installer registers the PowerTray battery-impact helper service so Windows battery impact can be read without running the tray UI as Administrator.

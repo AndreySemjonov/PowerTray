@@ -2,13 +2,13 @@ using Microsoft.Win32;
 using System.IO;
 using System.Reflection;
 
-namespace XPSBatteryTray.Services;
+namespace PowerTray.Services;
 
 public sealed class StartupService
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string AppName = "PowerTray";
-    private const string LegacyAppName = "XPSBatteryTray";
+    private const string LegacyAppName = "PowerTray";
 
     public bool IsEnabled()
     {

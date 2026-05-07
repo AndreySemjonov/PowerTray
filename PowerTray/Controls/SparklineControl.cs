@@ -6,7 +6,7 @@ using MediaColor = System.Windows.Media.Color;
 using MediaPen = System.Windows.Media.Pen;
 using WindowsPoint = System.Windows.Point;
 
-namespace XPSBatteryTray.Controls;
+namespace PowerTray.Controls;
 
 public sealed class SparklineControl : FrameworkElement
 {

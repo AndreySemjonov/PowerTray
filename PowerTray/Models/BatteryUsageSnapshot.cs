@@ -1,4 +1,4 @@
-namespace XPSBatteryTray.Models;
+namespace PowerTray.Models;
 
 public sealed class BatteryUsageSnapshot
 {

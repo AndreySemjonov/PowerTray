@@ -7,7 +7,7 @@ using MediaPen = System.Windows.Media.Pen;
 using WindowsSize = System.Windows.Size;
 using WindowsPoint = System.Windows.Point;
 
-namespace XPSBatteryTray.Controls;
+namespace PowerTray.Controls;
 
 public sealed class RingGaugeControl : FrameworkElement
 {

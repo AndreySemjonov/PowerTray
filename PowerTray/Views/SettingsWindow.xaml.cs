@@ -1,8 +1,8 @@
 using System.Windows;
 using System.Windows.Input;
-using XPSBatteryTray.ViewModels;
+using PowerTray.ViewModels;
 
-namespace XPSBatteryTray.Views;
+namespace PowerTray.Views;
 
 public partial class SettingsWindow : Window
 {

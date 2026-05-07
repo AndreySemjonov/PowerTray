@@ -1,9 +1,9 @@
 using System.Windows;
-using XPSBatteryTray.Services;
-using XPSBatteryTray.ViewModels;
-using XPSBatteryTray.Views;
+using PowerTray.Services;
+using PowerTray.ViewModels;
+using PowerTray.Views;
 
-namespace XPSBatteryTray;
+namespace PowerTray;
 
 public partial class App : System.Windows.Application
 {
@@ -31,7 +31,7 @@ public partial class App : System.Windows.Application
         var sensorService = new SensorService(settingsService);
         var windowsPowerModeService = new WindowsPowerModeService();
         var batteryUsageService = new BatteryUsageService();
-        var windowsBatteryUsageService = new WindowsBatteryUsageService();
+        var windowsBatteryUsageService = new ElevatedWindowsBatteryUsageService();
 
         _mainViewModel = new MainViewModel(settingsService, cctkService, batteryService, sensorService, processStatsService, windowsPowerModeService, batteryUsageService, windowsBatteryUsageService);
         _trayIconManager = new TrayIconManager(_mainViewModel, () =>

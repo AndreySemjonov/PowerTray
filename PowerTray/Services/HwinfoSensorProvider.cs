@@ -3,9 +3,9 @@ using System.IO;
 using System.Diagnostics;
 using System.Text;
 using System.Threading;
-using XPSBatteryTray.Models;
+using PowerTray.Models;
 
-namespace XPSBatteryTray.Services;
+namespace PowerTray.Services;
 
 public sealed class HwinfoSensorProvider : ISensorProvider
 {

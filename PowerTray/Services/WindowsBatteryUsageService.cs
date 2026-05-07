@@ -1,13 +1,14 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Security.Principal;
 using System.Text;
 using System.Xml.Linq;
-using XPSBatteryTray.Models;
+using PowerTray.Models;
 
-namespace XPSBatteryTray.Services;
+namespace PowerTray.Services;
 
-public sealed class WindowsBatteryUsageService
+public sealed class WindowsBatteryUsageService : IWindowsBatteryUsageService
 {
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan RangeMatchPadding = TimeSpan.FromMinutes(15);
@@ -237,7 +238,7 @@ public sealed class WindowsBatteryUsageService
             CommandResult result = RunPowerCfg(outputPath, xml: false);
             if (!result.Success || !File.Exists(outputPath))
             {
-                string message = CctkService.IsAdministrator()
+                string message = IsAdministrator()
                     ? $"Windows battery usage unavailable: {CleanMessage(result.Message)}"
                     : "Windows battery usage needs administrator access.";
                 return new SrumRecordLoadResult([], message);
@@ -979,6 +980,13 @@ public sealed class WindowsBatteryUsageService
     {
         string cleaned = message.Replace("\r", " ").Replace("\n", " ").Trim();
         return string.IsNullOrWhiteSpace(cleaned) ? "powercfg /srumutil failed." : cleaned;
+    }
+
+    private static bool IsAdministrator()
+    {
+        using WindowsIdentity identity = WindowsIdentity.GetCurrent();
+        var principal = new WindowsPrincipal(identity);
+        return principal.IsInRole(WindowsBuiltInRole.Administrator);
     }
 
     private static string[] SplitCsvLine(string line)

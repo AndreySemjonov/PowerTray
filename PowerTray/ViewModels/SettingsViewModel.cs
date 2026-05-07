@@ -1,9 +1,9 @@
 using System.Windows.Input;
 using Microsoft.Win32;
-using XPSBatteryTray.Models;
-using XPSBatteryTray.Services;
+using PowerTray.Models;
+using PowerTray.Services;
 
-namespace XPSBatteryTray.ViewModels;
+namespace PowerTray.ViewModels;
 
 public sealed class SettingsViewModel : ObservableObject
 {

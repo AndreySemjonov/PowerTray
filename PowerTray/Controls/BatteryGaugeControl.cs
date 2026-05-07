@@ -5,7 +5,7 @@ using MediaBrushes = System.Windows.Media.Brushes;
 using MediaColor = System.Windows.Media.Color;
 using MediaPen = System.Windows.Media.Pen;
 
-namespace XPSBatteryTray.Controls;
+namespace PowerTray.Controls;
 
 public sealed class BatteryGaugeControl : FrameworkElement
 {

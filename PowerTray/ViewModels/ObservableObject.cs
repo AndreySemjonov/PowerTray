@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace XPSBatteryTray.ViewModels;
+namespace PowerTray.ViewModels;
 
 public abstract class ObservableObject : INotifyPropertyChanged
 {

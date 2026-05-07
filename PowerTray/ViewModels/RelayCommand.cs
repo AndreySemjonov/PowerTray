@@ -1,6 +1,6 @@
 using System.Windows.Input;
 
-namespace XPSBatteryTray.ViewModels;
+namespace PowerTray.ViewModels;
 
 public sealed class RelayCommand : ICommand
 {
