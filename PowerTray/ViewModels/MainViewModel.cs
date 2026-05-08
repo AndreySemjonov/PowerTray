@@ -611,6 +611,7 @@ public sealed class MainViewModel : ObservableObject
     }
     public string AdminChipText => IsAdministrator ? "Admin" : "User";
     public string AppVersionText => $"v{GetAppVersion()}";
+    public bool IsDellChargeModeAvailable => _cctkService.IsConfigured;
     public string CctkStatusText => _cctkService.IsConfigured ? "OK" : "missing";
     public string SampleIntervalText => $"Sample {_settingsService.Current.SensorSampleIntervalSeconds}s";
     public string PowerModeText => CurrentWindowsPowerMode is { } mode
@@ -765,7 +766,11 @@ public sealed class MainViewModel : ObservableObject
 
     public void Start()
     {
-        _ = RefreshDellChargeAsync();
+        if (IsDellChargeModeAvailable)
+        {
+            _ = RefreshDellChargeAsync();
+        }
+
         _ = RefreshAsync();
         _timer.Start();
     }
@@ -774,12 +779,31 @@ public sealed class MainViewModel : ObservableObject
     {
         ConfigureTimer();
         StatusMessage = "Settings saved.";
+        OnPropertyChanged(nameof(IsDellChargeModeAvailable));
+        OnPropertyChanged(nameof(CctkStatusText));
+        OnPropertyChanged(nameof(FooterStatusText));
         OnPropertyChanged(nameof(DetailSamplingText));
         NotifyUsageDetailMetricsChanged();
+
+        if (IsDellChargeModeAvailable)
+        {
+            _ = RefreshDellChargeAsync();
+        }
+        else
+        {
+            DellChargeSetting = "Unavailable";
+        }
     }
 
     public async Task RefreshDellChargeAsync()
     {
+        if (!IsDellChargeModeAvailable)
+        {
+            DellChargeSetting = "Unavailable";
+            StatusMessage = "Dell Command | Configure is not configured.";
+            return;
+        }
+
         CommandResult result = await _cctkService.ShowCurrentAsync(allowElevation: true);
         DellChargeSetting = result.Success ? CleanCctkOutput(result.StandardOutput) : "Unavailable";
         StatusMessage = result.Message;
@@ -937,6 +961,13 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ApplyBatteryPresetAsync(object? parameter)
     {
+        if (!IsDellChargeModeAvailable)
+        {
+            DellChargeSetting = "Unavailable";
+            StatusMessage = "Dell Command | Configure is not configured.";
+            return;
+        }
+
         if (parameter is not BatteryPreset preset)
         {
             if (parameter is string value && Enum.TryParse(value, out BatteryPreset parsed))

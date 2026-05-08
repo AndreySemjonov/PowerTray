@@ -74,6 +74,16 @@
                     </Button.ContextMenu>
                 </Button>
                 <Button x:Name="ModesButton" Grid.Column="2" Content="{Binding ModeChipText}" ToolTip="{Binding DellChargeSetting}" Click="ModesButton_Click" Height="30" Padding="8,3" FontSize="12" HorizontalContentAlignment="Center">
+                    <Button.Style>
+                        <Style TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDellChargeModeAvailable}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
                     <Button.ContextMenu>
                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                             <MenuItem Header="Battery Health: Custom 50-80" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
@@ -243,7 +253,18 @@
                             </Grid>
                         </Border>
 
-                        <TextBlock Grid.Column="2" Text="Mode" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="Mode" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold">
+                            <TextBlock.Style>
+                                <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDellChargeModeAvailable}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <Button Grid.Row="1"
                                 Grid.Column="2"
                                 Height="36"
@@ -253,6 +274,16 @@
                                 HorizontalContentAlignment="Left"
                                 ToolTip="{Binding DellChargeSetting}"
                                 Click="ChargeModeButton_Click">
+                            <Button.Style>
+                                <Style TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDellChargeModeAvailable}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
                             <StackPanel Orientation="Horizontal">
                                 <Path Width="13" Height="13" Stretch="Uniform" Fill="{StaticResource AccentBrush}" Data="M8,0 L8,5 L13,5 L6,16 L6,10 L1,10 Z" Margin="0,0,8,0" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding ModeChipText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
