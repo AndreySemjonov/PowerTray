@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using PowerTray.ViewModels;
 
@@ -7,6 +8,7 @@ namespace PowerTray.Views;
 public partial class DashboardWindow : Window
 {
     private readonly MainViewModel _viewModel;
+    private bool _isContextMenuOpen;
 
     public DashboardWindow(MainViewModel viewModel)
     {
@@ -15,6 +17,12 @@ public partial class DashboardWindow : Window
         DataContext = viewModel;
         IsVisibleChanged += OnDashboardIsVisibleChanged;
         _viewModel.IsDashboardVisible = IsVisible;
+    }
+
+    protected override void OnDeactivated(EventArgs e)
+    {
+        base.OnDeactivated(e);
+        CloseIfFocusMovedOutsidePowerTray();
     }
 
     private void OnDashboardIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) =>
@@ -46,8 +54,7 @@ public partial class DashboardWindow : Window
             return;
         }
 
-        ModesButton.ContextMenu.PlacementTarget = ModesButton;
-        ModesButton.ContextMenu.IsOpen = true;
+        OpenContextMenu(ModesButton);
     }
 
     private void ChargeModeButton_Click(object sender, RoutedEventArgs e)
@@ -57,8 +64,7 @@ public partial class DashboardWindow : Window
             return;
         }
 
-        element.ContextMenu.PlacementTarget = element;
-        element.ContextMenu.IsOpen = true;
+        OpenContextMenu(element);
     }
 
     private void PowerButton_Click(object sender, RoutedEventArgs e)
@@ -68,7 +74,58 @@ public partial class DashboardWindow : Window
             return;
         }
 
-        PowerButton.ContextMenu.PlacementTarget = PowerButton;
-        PowerButton.ContextMenu.IsOpen = true;
+        OpenContextMenu(PowerButton);
+    }
+
+    private void DashboardBehaviorButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element || element.ContextMenu is null)
+        {
+            return;
+        }
+
+        OpenContextMenu(element);
+    }
+
+    private void OpenContextMenu(FrameworkElement owner)
+    {
+        if (owner.ContextMenu is null)
+        {
+            return;
+        }
+
+        _isContextMenuOpen = true;
+        owner.ContextMenu.Closed -= ContextMenu_Closed;
+        owner.ContextMenu.Closed += ContextMenu_Closed;
+        owner.ContextMenu.PlacementTarget = owner;
+        owner.ContextMenu.IsOpen = true;
+    }
+
+    private void ContextMenu_Closed(object? sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu menu)
+        {
+            menu.Closed -= ContextMenu_Closed;
+        }
+
+        _isContextMenuOpen = false;
+        CloseIfFocusMovedOutsidePowerTray();
+    }
+
+    private void CloseIfFocusMovedOutsidePowerTray()
+    {
+        if (!_viewModel.ShouldAutoHideDashboard || !IsVisible || IsActive || _isContextMenuOpen || OwnedWindows.Cast<Window>().Any(window => window.IsActive))
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (IsVisible && !IsActive && !_isContextMenuOpen && !OwnedWindows.Cast<Window>().Any(window => window.IsActive))
+            {
+                WindowState = WindowState.Normal;
+                Close();
+            }
+        });
     }
 }

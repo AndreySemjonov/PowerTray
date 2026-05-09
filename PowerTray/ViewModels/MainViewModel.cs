@@ -112,6 +112,7 @@ public sealed class MainViewModel : ObservableObject
         ApplyWindowsPowerModeCommand = new RelayCommand(async parameter => await ApplyWindowsPowerModeAsync(parameter));
         ApplyDellThermalProfileCommand = new RelayCommand(async parameter => await ApplyDellThermalProfileAsync(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
+        SetDashboardWindowBehaviorCommand = new RelayCommand(SetDashboardWindowBehavior);
         ShowBatteryWattsDetailsCommand = new RelayCommand(ShowBatteryWattsDetails);
         HideBatteryWattsDetailsCommand = new RelayCommand(() => IsBatteryWattsDetailsVisible = false);
         ShowUsageDetailsCommand = new RelayCommand(ShowUsageDetails);
@@ -617,6 +618,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ApplyWindowsPowerModeCommand { get; }
     public ICommand ApplyDellThermalProfileCommand { get; }
     public ICommand OpenSettingsCommand { get; }
+    public ICommand SetDashboardWindowBehaviorCommand { get; }
     public ICommand ShowUsageDetailsCommand { get; }
     public ICommand HideUsageDetailsCommand { get; }
     public ICommand ShowBatteryWattsDetailsCommand { get; }
@@ -673,6 +675,19 @@ public sealed class MainViewModel : ObservableObject
     }
     public string AdminChipText => IsAdministrator ? "Admin" : "User";
     public string AppVersionText => $"v{GetAppVersion()}";
+    public DashboardWindowBehavior DashboardWindowBehavior => _settingsService.Current.DashboardWindowBehavior;
+    public bool ShouldAutoHideDashboard => DashboardWindowBehavior == DashboardWindowBehavior.AutoHide;
+    public bool IsDashboardTopmost => DashboardWindowBehavior == DashboardWindowBehavior.StayOnTop;
+    public bool IsDashboardAutoHideSelected => DashboardWindowBehavior == DashboardWindowBehavior.AutoHide;
+    public bool IsDashboardManualCloseSelected => DashboardWindowBehavior == DashboardWindowBehavior.ManualClose;
+    public bool IsDashboardStayOnTopSelected => DashboardWindowBehavior == DashboardWindowBehavior.StayOnTop;
+    public string DashboardBehaviorButtonToolTip => DashboardWindowBehavior switch
+    {
+        DashboardWindowBehavior.AutoHide => "Window behavior: auto hide",
+        DashboardWindowBehavior.ManualClose => "Window behavior: close manually",
+        DashboardWindowBehavior.StayOnTop => "Window behavior: stay on top",
+        _ => "Window behavior"
+    };
     public bool IsDellChargeModeAvailable => _cctkService.IsConfigured;
     public bool IsDellThermalControlVisible => IsDellChargeModeAvailable && _settingsService.Current.DellThermalControlMode != DellThermalControlMode.Off;
     public bool IsDellThermalManualVisible => IsDellChargeModeAvailable && _settingsService.Current.DellThermalControlMode == DellThermalControlMode.Manual;
@@ -864,6 +879,37 @@ public sealed class MainViewModel : ObservableObject
         IsBatteryWattsDetailsVisible = true;
     }
 
+    private void SetDashboardWindowBehavior(object? parameter)
+    {
+        if (parameter is not DashboardWindowBehavior behavior)
+        {
+            if (parameter is string value && Enum.TryParse(value, out DashboardWindowBehavior parsed))
+            {
+                behavior = parsed;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        if (_settingsService.Current.DashboardWindowBehavior == behavior)
+        {
+            return;
+        }
+
+        _settingsService.Current.DashboardWindowBehavior = behavior;
+        _settingsService.Save(_settingsService.Current);
+        NotifyDashboardWindowBehaviorChanged();
+        StatusMessage = behavior switch
+        {
+            DashboardWindowBehavior.AutoHide => "Dashboard will hide when focus moves away.",
+            DashboardWindowBehavior.ManualClose => "Dashboard will stay open until closed manually.",
+            DashboardWindowBehavior.StayOnTop => "Dashboard will stay on top.",
+            _ => "Dashboard behavior updated."
+        };
+    }
+
     private void ShowUsageDetails()
     {
         IsBatteryWattsDetailsVisible = false;
@@ -875,6 +921,7 @@ public sealed class MainViewModel : ObservableObject
     {
         ConfigureTimer();
         StatusMessage = "Settings saved.";
+        NotifyDashboardWindowBehaviorChanged();
         OnPropertyChanged(nameof(IsDellChargeModeAvailable));
         NotifyDellThermalSettingsChanged();
         OnPropertyChanged(nameof(CctkStatusText));
@@ -2150,6 +2197,17 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CoolThermalProfileMenuText));
         OnPropertyChanged(nameof(QuietThermalProfileMenuText));
         OnPropertyChanged(nameof(UltraPerformanceThermalProfileMenuText));
+    }
+
+    private void NotifyDashboardWindowBehaviorChanged()
+    {
+        OnPropertyChanged(nameof(DashboardWindowBehavior));
+        OnPropertyChanged(nameof(ShouldAutoHideDashboard));
+        OnPropertyChanged(nameof(IsDashboardTopmost));
+        OnPropertyChanged(nameof(IsDashboardAutoHideSelected));
+        OnPropertyChanged(nameof(IsDashboardManualCloseSelected));
+        OnPropertyChanged(nameof(IsDashboardStayOnTopSelected));
+        OnPropertyChanged(nameof(DashboardBehaviorButtonToolTip));
     }
 
     private void NotifyBatteryWattsDetailMetricsChanged()

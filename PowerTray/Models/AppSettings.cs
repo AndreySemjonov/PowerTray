@@ -19,6 +19,7 @@ public sealed class AppSettings
     public DellThermalProfile PowerEfficiencyThermalProfile { get; set; } = DellThermalProfile.Quiet;
     public DellThermalProfile BalancedThermalProfile { get; set; } = DellThermalProfile.Optimized;
     public DellThermalProfile PerformanceThermalProfile { get; set; } = DellThermalProfile.UltraPerformance;
+    public DashboardWindowBehavior DashboardWindowBehavior { get; set; } = DashboardWindowBehavior.AutoHide;
     public AppTheme Theme { get; set; } = AppTheme.FollowSystem;
 }
 
@@ -42,4 +43,11 @@ public enum DellThermalProfile
     Cool,
     Quiet,
     UltraPerformance
+}
+
+public enum DashboardWindowBehavior
+{
+    AutoHide,
+    ManualClose,
+    StayOnTop
 }

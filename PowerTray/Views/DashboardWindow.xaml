@@ -14,6 +14,7 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         AllowsTransparency="True"
+        Topmost="{Binding IsDashboardTopmost}"
         Background="Transparent"
         Foreground="{StaticResource TextBrush}">
     <Border Background="{StaticResource WindowBg}"
@@ -46,6 +47,15 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Content="&#xE718;" FontFamily="Segoe MDL2 Assets" Click="DashboardBehaviorButton_Click" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="{Binding DashboardBehaviorButtonToolTip}">
+                            <Button.ContextMenu>
+                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                    <MenuItem Header="Auto hide on focus loss" Command="{Binding SetDashboardWindowBehaviorCommand}" CommandParameter="AutoHide" IsCheckable="True" IsChecked="{Binding IsDashboardAutoHideSelected, Mode=OneWay}" />
+                                    <MenuItem Header="Close manually" Command="{Binding SetDashboardWindowBehaviorCommand}" CommandParameter="ManualClose" IsCheckable="True" IsChecked="{Binding IsDashboardManualCloseSelected, Mode=OneWay}" />
+                                    <MenuItem Header="Stay on top" Command="{Binding SetDashboardWindowBehaviorCommand}" CommandParameter="StayOnTop" IsCheckable="True" IsChecked="{Binding IsDashboardStayOnTopSelected, Mode=OneWay}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
                         <Button Content="&#xE713;" FontFamily="Segoe MDL2 Assets" Command="{Binding OpenSettingsCommand}" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="Settings" />
                         <Button Content="−" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" Click="MinimizeButton_Click" />
                         <Button Content="□" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" IsEnabled="False" Opacity="0.55" />
