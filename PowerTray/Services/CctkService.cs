@@ -11,6 +11,7 @@ namespace PowerTray.Services;
 public sealed class CctkService
 {
     private const string QueryArgument = "--PrimaryBattChargeCfg";
+    private const string ThermalQueryArgument = "--thermalmanagement";
     private readonly SettingsService _settingsService;
 
     public CctkService(SettingsService settingsService)
@@ -47,6 +48,23 @@ public sealed class CctkService
         }
 
         return await ExecuteAsync(QueryArgument, requiresAdmin: true);
+    }
+
+    public async Task<CommandResult> ShowThermalManagementAsync(bool allowElevation = false)
+    {
+        CommandResult result = await ExecuteAsync(ThermalQueryArgument, requiresAdmin: false);
+        if (result.Success || !allowElevation || IsAdministrator())
+        {
+            return result;
+        }
+
+        return await ExecuteAsync(ThermalQueryArgument, requiresAdmin: true);
+    }
+
+    public async Task<CommandResult> ApplyThermalProfileAsync(DellThermalProfile profile)
+    {
+        string argument = $"--thermalmanagement={ToCctkThermalValue(profile)}";
+        return await ExecuteAsync(argument, requiresAdmin: true);
     }
 
     public async Task<CommandResult> ApplyPresetAsync(BatteryPreset preset)
@@ -205,6 +223,15 @@ public sealed class CctkService
     }
 
     private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
+
+    private static string ToCctkThermalValue(DellThermalProfile profile) => profile switch
+    {
+        DellThermalProfile.Optimized => "optimized",
+        DellThermalProfile.Cool => "cool",
+        DellThermalProfile.Quiet => "quiet",
+        DellThermalProfile.UltraPerformance => "ultraperformance",
+        _ => "optimized"
+    };
 
     private async Task<CommandResult> ApplyCustomPresetAsync(int start, int stop, string label)
     {

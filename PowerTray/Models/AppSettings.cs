@@ -15,6 +15,10 @@ public sealed class AppSettings
     public int HealthStop { get; set; } = 80;
     public int BalancedStart { get; set; } = 70;
     public int BalancedStop { get; set; } = 90;
+    public DellThermalControlMode DellThermalControlMode { get; set; } = DellThermalControlMode.Off;
+    public DellThermalProfile PowerEfficiencyThermalProfile { get; set; } = DellThermalProfile.Quiet;
+    public DellThermalProfile BalancedThermalProfile { get; set; } = DellThermalProfile.Optimized;
+    public DellThermalProfile PerformanceThermalProfile { get; set; } = DellThermalProfile.UltraPerformance;
     public AppTheme Theme { get; set; } = AppTheme.FollowSystem;
 }
 
@@ -23,4 +27,19 @@ public enum AppTheme
     FollowSystem,
     Light,
     Dark
+}
+
+public enum DellThermalControlMode
+{
+    Off,
+    SyncWithWindowsPowerPlan,
+    Manual
+}
+
+public enum DellThermalProfile
+{
+    Optimized,
+    Cool,
+    Quiet,
+    UltraPerformance
 }

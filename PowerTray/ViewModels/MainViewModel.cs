@@ -49,6 +49,7 @@ public sealed class MainViewModel : ObservableObject
 
     private BatteryStatus _battery = new();
     private string _dellChargeSetting = "Unknown";
+    private string _dellThermalSetting = "Unknown";
     private string _statusMessage = "Ready";
     private string _hwinfoStatus = "Checking sensors...";
     private double _cpuUsagePercent;
@@ -108,7 +109,8 @@ public sealed class MainViewModel : ObservableObject
 
         RefreshDellChargeCommand = new RelayCommand(async () => await RefreshDellChargeAsync());
         ApplyBatteryPresetCommand = new RelayCommand(async parameter => await ApplyBatteryPresetAsync(parameter));
-        ApplyWindowsPowerModeCommand = new RelayCommand(parameter => ApplyWindowsPowerMode(parameter));
+        ApplyWindowsPowerModeCommand = new RelayCommand(async parameter => await ApplyWindowsPowerModeAsync(parameter));
+        ApplyDellThermalProfileCommand = new RelayCommand(async parameter => await ApplyDellThermalProfileAsync(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
         ShowBatteryWattsDetailsCommand = new RelayCommand(ShowBatteryWattsDetails);
         HideBatteryWattsDetailsCommand = new RelayCommand(() => IsBatteryWattsDetailsVisible = false);
@@ -250,6 +252,23 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(FriendlyChargeMode));
                 OnPropertyChanged(nameof(ModeChipText));
+            }
+        }
+    }
+
+    public string DellThermalSetting
+    {
+        get => _dellThermalSetting;
+        private set
+        {
+            if (SetProperty(ref _dellThermalSetting, value))
+            {
+                OnPropertyChanged(nameof(DellThermalProfileText));
+                OnPropertyChanged(nameof(DellThermalProfileToolTip));
+                OnPropertyChanged(nameof(OptimizedThermalProfileMenuText));
+                OnPropertyChanged(nameof(CoolThermalProfileMenuText));
+                OnPropertyChanged(nameof(QuietThermalProfileMenuText));
+                OnPropertyChanged(nameof(UltraPerformanceThermalProfileMenuText));
             }
         }
     }
@@ -596,6 +615,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand RefreshDellChargeCommand { get; }
     public ICommand ApplyBatteryPresetCommand { get; }
     public ICommand ApplyWindowsPowerModeCommand { get; }
+    public ICommand ApplyDellThermalProfileCommand { get; }
     public ICommand OpenSettingsCommand { get; }
     public ICommand ShowUsageDetailsCommand { get; }
     public ICommand HideUsageDetailsCommand { get; }
@@ -654,6 +674,9 @@ public sealed class MainViewModel : ObservableObject
     public string AdminChipText => IsAdministrator ? "Admin" : "User";
     public string AppVersionText => $"v{GetAppVersion()}";
     public bool IsDellChargeModeAvailable => _cctkService.IsConfigured;
+    public bool IsDellThermalControlVisible => IsDellChargeModeAvailable && _settingsService.Current.DellThermalControlMode != DellThermalControlMode.Off;
+    public bool IsDellThermalManualVisible => IsDellChargeModeAvailable && _settingsService.Current.DellThermalControlMode == DellThermalControlMode.Manual;
+    public bool IsDellThermalSyncVisible => IsDellChargeModeAvailable && _settingsService.Current.DellThermalControlMode == DellThermalControlMode.SyncWithWindowsPowerPlan;
     public string CctkStatusText => _cctkService.IsConfigured ? "OK" : "missing";
     public string SampleIntervalText => $"Sample {_settingsService.Current.SensorSampleIntervalSeconds}s";
     public string PowerModeText => CurrentWindowsPowerMode is { } mode
@@ -672,6 +695,12 @@ public sealed class MainViewModel : ObservableObject
     public string PowerEfficiencyMenuText => FormatPowerModeMenuText(WindowsPowerMode.BestPowerEfficiency);
     public string BalancedPowerModeMenuText => FormatPowerModeMenuText(WindowsPowerMode.Balanced);
     public string PerformancePowerModeMenuText => FormatPowerModeMenuText(WindowsPowerMode.BestPerformance);
+    public string DellThermalProfileText => FormatDellThermalProfile(DellThermalSetting);
+    public string DellThermalProfileToolTip => DellThermalSetting;
+    public string OptimizedThermalProfileMenuText => FormatDellThermalProfileMenuText(DellThermalProfile.Optimized);
+    public string CoolThermalProfileMenuText => FormatDellThermalProfileMenuText(DellThermalProfile.Cool);
+    public string QuietThermalProfileMenuText => FormatDellThermalProfileMenuText(DellThermalProfile.Quiet);
+    public string UltraPerformanceThermalProfileMenuText => FormatDellThermalProfileMenuText(DellThermalProfile.UltraPerformance);
     public string FooterStatusText => $"{AdminChipText} | {HwinfoChipText} | {SampleIntervalText} | Window 10 min | power: {PowerModeText} | cctk: {CctkStatusText}";
     public string FriendlyChargeMode => FormatFriendlyChargeMode(DellChargeSetting);
     public string BatteryUsageTitle => BatteryUsage.Title;
@@ -821,6 +850,7 @@ public sealed class MainViewModel : ObservableObject
         if (IsDellChargeModeAvailable)
         {
             _ = RefreshDellChargeAsync();
+            _ = RefreshDellThermalAsync();
         }
 
         _ = RefreshAsync();
@@ -846,6 +876,7 @@ public sealed class MainViewModel : ObservableObject
         ConfigureTimer();
         StatusMessage = "Settings saved.";
         OnPropertyChanged(nameof(IsDellChargeModeAvailable));
+        NotifyDellThermalSettingsChanged();
         OnPropertyChanged(nameof(CctkStatusText));
         OnPropertyChanged(nameof(FooterStatusText));
         OnPropertyChanged(nameof(DetailSamplingText));
@@ -854,10 +885,12 @@ public sealed class MainViewModel : ObservableObject
         if (IsDellChargeModeAvailable)
         {
             _ = RefreshDellChargeAsync();
+            _ = RefreshDellThermalAsync();
         }
         else
         {
             DellChargeSetting = "Unavailable";
+            DellThermalSetting = "Unavailable";
         }
     }
 
@@ -872,6 +905,19 @@ public sealed class MainViewModel : ObservableObject
 
         CommandResult result = await _cctkService.ShowCurrentAsync(allowElevation: true);
         DellChargeSetting = result.Success ? CleanCctkOutput(result.StandardOutput) : "Unavailable";
+        StatusMessage = result.Message;
+    }
+
+    public async Task RefreshDellThermalAsync()
+    {
+        if (!IsDellChargeModeAvailable || _settingsService.Current.DellThermalControlMode == DellThermalControlMode.Off)
+        {
+            DellThermalSetting = "Unavailable";
+            return;
+        }
+
+        CommandResult result = await _cctkService.ShowThermalManagementAsync(allowElevation: true);
+        DellThermalSetting = result.Success ? CleanCctkOutput(result.StandardOutput) : "Unavailable";
         StatusMessage = result.Message;
     }
 
@@ -1068,7 +1114,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private void ApplyWindowsPowerMode(object? parameter)
+    private async Task ApplyWindowsPowerModeAsync(object? parameter)
     {
         if (parameter is not WindowsPowerMode mode)
         {
@@ -1087,11 +1133,81 @@ public sealed class MainViewModel : ObservableObject
         {
             StatusMessage = _windowsPowerModeService.SetConfiguredMode(pluggedIn, mode);
             RefreshWindowsPowerMode(pluggedIn);
+            await SyncDellThermalProfileIfNeededAsync(mode);
         }
         catch (Exception ex)
         {
             LogService.Error(ex, "Failed to apply Windows power mode.");
             StatusMessage = ex.Message;
+        }
+    }
+
+    private async Task ApplyDellThermalProfileAsync(object? parameter)
+    {
+        if (!IsDellChargeModeAvailable)
+        {
+            DellThermalSetting = "Unavailable";
+            StatusMessage = "Dell Command | Configure is not configured.";
+            return;
+        }
+
+        if (parameter is not DellThermalProfile profile)
+        {
+            if (parameter is string value && Enum.TryParse(value, out DellThermalProfile parsed))
+            {
+                profile = parsed;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        StatusMessage = CctkService.IsAdministrator()
+            ? $"Applying Dell thermal profile: {ToDellThermalDisplayName(profile)}..."
+            : "Requesting administrator approval...";
+
+        CommandResult result = await _cctkService.ApplyThermalProfileAsync(profile);
+        StatusMessage = result.Success
+            ? $"Dell thermal profile set to {ToDellThermalDisplayName(profile)}."
+            : result.Message;
+
+        if (result.Success)
+        {
+            DellThermalSetting = $"ThermalManagement={ToDellThermalDisplayName(profile)}";
+            CommandResult refresh = await _cctkService.ShowThermalManagementAsync(allowElevation: true);
+            if (refresh.Success)
+            {
+                DellThermalSetting = CleanCctkOutput(refresh.StandardOutput);
+            }
+        }
+    }
+
+    private async Task SyncDellThermalProfileIfNeededAsync(WindowsPowerMode mode)
+    {
+        AppSettings settings = _settingsService.Current;
+        if (settings.DellThermalControlMode != DellThermalControlMode.SyncWithWindowsPowerPlan || !IsDellChargeModeAvailable)
+        {
+            return;
+        }
+
+        DellThermalProfile profile = mode switch
+        {
+            WindowsPowerMode.BestPowerEfficiency => settings.PowerEfficiencyThermalProfile,
+            WindowsPowerMode.Balanced => settings.BalancedThermalProfile,
+            WindowsPowerMode.BestPerformance => settings.PerformanceThermalProfile,
+            _ => settings.BalancedThermalProfile
+        };
+
+        CommandResult result = await _cctkService.ApplyThermalProfileAsync(profile);
+        if (result.Success)
+        {
+            DellThermalSetting = $"ThermalManagement={ToDellThermalDisplayName(profile)}";
+            StatusMessage = $"{StatusMessage} Dell thermal: {ToDellThermalDisplayName(profile)}.";
+        }
+        else
+        {
+            StatusMessage = $"{StatusMessage} Dell thermal sync failed: {result.Message}";
         }
     }
 
@@ -2023,6 +2139,19 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(GpuSamplesDetailText));
     }
 
+    private void NotifyDellThermalSettingsChanged()
+    {
+        OnPropertyChanged(nameof(IsDellThermalControlVisible));
+        OnPropertyChanged(nameof(IsDellThermalManualVisible));
+        OnPropertyChanged(nameof(IsDellThermalSyncVisible));
+        OnPropertyChanged(nameof(DellThermalProfileText));
+        OnPropertyChanged(nameof(DellThermalProfileToolTip));
+        OnPropertyChanged(nameof(OptimizedThermalProfileMenuText));
+        OnPropertyChanged(nameof(CoolThermalProfileMenuText));
+        OnPropertyChanged(nameof(QuietThermalProfileMenuText));
+        OnPropertyChanged(nameof(UltraPerformanceThermalProfileMenuText));
+    }
+
     private void NotifyBatteryWattsDetailMetricsChanged()
     {
         OnPropertyChanged(nameof(BatteryWattsNowDetailText));
@@ -2100,6 +2229,53 @@ public sealed class MainViewModel : ObservableObject
         string prefix = CurrentWindowsPowerMode == mode ? "✓ " : string.Empty;
         return prefix + WindowsPowerModeService.ToDisplayName(mode);
     }
+
+    private string FormatDellThermalProfileMenuText(DellThermalProfile profile)
+    {
+        string displayName = ToDellThermalDisplayName(profile);
+        string prefix = DellThermalProfileText.Equals(displayName, StringComparison.OrdinalIgnoreCase) ? "✓ " : string.Empty;
+        return prefix + displayName;
+    }
+
+    private static string FormatDellThermalProfile(string raw)
+    {
+        if (raw.Contains("UltraPerformance", StringComparison.OrdinalIgnoreCase) ||
+            raw.Contains("Ultra Performance", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Ultra Performance";
+        }
+
+        if (raw.Contains("Optimized", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Optimized";
+        }
+
+        if (raw.Contains("Cool", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Cool";
+        }
+
+        if (raw.Contains("Quiet", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Quiet";
+        }
+
+        if (raw.Equals("Unavailable", StringComparison.OrdinalIgnoreCase) || raw.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            return raw;
+        }
+
+        return string.IsNullOrWhiteSpace(raw) ? "Unknown" : raw;
+    }
+
+    private static string ToDellThermalDisplayName(DellThermalProfile profile) => profile switch
+    {
+        DellThermalProfile.Optimized => "Optimized",
+        DellThermalProfile.Cool => "Cool",
+        DellThermalProfile.Quiet => "Quiet",
+        DellThermalProfile.UltraPerformance => "Ultra Performance",
+        _ => "Unknown"
+    };
 
     private static string FormatCapacity(int? milliWattHours)
     {

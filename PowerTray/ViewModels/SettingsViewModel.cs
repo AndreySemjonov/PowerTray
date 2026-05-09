@@ -22,6 +22,10 @@ public sealed class SettingsViewModel : ObservableObject
     private int _healthStop;
     private int _balancedStart;
     private int _balancedStop;
+    private DellThermalControlMode _dellThermalControlMode;
+    private DellThermalProfile _powerEfficiencyThermalProfile;
+    private DellThermalProfile _balancedThermalProfile;
+    private DellThermalProfile _performanceThermalProfile;
     private AppTheme _theme;
     private string _status = string.Empty;
 
@@ -43,6 +47,10 @@ public sealed class SettingsViewModel : ObservableObject
         _healthStop = settings.HealthStop;
         _balancedStart = settings.BalancedStart;
         _balancedStop = settings.BalancedStop;
+        _dellThermalControlMode = settings.DellThermalControlMode;
+        _powerEfficiencyThermalProfile = settings.PowerEfficiencyThermalProfile;
+        _balancedThermalProfile = settings.BalancedThermalProfile;
+        _performanceThermalProfile = settings.PerformanceThermalProfile;
         _theme = settings.Theme;
 
         BrowseCommand = new RelayCommand(Browse);
@@ -53,6 +61,20 @@ public sealed class SettingsViewModel : ObservableObject
     public event EventHandler? Saved;
 
     public IEnumerable<AppTheme> Themes => Enum.GetValues<AppTheme>();
+    public IEnumerable<SelectionOption<DellThermalControlMode>> DellThermalControlModes { get; } =
+    [
+        new(DellThermalControlMode.Off, "Off"),
+        new(DellThermalControlMode.SyncWithWindowsPowerPlan, "Sync with Windows power plan"),
+        new(DellThermalControlMode.Manual, "Separate Dell thermal profile")
+    ];
+
+    public IEnumerable<SelectionOption<DellThermalProfile>> DellThermalProfiles { get; } =
+    [
+        new(DellThermalProfile.Optimized, "Optimized"),
+        new(DellThermalProfile.Cool, "Cool"),
+        new(DellThermalProfile.Quiet, "Quiet"),
+        new(DellThermalProfile.UltraPerformance, "Ultra Performance")
+    ];
 
     public string CctkPath
     {
@@ -132,6 +154,30 @@ public sealed class SettingsViewModel : ObservableObject
         set => SetProperty(ref _balancedStop, value);
     }
 
+    public DellThermalControlMode DellThermalControlMode
+    {
+        get => _dellThermalControlMode;
+        set => SetProperty(ref _dellThermalControlMode, value);
+    }
+
+    public DellThermalProfile PowerEfficiencyThermalProfile
+    {
+        get => _powerEfficiencyThermalProfile;
+        set => SetProperty(ref _powerEfficiencyThermalProfile, value);
+    }
+
+    public DellThermalProfile BalancedThermalProfile
+    {
+        get => _balancedThermalProfile;
+        set => SetProperty(ref _balancedThermalProfile, value);
+    }
+
+    public DellThermalProfile PerformanceThermalProfile
+    {
+        get => _performanceThermalProfile;
+        set => SetProperty(ref _performanceThermalProfile, value);
+    }
+
     public AppTheme Theme
     {
         get => _theme;
@@ -202,6 +248,10 @@ public sealed class SettingsViewModel : ObservableObject
             HealthStop = HealthStop,
             BalancedStart = BalancedStart,
             BalancedStop = BalancedStop,
+            DellThermalControlMode = DellThermalControlMode,
+            PowerEfficiencyThermalProfile = PowerEfficiencyThermalProfile,
+            BalancedThermalProfile = BalancedThermalProfile,
+            PerformanceThermalProfile = PerformanceThermalProfile,
             Theme = Theme
         };
 
@@ -209,5 +259,10 @@ public sealed class SettingsViewModel : ObservableObject
         _startupService.SetEnabled(StartWithWindows);
         Status = "Saved.";
         Saved?.Invoke(this, EventArgs.Empty);
+    }
+
+    public sealed record SelectionOption<T>(T Value, string DisplayName)
+    {
+        public override string ToString() => DisplayName;
     }
 }
