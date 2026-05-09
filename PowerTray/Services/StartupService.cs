@@ -7,14 +7,18 @@ namespace PowerTray.Services;
 public sealed class StartupService
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string StartupApprovedRunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
     private const string AppName = "PowerTray";
     private const string LegacyAppName = "XPSBatteryTray";
+    private static readonly byte[] StartupApprovedEnabled = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
     public bool IsEnabled()
     {
-        using RegistryKey? key = Registry.CurrentUser.OpenSubKey(RunKeyPath, false);
-        return key?.GetValue(AppName) is string value && value.Length > 0
-            || key?.GetValue(LegacyAppName) is string legacyValue && legacyValue.Length > 0;
+        using RegistryKey? runKey = Registry.CurrentUser.OpenSubKey(RunKeyPath, false);
+        bool hasStartupCommand = runKey?.GetValue(AppName) is string value && value.Length > 0
+            || runKey?.GetValue(LegacyAppName) is string legacyValue && legacyValue.Length > 0;
+
+        return hasStartupCommand && !IsStartupApprovedDisabled();
     }
 
     public void SetEnabled(bool enabled)
@@ -26,12 +30,39 @@ public sealed class StartupService
         {
             key.SetValue(AppName, BuildStartupCommand());
             key.DeleteValue(LegacyAppName, false);
+            SetStartupApprovedEnabled();
         }
         else
         {
             key.DeleteValue(AppName, false);
             key.DeleteValue(LegacyAppName, false);
+            DeleteStartupApprovedValues();
         }
+    }
+
+    private static bool IsStartupApprovedDisabled()
+    {
+        using RegistryKey? key = Registry.CurrentUser.OpenSubKey(StartupApprovedRunKeyPath, false);
+        return IsDisabledValue(key?.GetValue(AppName)) || IsDisabledValue(key?.GetValue(LegacyAppName));
+    }
+
+    private static bool IsDisabledValue(object? value) =>
+        value is byte[] bytes && bytes.Length > 0 && bytes[0] == 3;
+
+    private static void SetStartupApprovedEnabled()
+    {
+        using RegistryKey key = Registry.CurrentUser.OpenSubKey(StartupApprovedRunKeyPath, true)
+                                ?? Registry.CurrentUser.CreateSubKey(StartupApprovedRunKeyPath, true);
+
+        key.SetValue(AppName, StartupApprovedEnabled, RegistryValueKind.Binary);
+        key.DeleteValue(LegacyAppName, false);
+    }
+
+    private static void DeleteStartupApprovedValues()
+    {
+        using RegistryKey? key = Registry.CurrentUser.OpenSubKey(StartupApprovedRunKeyPath, true);
+        key?.DeleteValue(AppName, false);
+        key?.DeleteValue(LegacyAppName, false);
     }
 
     private static string BuildStartupCommand()

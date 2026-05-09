@@ -198,7 +198,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         }
 
         byte midAlpha = (byte)Math.Clamp(strongAlpha * 0.45, 0, 255);
-        byte weakAlpha = (byte)Math.Max(0, strongAlpha * 0.08);
+        byte weakAlpha = (byte)Math.Max(0, strongAlpha * 0.01);
         double top = Math.Min(baselineY, points.Min(point => point.Point.Y));
         double bottom = Math.Max(baselineY, points.Max(point => point.Point.Y));
         if (Math.Abs(bottom - top) < 1)

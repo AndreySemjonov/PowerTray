@@ -61,14 +61,14 @@ public sealed class SettingsViewModel : ObservableObject
     public event EventHandler? Saved;
 
     public IEnumerable<AppTheme> Themes => Enum.GetValues<AppTheme>();
-    public IEnumerable<SelectionOption<DellThermalControlMode>> DellThermalControlModes { get; } =
+    public IEnumerable<DellThermalControlModeOption> DellThermalControlModes { get; } =
     [
         new(DellThermalControlMode.Off, "Off"),
         new(DellThermalControlMode.SyncWithWindowsPowerPlan, "Sync with Windows power plan"),
         new(DellThermalControlMode.Manual, "Separate Dell thermal profile")
     ];
 
-    public IEnumerable<SelectionOption<DellThermalProfile>> DellThermalProfiles { get; } =
+    public IEnumerable<DellThermalProfileOption> DellThermalProfiles { get; } =
     [
         new(DellThermalProfile.Optimized, "Optimized"),
         new(DellThermalProfile.Cool, "Cool"),
@@ -264,7 +264,12 @@ public sealed class SettingsViewModel : ObservableObject
         Saved?.Invoke(this, EventArgs.Empty);
     }
 
-    public sealed record SelectionOption<T>(T Value, string DisplayName)
+    public sealed record DellThermalControlModeOption(DellThermalControlMode Value, string DisplayName)
+    {
+        public override string ToString() => DisplayName;
+    }
+
+    public sealed record DellThermalProfileOption(DellThermalProfile Value, string DisplayName)
     {
         public override string ToString() => DisplayName;
     }

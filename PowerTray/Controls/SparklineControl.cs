@@ -317,7 +317,7 @@ public sealed class SparklineControl : FrameworkElement
         byte strongAlpha = color.A > 0 ? color.A : (byte)70;
         strongAlpha = (byte)Math.Clamp(Math.Max((int)strongAlpha, 86) * 1.3, 0, 180);
         byte midAlpha = (byte)Math.Clamp(strongAlpha * 0.45, 0, 255);
-        byte weakAlpha = (byte)Math.Max(0, strongAlpha * 0.08);
+        byte weakAlpha = (byte)Math.Max(0, strongAlpha * 0.01);
         double top = points.Count == 0 ? 0 : Math.Min(baselineY, points.Min(point => point.Y));
         double bottom = Math.Max(baselineY, points.Count == 0 ? baselineY + 1 : points.Max(point => point.Y));
         if (Math.Abs(bottom - top) < 1)
