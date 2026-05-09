@@ -13,7 +13,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
 {
     private static class Layout
     {
-        public const double PeakLabelHeadroomMultiplier = 1.35;
+        public const double PeakLabelHeadroomMultiplier = 1.08;
         public const double LeftPadding = 4;
         public const double TopPadding = 8;
         public const double RightAxisWidth = 45;
@@ -417,30 +417,43 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         double[] visible = values.Where(v => v.HasValue).Select(v => v!.Value).ToArray();
         if (signed)
         {
-            double extent = visible.Select(Math.Abs).DefaultIfEmpty(0).Max();
-            extent = RoundScaleMaximum(Math.Clamp(extent * Layout.PeakLabelHeadroomMultiplier, 5, 100));
-            return new GraphScale(-extent, extent);
+            double positiveMaximum = visible.Where(value => value > 0).DefaultIfEmpty(0).Max();
+            double negativeMinimum = visible.Where(value => value < 0).DefaultIfEmpty(0).Min();
+            double signedMaximum = positiveMaximum > 0.05
+                ? RoundScaleMaximum(Math.Clamp(positiveMaximum * Layout.PeakLabelHeadroomMultiplier, 5, 100))
+                : 0;
+            double signedMinimum = negativeMinimum < -0.05
+                ? -RoundScaleMaximum(Math.Clamp(Math.Abs(negativeMinimum) * Layout.PeakLabelHeadroomMultiplier, 5, 100))
+                : 0;
+
+            if (Math.Abs(signedMaximum - signedMinimum) < 1)
+            {
+                signedMaximum = 10;
+            }
+
+            return new GraphScale(signedMinimum, signedMaximum);
         }
 
         double maximum = visible.Select(v => Math.Clamp(v, 0, 100)).DefaultIfEmpty(0).Max();
         if (maximum <= 0.05)
         {
-            return new GraphScale(0, 10);
+            return new GraphScale(0, 2);
         }
 
-        return new GraphScale(0, RoundScaleMaximum(Math.Clamp(maximum * Layout.PeakLabelHeadroomMultiplier, 10, 100)));
+        return new GraphScale(0, RoundScaleMaximum(Math.Clamp(maximum * Layout.PeakLabelHeadroomMultiplier, 2, 100)));
     }
 
     private static double RoundScaleMaximum(double target)
     {
         double step = target switch
         {
-            <= 20 => 5,
-            <= 50 => 10,
-            _ => 25
+            <= 12 => 1,
+            <= 20 => 2.5,
+            <= 60 => 2.5,
+            _ => 5
         };
 
-        return Math.Clamp(Math.Ceiling(target / step) * step, 10, 100);
+        return Math.Clamp(Math.Ceiling(target / step) * step, 1, 100);
     }
 
     private static double MapValueToY(double value, GraphScale scale, double top, double height)
