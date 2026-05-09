@@ -149,7 +149,7 @@ public sealed class SparklineControl : FrameworkElement
             areaGeometry.Freeze();
             if (Fill is not null && !flatZero)
             {
-                drawingContext.DrawGeometry(Fill, null, areaGeometry);
+                drawingContext.DrawGeometry(CreateAreaBrush(Fill, points.Select(point => point.Point).ToArray(), Layout.TopPadding + plotHeight), null, areaGeometry);
             }
 
             drawingContext.DrawGeometry(null, CreateCurvePen(Stroke), geometry);
@@ -310,6 +310,52 @@ public sealed class SparklineControl : FrameworkElement
             EndLineCap = PenLineCap.Round,
             LineJoin = PenLineJoin.Round
         };
+
+    private static MediaBrush CreateAreaBrush(MediaBrush fill, IReadOnlyList<WindowsPoint> points, double baselineY)
+    {
+        MediaColor color = ResolveBrushColor(fill, MediaColor.FromArgb(70, 74, 168, 255));
+        byte strongAlpha = color.A > 0 ? color.A : (byte)70;
+        strongAlpha = (byte)Math.Clamp(Math.Max((int)strongAlpha, 86) * 1.3, 0, 180);
+        byte midAlpha = (byte)Math.Clamp(strongAlpha * 0.45, 0, 255);
+        byte weakAlpha = (byte)Math.Max(0, strongAlpha * 0.08);
+        double top = points.Count == 0 ? 0 : Math.Min(baselineY, points.Min(point => point.Y));
+        double bottom = Math.Max(baselineY, points.Count == 0 ? baselineY + 1 : points.Max(point => point.Y));
+        if (Math.Abs(bottom - top) < 1)
+        {
+            bottom = top + 1;
+        }
+
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new WindowsPoint(0, top),
+            EndPoint = new WindowsPoint(0, bottom),
+            MappingMode = BrushMappingMode.Absolute
+        };
+
+        brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(strongAlpha, color.R, color.G, color.B), 0));
+        brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(midAlpha, color.R, color.G, color.B), 0.45));
+        brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(weakAlpha, color.R, color.G, color.B), 1));
+        brush.Freeze();
+        return brush;
+    }
+
+    private static MediaColor ResolveBrushColor(MediaBrush brush, MediaColor fallback)
+    {
+        if (brush is SolidColorBrush solid)
+        {
+            return solid.Color;
+        }
+
+        if (brush is LinearGradientBrush gradient && gradient.GradientStops.Count > 0)
+        {
+            return gradient.GradientStops
+                .OrderByDescending(stop => stop.Color.A)
+                .First()
+                .Color;
+        }
+
+        return fallback;
+    }
 
     private static void DrawLabel(DrawingContext context, double value, MediaBrush brush, double x, double y)
     {

@@ -56,6 +56,22 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         DependencyProperty.Register(nameof(MaxPoints), typeof(int), typeof(UsageDetailGraphControl),
             new FrameworkPropertyMetadata(300, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty AxisUnitProperty =
+        DependencyProperty.Register(nameof(AxisUnit), typeof(string), typeof(UsageDetailGraphControl),
+            new FrameworkPropertyMetadata("%", FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty AxisFormatProperty =
+        DependencyProperty.Register(nameof(AxisFormat), typeof(string), typeof(UsageDetailGraphControl),
+            new FrameworkPropertyMetadata("N0", FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty IsSignedProperty =
+        DependencyProperty.Register(nameof(IsSigned), typeof(bool), typeof(UsageDetailGraphControl),
+            new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty SmoothLineProperty =
+        DependencyProperty.Register(nameof(SmoothLine), typeof(bool), typeof(UsageDetailGraphControl),
+            new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public IEnumerable<double?> Values
     {
         get => (IEnumerable<double?>)GetValue(ValuesProperty);
@@ -86,6 +102,30 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         set => SetValue(MaxPointsProperty, value);
     }
 
+    public string AxisUnit
+    {
+        get => (string)GetValue(AxisUnitProperty);
+        set => SetValue(AxisUnitProperty, value);
+    }
+
+    public string AxisFormat
+    {
+        get => (string)GetValue(AxisFormatProperty);
+        set => SetValue(AxisFormatProperty, value);
+    }
+
+    public bool IsSigned
+    {
+        get => (bool)GetValue(IsSignedProperty);
+        set => SetValue(IsSignedProperty, value);
+    }
+
+    public bool SmoothLine
+    {
+        get => (bool)GetValue(SmoothLineProperty);
+        set => SetValue(SmoothLineProperty, value);
+    }
+
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
@@ -103,45 +143,111 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         double?[] raw = Values?.TakeLast(maxPoints).ToArray() ?? [];
         int originalCount = Values?.Count() ?? raw.Length;
         int firstVisibleIndex = Math.Max(0, originalCount - raw.Length);
-        double scaleMaximum = CalculateScaleMaximum(raw);
+        GraphScale scale = CalculateScale(raw, IsSigned);
+        double zeroY = MapValueToY(0, scale, Layout.TopPadding, plotHeight);
+        double?[] displayRaw = SmoothLine ? SmoothValues(raw) : raw;
 
         DrawGrid(drawingContext, Layout.LeftPadding, Layout.TopPadding, plotWidth, plotHeight);
-        DrawAxisLabels(drawingContext, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding, plotHeight, scaleMaximum);
+        DrawAxisLabels(drawingContext, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding, plotHeight, scale, AxisUnit, AxisFormat);
         DrawTimeLabels(drawingContext, Layout.LeftPadding, plotWidth, plotBottom + Layout.TimeLabelTopGap);
 
-        var points = BuildPoints(raw, firstVisibleIndex, maxPoints, scaleMaximum, Layout.LeftPadding, Layout.TopPadding, plotWidth, plotHeight);
+        var points = BuildPoints(displayRaw, firstVisibleIndex, maxPoints, scale, Layout.LeftPadding, Layout.TopPadding, plotWidth, plotHeight);
 
         if (points.Count < 2)
         {
             var emptyPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
-            drawingContext.DrawLine(emptyPen, new WindowsPoint(Layout.LeftPadding, Layout.TopPadding + plotHeight / 2), new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding + plotHeight / 2));
+            drawingContext.DrawLine(emptyPen, new WindowsPoint(Layout.LeftPadding, zeroY), new WindowsPoint(Layout.LeftPadding + plotWidth, zeroY));
             return;
         }
 
-        DrawArea(drawingContext, points, plotBottom);
+        DrawArea(drawingContext, points, zeroY, CreateAreaBrush(Fill, points, zeroY));
         DrawLine(drawingContext, points);
         DrawPeaks(drawingContext, points, bounds);
     }
 
-    private void DrawArea(DrawingContext context, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points, double bottom)
+    private void DrawArea(DrawingContext context, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points, double baselineY, MediaBrush? fill)
     {
-        if (Fill is null)
+        if (fill is null)
         {
             return;
         }
 
         var geometry = new StreamGeometry();
         using StreamGeometryContext stream = geometry.Open();
-        stream.BeginFigure(new WindowsPoint(points[0].Point.X, bottom), true, true);
+        stream.BeginFigure(new WindowsPoint(points[0].Point.X, baselineY), true, true);
         stream.LineTo(points[0].Point, true, false);
-        for (int i = 1; i < points.Count; i++)
+        AppendLineSegments(stream, points);
+
+        stream.LineTo(new WindowsPoint(points[^1].Point.X, baselineY), true, false);
+        geometry.Freeze();
+        context.DrawGeometry(fill, null, geometry);
+    }
+
+    private MediaBrush? CreateAreaBrush(MediaBrush? fill, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points, double baselineY)
+    {
+        if (fill is null)
         {
-            stream.LineTo(points[i].Point, true, false);
+            return null;
         }
 
-        stream.LineTo(new WindowsPoint(points[^1].Point.X, bottom), true, false);
-        geometry.Freeze();
-        context.DrawGeometry(Fill, null, geometry);
+        MediaColor color = ResolveBrushColor(fill, MediaColor.FromArgb(84, 245, 170, 45));
+        byte strongAlpha = color.A > 0 ? color.A : (byte)84;
+        if (!IsSigned)
+        {
+            strongAlpha = (byte)Math.Clamp(Math.Max((int)strongAlpha, 92) * 1.3, 0, 190);
+        }
+
+        byte midAlpha = (byte)Math.Clamp(strongAlpha * 0.45, 0, 255);
+        byte weakAlpha = (byte)Math.Max(0, strongAlpha * 0.08);
+        double top = Math.Min(baselineY, points.Min(point => point.Point.Y));
+        double bottom = Math.Max(baselineY, points.Max(point => point.Point.Y));
+        if (Math.Abs(bottom - top) < 1)
+        {
+            bottom = top + 1;
+        }
+
+        double baselineOffset = Math.Clamp((baselineY - top) / (bottom - top), 0, 1);
+
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new WindowsPoint(0, top),
+            EndPoint = new WindowsPoint(0, bottom),
+            MappingMode = BrushMappingMode.Absolute
+        };
+
+        if (IsSigned)
+        {
+            brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(strongAlpha, color.R, color.G, color.B), 0));
+            brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(weakAlpha, color.R, color.G, color.B), baselineOffset));
+            brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(strongAlpha, color.R, color.G, color.B), 1));
+        }
+        else
+        {
+            brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(strongAlpha, color.R, color.G, color.B), 0));
+            brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(midAlpha, color.R, color.G, color.B), 0.45));
+            brush.GradientStops.Add(new GradientStop(MediaColor.FromArgb(weakAlpha, color.R, color.G, color.B), 1));
+        }
+
+        brush.Freeze();
+        return brush;
+    }
+
+    private static MediaColor ResolveBrushColor(MediaBrush brush, MediaColor fallback)
+    {
+        if (brush is SolidColorBrush solid)
+        {
+            return solid.Color;
+        }
+
+        if (brush is LinearGradientBrush gradient && gradient.GradientStops.Count > 0)
+        {
+            return gradient.GradientStops
+                .OrderByDescending(stop => stop.Color.A)
+                .First()
+                .Color;
+        }
+
+        return fallback;
     }
 
     private void DrawLine(DrawingContext context, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points)
@@ -149,13 +255,72 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         var geometry = new StreamGeometry();
         using StreamGeometryContext stream = geometry.Open();
         stream.BeginFigure(points[0].Point, false, false);
-        for (int i = 1; i < points.Count; i++)
-        {
-            stream.LineTo(points[i].Point, true, false);
-        }
+        AppendLineSegments(stream, points);
 
         geometry.Freeze();
         context.DrawGeometry(null, CreateCurvePen(Stroke), geometry);
+    }
+
+    private void AppendLineSegments(StreamGeometryContext stream, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points)
+    {
+        if (!SmoothLine || points.Count < 4)
+        {
+            for (int i = 1; i < points.Count; i++)
+            {
+                stream.LineTo(points[i].Point, true, false);
+            }
+
+            return;
+        }
+
+        for (int i = 0; i < points.Count - 1; i++)
+        {
+            WindowsPoint p0 = i == 0 ? points[i].Point : points[i - 1].Point;
+            WindowsPoint p1 = points[i].Point;
+            WindowsPoint p2 = points[i + 1].Point;
+            WindowsPoint p3 = i + 2 < points.Count ? points[i + 2].Point : p2;
+
+            WindowsPoint control1 = new(p1.X + (p2.X - p0.X) / 6d, p1.Y + (p2.Y - p0.Y) / 6d);
+            WindowsPoint control2 = new(p2.X - (p3.X - p1.X) / 6d, p2.Y - (p3.Y - p1.Y) / 6d);
+            stream.BezierTo(control1, control2, p2, true, false);
+        }
+    }
+
+    private static double?[] SmoothValues(IReadOnlyList<double?> values)
+    {
+        if (values.Count < 4)
+        {
+            return values.ToArray();
+        }
+
+        int[] weights = [1, 2, 4, 2, 1];
+        var smoothed = new double?[values.Count];
+        for (int i = 0; i < values.Count; i++)
+        {
+            if (!values[i].HasValue)
+            {
+                continue;
+            }
+
+            double sum = 0;
+            int weightSum = 0;
+            for (int offset = -2; offset <= 2; offset++)
+            {
+                int index = i + offset;
+                if (index < 0 || index >= values.Count || values[index] is not { } value)
+                {
+                    continue;
+                }
+
+                int weight = weights[offset + 2];
+                sum += value * weight;
+                weightSum += weight;
+            }
+
+            smoothed[i] = weightSum > 0 ? sum / weightSum : values[i];
+        }
+
+        return smoothed;
     }
 
     private void DrawPeaks(DrawingContext context, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points, Rect bounds)
@@ -221,7 +386,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         IReadOnlyList<double?> values,
         int firstVisibleIndex,
         int maxPoints,
-        double scaleMaximum,
+        GraphScale scale,
         double left,
         double top,
         double width,
@@ -237,25 +402,37 @@ public sealed class UsageDetailGraphControl : FrameworkElement
                 continue;
             }
 
-            value = Math.Clamp(value, 0, 100);
+            value = Math.Clamp(value, scale.Minimum, scale.Maximum);
             int slot = firstSlot + i;
             double x = left + slot * (width - 1) / (slotCount - 1);
-            double y = top + height - Math.Clamp(value / scaleMaximum, 0, 1) * (height - 4);
+            double y = MapValueToY(value, scale, top, height);
             points.Add((firstVisibleIndex + i, new WindowsPoint(x, y), value));
         }
 
         return points;
     }
 
-    private static double CalculateScaleMaximum(IEnumerable<double?> values)
+    private static GraphScale CalculateScale(IEnumerable<double?> values, bool signed)
     {
-        double maximum = values.Where(v => v.HasValue).Select(v => Math.Clamp(v!.Value, 0, 100)).DefaultIfEmpty(0).Max();
-        if (maximum <= 0.05)
+        double[] visible = values.Where(v => v.HasValue).Select(v => v!.Value).ToArray();
+        if (signed)
         {
-            return 10;
+            double extent = visible.Select(Math.Abs).DefaultIfEmpty(0).Max();
+            extent = RoundScaleMaximum(Math.Clamp(extent * Layout.PeakLabelHeadroomMultiplier, 5, 100));
+            return new GraphScale(-extent, extent);
         }
 
-        double target = Math.Clamp(maximum * Layout.PeakLabelHeadroomMultiplier, 10, 100);
+        double maximum = visible.Select(v => Math.Clamp(v, 0, 100)).DefaultIfEmpty(0).Max();
+        if (maximum <= 0.05)
+        {
+            return new GraphScale(0, 10);
+        }
+
+        return new GraphScale(0, RoundScaleMaximum(Math.Clamp(maximum * Layout.PeakLabelHeadroomMultiplier, 10, 100)));
+    }
+
+    private static double RoundScaleMaximum(double target)
+    {
         double step = target switch
         {
             <= 20 => 5,
@@ -264,6 +441,12 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         };
 
         return Math.Clamp(Math.Ceiling(target / step) * step, 10, 100);
+    }
+
+    private static double MapValueToY(double value, GraphScale scale, double top, double height)
+    {
+        double range = Math.Max(1, scale.Maximum - scale.Minimum);
+        return top + height - Math.Clamp((value - scale.Minimum) / range, 0, 1) * (height - 4);
     }
 
     private static void DrawGrid(DrawingContext context, double left, double top, double width, double height)
@@ -283,15 +466,15 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         context.DrawLine(axisPen, new WindowsPoint(left + width, top), new WindowsPoint(left + width, top + height));
     }
 
-    private static void DrawAxisLabels(DrawingContext context, double x, double top, double height, double scaleMaximum)
+    private static void DrawAxisLabels(DrawingContext context, double x, double top, double height, GraphScale scale, string unit, string format)
     {
         string[] labels =
         [
-            FormatPercent(scaleMaximum),
-            FormatPercent(scaleMaximum * 0.75),
-            FormatPercent(scaleMaximum * 0.5),
-            FormatPercent(scaleMaximum * 0.25),
-            "0%"
+            FormatAxisValue(scale.Maximum, unit, format),
+            FormatAxisValue(scale.Minimum + (scale.Maximum - scale.Minimum) * 0.75, unit, format),
+            FormatAxisValue(scale.Minimum + (scale.Maximum - scale.Minimum) * 0.5, unit, format),
+            FormatAxisValue(scale.Minimum + (scale.Maximum - scale.Minimum) * 0.25, unit, format),
+            FormatAxisValue(scale.Minimum, unit, format)
         ];
         var brush = new SolidColorBrush(MediaColor.FromRgb(183, 188, 196));
         for (int i = 0; i < labels.Length; i++)
@@ -306,8 +489,11 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         }
     }
 
-    private static string FormatPercent(double value) =>
-        value >= 10 ? $"{value:N0}%" : $"{value:N1}%";
+    private static string FormatAxisValue(double value, string unit, string format)
+    {
+        string effectiveFormat = value >= 10 && format == "N1" ? "N0" : format;
+        return $"{value.ToString(effectiveFormat)}{unit}";
+    }
 
     private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)
     {
@@ -350,4 +536,6 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             EndLineCap = PenLineCap.Round,
             LineJoin = PenLineJoin.Round
         };
+
+    private readonly record struct GraphScale(double Minimum, double Maximum);
 }
