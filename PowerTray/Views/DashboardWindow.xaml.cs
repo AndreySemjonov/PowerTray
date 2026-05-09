@@ -77,6 +77,15 @@ public partial class DashboardWindow : Window
         OpenContextMenu(PowerButton);
     }
 
+    private void AboutButton_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new AboutWindow
+        {
+            Owner = this
+        };
+        window.ShowDialog();
+    }
+
     private void DashboardBehaviorButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement element || element.ContextMenu is null)

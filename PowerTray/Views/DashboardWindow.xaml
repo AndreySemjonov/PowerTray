@@ -47,6 +47,7 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Content="&#xE946;" FontFamily="Segoe MDL2 Assets" Click="AboutButton_Click" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="About PowerTray" />
                         <Button Content="&#xE718;" FontFamily="Segoe MDL2 Assets" Click="DashboardBehaviorButton_Click" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="{Binding DashboardBehaviorButtonToolTip}">
                             <Button.ContextMenu>
                                 <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
