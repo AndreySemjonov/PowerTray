@@ -257,7 +257,10 @@ public sealed class SettingsViewModel : ObservableObject
 
         _settingsService.Save(settings);
         _startupService.SetEnabled(StartWithWindows);
-        Status = "Saved.";
+        StartWithWindows = _startupService.IsEnabled();
+        Status = StartWithWindows == settings.StartWithWindows
+            ? "Saved."
+            : "Saved, but Windows startup registration did not persist.";
         Saved?.Invoke(this, EventArgs.Empty);
     }
 

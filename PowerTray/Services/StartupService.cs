@@ -8,7 +8,7 @@ public sealed class StartupService
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string AppName = "PowerTray";
-    private const string LegacyAppName = "PowerTray";
+    private const string LegacyAppName = "XPSBatteryTray";
 
     public bool IsEnabled()
     {
