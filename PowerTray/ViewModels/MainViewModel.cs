@@ -229,6 +229,7 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(PowerSaveChipText));
                 OnPropertyChanged(nameof(BatteryTimeText));
                 OnPropertyChanged(nameof(BatteryPowerText));
+                NotifyTopCardsChanged();
                 OnPropertyChanged(nameof(BatteryHealthText));
                 OnPropertyChanged(nameof(BatteryCycleText));
                 OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
@@ -265,6 +266,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _dellThermalSetting, value))
             {
                 OnPropertyChanged(nameof(DellThermalProfileText));
+                OnPropertyChanged(nameof(ThermalModeText));
                 OnPropertyChanged(nameof(DellThermalProfileToolTip));
                 OnPropertyChanged(nameof(OptimizedThermalProfileMenuText));
                 OnPropertyChanged(nameof(CoolThermalProfileMenuText));
@@ -301,6 +303,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _cpuUsagePercent, value))
             {
                 OnPropertyChanged(nameof(CpuUsageText));
+                OnPropertyChanged(nameof(ActivityCpuText));
                 OnPropertyChanged(nameof(CpuGaugeValue));
                 OnPropertyChanged(nameof(CpuNowDetailText));
             }
@@ -315,6 +318,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _gpuUsagePercent, value))
             {
                 OnPropertyChanged(nameof(GpuUsageText));
+                OnPropertyChanged(nameof(ActivityGpuText));
                 OnPropertyChanged(nameof(GpuNowDetailText));
             }
         }
@@ -329,6 +333,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(CpuTemperatureText));
                 OnPropertyChanged(nameof(CpuTemperatureDisplay));
+                OnPropertyChanged(nameof(ThermalTemperatureText));
             }
         }
     }
@@ -342,6 +347,7 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(CpuPowerText));
                 OnPropertyChanged(nameof(CpuPackagePowerDisplay));
+                OnPropertyChanged(nameof(ThermalPackagePowerText));
             }
         }
     }
@@ -354,6 +360,7 @@ public sealed class MainViewModel : ObservableObject
             if (SetProperty(ref _batteryPowerWatts, value))
             {
                 OnPropertyChanged(nameof(BatteryPowerText));
+                NotifyTopCardsChanged();
                 OnPropertyChanged(nameof(BatteryDrainSummaryText));
                 OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
                 OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
@@ -785,6 +792,14 @@ public sealed class MainViewModel : ObservableObject
     public string BatteryPowerText => BatteryPowerWatts is { } watts
         ? $"{watts:N1} W"
         : "Watts unavailable";
+    public string BatteryPowerValueText => BatteryPowerWatts is { } watts ? $"{watts:N1} W" : "-- W";
+    public string BatteryAveragePowerText => _averageBatteryDischargeWatts is { } avg ? $"10m avg -{avg:N1} W" : "10m avg --";
+    public string BatteryRateValueText => $"Rate {CalculateBatteryPercentRateText(Battery, _averageBatteryDischargeWatts)}";
+    public string ThermalTemperatureText => CpuTemperatureCelsius is { } value ? $"{value:N0} °C" : "-- °C";
+    public string ThermalModeText => DellThermalProfileText is "Unknown" or "Unavailable" ? PowerModeChipText : $"{DellThermalProfileText} mode";
+    public string ThermalPackagePowerText => CpuPackagePowerWatts is { } value ? $"Package {value:N1} W" : "Package -- W";
+    public string ActivityCpuText => $"CPU {CpuUsagePercent:N0}%";
+    public string ActivityGpuText => GpuUsagePercent is { } value ? $"GPU {value:N0}%" : "GPU --";
     public string BatteryDrainSummaryText
     {
         get
@@ -1418,6 +1433,7 @@ public sealed class MainViewModel : ObservableObject
 
         _averageBatteryDischargeWatts = CalculateAverageBatteryDischargeWatts(_samples);
         _averageBatteryTimeRemaining = CalculateAverageBatteryTimeRemaining(Battery, _averageBatteryDischargeWatts);
+        NotifyTopCardsChanged();
         OnPropertyChanged(nameof(BatteryDrainSummaryText));
         OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
         OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
@@ -2208,6 +2224,13 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDashboardManualCloseSelected));
         OnPropertyChanged(nameof(IsDashboardStayOnTopSelected));
         OnPropertyChanged(nameof(DashboardBehaviorButtonToolTip));
+    }
+
+    private void NotifyTopCardsChanged()
+    {
+        OnPropertyChanged(nameof(BatteryPowerValueText));
+        OnPropertyChanged(nameof(BatteryAveragePowerText));
+        OnPropertyChanged(nameof(BatteryRateValueText));
     }
 
     private void NotifyBatteryWattsDetailMetricsChanged()
