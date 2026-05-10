@@ -19,6 +19,11 @@ public sealed class AppSettings
     public DellThermalProfile PowerEfficiencyThermalProfile { get; set; } = DellThermalProfile.Quiet;
     public DellThermalProfile BalancedThermalProfile { get; set; } = DellThermalProfile.Optimized;
     public DellThermalProfile PerformanceThermalProfile { get; set; } = DellThermalProfile.UltraPerformance;
+    public bool UseBiosSetupPassword { get; set; }
+    public string EncryptedBiosSetupPassword { get; set; } = string.Empty;
+    public bool ShowBatteryWattsTile { get; set; } = true;
+    public bool ShowCpuGpuUsageTile { get; set; } = true;
+    public bool ShowBatteryUsageSection { get; set; } = true;
     public DashboardWindowBehavior DashboardWindowBehavior { get; set; } = DashboardWindowBehavior.AutoHide;
     public AppTheme Theme { get; set; } = AppTheme.FollowSystem;
 }

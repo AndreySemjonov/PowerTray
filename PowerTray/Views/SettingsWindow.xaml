@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="PowerTray Settings"
         Width="820"
-        Height="730"
+        Height="820"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         WindowStyle="None"
@@ -78,6 +78,8 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <TextBlock Text="Dell Command"
                                        Foreground="{StaticResource AccentBrush}"
@@ -90,8 +92,36 @@
                                         Width="86"
                                         Height="32"
                                         Margin="8,0,0,0" />
-                                <TextBox Text="{Binding CctkPath, UpdateSourceTrigger=PropertyChanged}" />
-                            </DockPanel>
+                                 <TextBox Text="{Binding CctkPath, UpdateSourceTrigger=PropertyChanged}" />
+                             </DockPanel>
+                            <CheckBox Grid.Row="2"
+                                      Content="Use BIOS setup password for Dell commands"
+                                      IsChecked="{Binding UseBiosSetupPassword}"
+                                      Margin="0,8,0,0" />
+                            <Grid Grid.Row="3" Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="86" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <PasswordBox x:Name="BiosSetupPasswordBox"
+                                             PasswordChanged="BiosSetupPasswordBox_PasswordChanged"
+                                             ToolTip="Stored encrypted for the current Windows user. Leave empty to keep the saved password." />
+                                <Button Grid.Column="1"
+                                        Content="Clear"
+                                        Command="{Binding ClearBiosSetupPasswordCommand}"
+                                        Height="32"
+                                        Margin="8,0,0,0" />
+                                <TextBlock Grid.Row="1"
+                                           Grid.ColumnSpan="2"
+                                           Text="{Binding BiosSetupPasswordStatusText}"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           FontSize="10"
+                                           Margin="0,4,0,0" />
+                            </Grid>
                         </Grid>
                     </Border>
 
@@ -287,18 +317,16 @@
                                 <TextBox Grid.Column="3" Text="{Binding BalancedStop}" />
                             </Grid>
 
-                            <Grid Grid.Row="1" Grid.Column="2" Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="178" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Theme"
+                            <StackPanel Grid.Row="1" Grid.RowSpan="3" Grid.Column="2" Margin="0,8,0,0">
+                                <CheckBox Content="Show Battery Watts tile" IsChecked="{Binding ShowBatteryWattsTile}" />
+                                <CheckBox Content="Show CPU / GPU Usage tile" IsChecked="{Binding ShowCpuGpuUsageTile}" />
+                                <CheckBox Content="Show Battery Usage / Impact (24h)" IsChecked="{Binding ShowBatteryUsageSection}" />
+                                <TextBlock Text="Light theme is hidden until it is fully implemented."
                                            Foreground="{StaticResource MutedTextBrush}"
-                                           VerticalAlignment="Center" />
-                                <ComboBox Grid.Column="1"
-                                          ItemsSource="{Binding Themes}"
-                                          SelectedItem="{Binding Theme}" />
-                            </Grid>
+                                           FontSize="10"
+                                           TextWrapping="Wrap"
+                                           Margin="0,6,0,0" />
+                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>

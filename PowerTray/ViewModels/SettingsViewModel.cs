@@ -26,6 +26,12 @@ public sealed class SettingsViewModel : ObservableObject
     private DellThermalProfile _powerEfficiencyThermalProfile;
     private DellThermalProfile _balancedThermalProfile;
     private DellThermalProfile _performanceThermalProfile;
+    private bool _useBiosSetupPassword;
+    private string _biosSetupPassword = string.Empty;
+    private bool _hasSavedBiosSetupPassword;
+    private bool _showBatteryWattsTile;
+    private bool _showCpuGpuUsageTile;
+    private bool _showBatteryUsageSection;
     private AppTheme _theme;
     private string _status = string.Empty;
 
@@ -51,10 +57,16 @@ public sealed class SettingsViewModel : ObservableObject
         _powerEfficiencyThermalProfile = settings.PowerEfficiencyThermalProfile;
         _balancedThermalProfile = settings.BalancedThermalProfile;
         _performanceThermalProfile = settings.PerformanceThermalProfile;
+        _useBiosSetupPassword = settings.UseBiosSetupPassword;
+        _hasSavedBiosSetupPassword = !string.IsNullOrWhiteSpace(settings.EncryptedBiosSetupPassword);
+        _showBatteryWattsTile = settings.ShowBatteryWattsTile;
+        _showCpuGpuUsageTile = settings.ShowCpuGpuUsageTile;
+        _showBatteryUsageSection = settings.ShowBatteryUsageSection;
         _theme = settings.Theme;
 
         BrowseCommand = new RelayCommand(Browse);
         BrowseHwinfoRecoveryScriptCommand = new RelayCommand(BrowseHwinfoRecoveryScript);
+        ClearBiosSetupPasswordCommand = new RelayCommand(ClearBiosSetupPassword);
         SaveCommand = new RelayCommand(Save);
     }
 
@@ -178,6 +190,60 @@ public sealed class SettingsViewModel : ObservableObject
         set => SetProperty(ref _performanceThermalProfile, value);
     }
 
+    public bool UseBiosSetupPassword
+    {
+        get => _useBiosSetupPassword;
+        set => SetProperty(ref _useBiosSetupPassword, value);
+    }
+
+    public string BiosSetupPassword
+    {
+        get => _biosSetupPassword;
+        set
+        {
+            if (SetProperty(ref _biosSetupPassword, value))
+            {
+                OnPropertyChanged(nameof(BiosSetupPasswordStatusText));
+            }
+        }
+    }
+
+    public bool HasSavedBiosSetupPassword
+    {
+        get => _hasSavedBiosSetupPassword;
+        private set
+        {
+            if (SetProperty(ref _hasSavedBiosSetupPassword, value))
+            {
+                OnPropertyChanged(nameof(BiosSetupPasswordStatusText));
+            }
+        }
+    }
+
+    public string BiosSetupPasswordStatusText => !string.IsNullOrEmpty(BiosSetupPassword)
+        ? "New password will be encrypted and saved."
+        : HasSavedBiosSetupPassword
+            ? "Saved password is encrypted for this Windows user."
+            : "No BIOS setup password saved.";
+
+    public bool ShowBatteryWattsTile
+    {
+        get => _showBatteryWattsTile;
+        set => SetProperty(ref _showBatteryWattsTile, value);
+    }
+
+    public bool ShowCpuGpuUsageTile
+    {
+        get => _showCpuGpuUsageTile;
+        set => SetProperty(ref _showCpuGpuUsageTile, value);
+    }
+
+    public bool ShowBatteryUsageSection
+    {
+        get => _showBatteryUsageSection;
+        set => SetProperty(ref _showBatteryUsageSection, value);
+    }
+
     public AppTheme Theme
     {
         get => _theme;
@@ -192,6 +258,7 @@ public sealed class SettingsViewModel : ObservableObject
 
     public ICommand BrowseCommand { get; }
     public ICommand BrowseHwinfoRecoveryScriptCommand { get; }
+    public ICommand ClearBiosSetupPasswordCommand { get; }
     public ICommand SaveCommand { get; }
 
     private void Browse()
@@ -224,6 +291,13 @@ public sealed class SettingsViewModel : ObservableObject
         }
     }
 
+    private void ClearBiosSetupPassword()
+    {
+        BiosSetupPassword = string.Empty;
+        HasSavedBiosSetupPassword = false;
+        Status = "Saved BIOS setup password will be removed when you save settings.";
+    }
+
     private void Save()
     {
         if (HealthStart < 0 || HealthStop > 100 || HealthStart >= HealthStop ||
@@ -231,6 +305,16 @@ public sealed class SettingsViewModel : ObservableObject
         {
             Status = "Preset ranges must be valid percentages with start below stop.";
             return;
+        }
+
+        string encryptedBiosSetupPassword = _settingsService.Current.EncryptedBiosSetupPassword;
+        if (!string.IsNullOrEmpty(BiosSetupPassword))
+        {
+            encryptedBiosSetupPassword = SecretProtectionService.Protect(BiosSetupPassword);
+        }
+        else if (!HasSavedBiosSetupPassword)
+        {
+            encryptedBiosSetupPassword = string.Empty;
         }
 
         var settings = new AppSettings
@@ -252,12 +336,19 @@ public sealed class SettingsViewModel : ObservableObject
             PowerEfficiencyThermalProfile = PowerEfficiencyThermalProfile,
             BalancedThermalProfile = BalancedThermalProfile,
             PerformanceThermalProfile = PerformanceThermalProfile,
-            Theme = Theme
+            UseBiosSetupPassword = UseBiosSetupPassword,
+            EncryptedBiosSetupPassword = encryptedBiosSetupPassword,
+            ShowBatteryWattsTile = ShowBatteryWattsTile,
+            ShowCpuGpuUsageTile = ShowCpuGpuUsageTile,
+            ShowBatteryUsageSection = ShowBatteryUsageSection,
+            Theme = AppTheme.FollowSystem
         };
 
         _settingsService.Save(settings);
         _startupService.SetEnabled(StartWithWindows);
         StartWithWindows = _startupService.IsEnabled();
+        BiosSetupPassword = string.Empty;
+        HasSavedBiosSetupPassword = !string.IsNullOrWhiteSpace(settings.EncryptedBiosSetupPassword);
         Status = StartWithWindows == settings.StartWithWindows
             ? "Saved."
             : "Saved, but Windows startup registration did not persist.";

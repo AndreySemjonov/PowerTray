@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -16,7 +17,16 @@ public partial class DashboardWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         IsVisibleChanged += OnDashboardIsVisibleChanged;
+        SizeChanged += OnDashboardSizeChanged;
+        _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        ApplyDashboardWindowHeight();
         _viewModel.IsDashboardVisible = IsVisible;
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        base.OnClosed(e);
     }
 
     protected override void OnDeactivated(EventArgs e)
@@ -27,6 +37,56 @@ public partial class DashboardWindow : Window
 
     private void OnDashboardIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) =>
         _viewModel.IsDashboardVisible = IsVisible;
+
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.DashboardWindowHeight))
+        {
+            ApplyDashboardWindowHeight();
+        }
+    }
+
+    private void ApplyDashboardWindowHeight()
+    {
+        double targetHeight = Math.Clamp(_viewModel.DashboardWindowHeight, MinHeight, MaxHeight);
+        if (Math.Abs(Height - targetHeight) < 0.5)
+        {
+            return;
+        }
+
+        double previousHeight = ActualHeight > 0 ? ActualHeight : Height;
+        Height = targetHeight;
+        RepositionAfterHeightChange(previousHeight);
+    }
+
+    private void OnDashboardSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        RepositionAfterHeightChange(e.PreviousSize.Height);
+    }
+
+    private void RepositionAfterHeightChange(double previousHeight)
+    {
+        if (!IsVisible)
+        {
+            return;
+        }
+
+        Rect workArea = SystemParameters.WorkArea;
+        double previousBottom = Top + previousHeight;
+        double trayAlignedBottom = workArea.Bottom - 12;
+        bool wasBottomAligned = previousHeight > 0 && Math.Abs(previousBottom - trayAlignedBottom) <= 24;
+
+        if (wasBottomAligned)
+        {
+            Top = Math.Max(workArea.Top, trayAlignedBottom - ActualHeight);
+        }
+        else
+        {
+            Top = Math.Min(Math.Max(workArea.Top, Top), Math.Max(workArea.Top, workArea.Bottom - ActualHeight - 12));
+        }
+
+        Left = Math.Min(Math.Max(workArea.Left, Left), Math.Max(workArea.Left, workArea.Right - ActualWidth - 12));
+    }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {

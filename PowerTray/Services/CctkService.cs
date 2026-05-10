@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Security.Principal;
 using System.Text.Json;
 using PowerTray.Models;
@@ -105,7 +106,7 @@ public sealed class CctkService
             return await ExecuteElevatedViaSelfAsync(cctkPath, argument);
         }
 
-        return await RunCctkAsync(cctkPath, argument);
+        return await RunCctkAsync(cctkPath, BuildArgumentWithSetupPassword(argument, _settingsService.Current, requiresAdmin));
     }
 
     public static async Task<CommandResult> RunCctkAsync(string cctkPath, string argument)
@@ -127,6 +128,8 @@ public sealed class CctkService
             string stderr = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
 
+            stdout = RedactSetupPassword(stdout);
+            stderr = RedactSetupPassword(stderr);
             string message = string.IsNullOrWhiteSpace(stderr) ? stdout.Trim() : stderr.Trim();
             if (string.IsNullOrWhiteSpace(message))
             {
@@ -139,9 +142,9 @@ public sealed class CctkService
                 ExitCode = process.ExitCode,
                 StandardOutput = stdout,
                 StandardError = stderr,
-                Message = message
+                Message = BuildFriendlyMessage(process.ExitCode, message)
             };
-            LogService.Info($"cctk {argument} -> exit {result.ExitCode}. stdout: {stdout.Trim()} stderr: {stderr.Trim()}");
+            LogService.Info($"cctk {RedactSetupPassword(argument)} -> exit {result.ExitCode}. stdout: {stdout.Trim()} stderr: {stderr.Trim()}");
             return result;
         }
         catch (Exception ex)
@@ -161,7 +164,10 @@ public sealed class CctkService
         string cctkPath = args[1];
         string argument = args[2];
         string outputPath = args[3];
-        CommandResult result = await RunCctkAsync(cctkPath, argument);
+        var settingsService = new SettingsService();
+        AppSettings settings = settingsService.Load();
+        settings.CctkPath = cctkPath;
+        CommandResult result = await RunCctkAsync(cctkPath, BuildArgumentWithSetupPassword(argument, settings, includeSetupPassword: true));
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         await File.WriteAllTextAsync(outputPath, JsonSerializer.Serialize(result));
         return result.ExitCode;
@@ -198,7 +204,7 @@ public sealed class CctkService
                 File.Delete(outputPath);
                 CommandResult result = JsonSerializer.Deserialize<CommandResult>(json) ??
                        new CommandResult { Success = false, ExitCode = process.ExitCode, Message = "Elevated command returned no readable result." };
-                LogService.Info($"elevated cctk {argument} -> exit {result.ExitCode}. stdout: {result.StandardOutput.Trim()} stderr: {result.StandardError.Trim()}");
+                LogService.Info($"elevated cctk {RedactSetupPassword(argument)} -> exit {result.ExitCode}. stdout: {RedactSetupPassword(result.StandardOutput.Trim())} stderr: {RedactSetupPassword(result.StandardError.Trim())}");
                 return result;
             }
 
@@ -223,6 +229,42 @@ public sealed class CctkService
     }
 
     private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
+
+    private static string BuildArgumentWithSetupPassword(string argument, AppSettings settings, bool includeSetupPassword)
+    {
+        if (!includeSetupPassword || !settings.UseBiosSetupPassword)
+        {
+            return argument;
+        }
+
+        string? password = SecretProtectionService.Unprotect(settings.EncryptedBiosSetupPassword);
+        if (string.IsNullOrEmpty(password))
+        {
+            return argument;
+        }
+
+        return $"{argument} --ValSetupPwd={Quote(password)}";
+    }
+
+    private static string BuildFriendlyMessage(int exitCode, string message)
+    {
+        if (exitCode == 65 && message.Contains("Setup Password is required", StringComparison.OrdinalIgnoreCase))
+        {
+            return "BIOS setup password is required. Open Settings and save your BIOS setup password for Dell commands.";
+        }
+
+        return message;
+    }
+
+    private static string RedactSetupPassword(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return text;
+        }
+
+        return Regex.Replace(text, "--ValSetupPwd(?:=|\\s+)\"?[^\"]+\"?", "--ValSetupPwd=<redacted>", RegexOptions.IgnoreCase);
+    }
 
     private static string ToCctkThermalValue(DellThermalProfile profile) => profile switch
     {

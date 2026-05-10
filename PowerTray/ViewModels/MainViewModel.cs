@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reflection;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using PowerTray.Models;
@@ -10,6 +11,11 @@ namespace PowerTray.ViewModels;
 
 public sealed class MainViewModel : ObservableObject
 {
+    private const double DashboardBaseHeight = 342;
+    private const double DashboardThermalSectionHeight = 50;
+    private const double DashboardGraphSectionHeight = 220;
+    private const double DashboardLowerSectionHeight = 308;
+    private const double DashboardFullHeight = DashboardBaseHeight + DashboardGraphSectionHeight + DashboardLowerSectionHeight;
     private static readonly TimeSpan ProcessRefreshInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiagnosticProcessRefreshInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan WindowsBatteryUsageRefreshInterval = TimeSpan.FromMinutes(15);
@@ -142,6 +148,7 @@ public sealed class MainViewModel : ObservableObject
             ConfigureTimer();
             OnPropertyChanged(nameof(DetailSamplingText));
             NotifyUsageDetailMetricsChanged();
+            NotifyDashboardWindowSizeChanged();
             if (value)
             {
                 _ = RefreshAsync();
@@ -162,6 +169,7 @@ public sealed class MainViewModel : ObservableObject
             ConfigureTimer();
             OnPropertyChanged(nameof(DetailSamplingText));
             NotifyBatteryWattsDetailMetricsChanged();
+            NotifyDashboardWindowSizeChanged();
             if (value)
             {
                 _ = RefreshAsync();
@@ -172,7 +180,13 @@ public sealed class MainViewModel : ObservableObject
     public bool IsBatteryUsageDetailsVisible
     {
         get => _isBatteryUsageDetailsVisible;
-        private set => SetProperty(ref _isBatteryUsageDetailsVisible, value);
+        private set
+        {
+            if (SetProperty(ref _isBatteryUsageDetailsVisible, value))
+            {
+                NotifyDashboardWindowSizeChanged();
+            }
+        }
     }
 
     public int SelectedSectionIndex
@@ -180,7 +194,7 @@ public sealed class MainViewModel : ObservableObject
         get => _selectedSectionIndex;
         set
         {
-            if (SetProperty(ref _selectedSectionIndex, value) && value == 1 && IsDashboardVisible)
+            if (SetProperty(ref _selectedSectionIndex, value) && value == 1 && ShowBatteryUsageSection && IsDashboardVisible)
             {
                 _ = RefreshWindowsBatteryUsageAsync(force: false);
             }
@@ -206,7 +220,7 @@ public sealed class MainViewModel : ObservableObject
 
             RefreshGraphBindingsFromSamples();
             _ = RefreshAsync();
-            if (SelectedSectionIndex == 1)
+            if (SelectedSectionIndex == 1 && ShowBatteryUsageSection)
             {
                 _ = RefreshWindowsBatteryUsageAsync(force: false);
             }
@@ -699,6 +713,28 @@ public sealed class MainViewModel : ObservableObject
     public bool IsDellThermalControlVisible => IsDellChargeModeAvailable && _settingsService.Current.DellThermalControlMode != DellThermalControlMode.Off;
     public bool IsDellThermalManualVisible => IsDellChargeModeAvailable && _settingsService.Current.DellThermalControlMode == DellThermalControlMode.Manual;
     public bool IsDellThermalSyncVisible => IsDellChargeModeAvailable && _settingsService.Current.DellThermalControlMode == DellThermalControlMode.SyncWithWindowsPowerPlan;
+    public bool ShowBatteryWattsTile => _settingsService.Current.ShowBatteryWattsTile;
+    public bool ShowCpuGpuUsageTile => _settingsService.Current.ShowCpuGpuUsageTile;
+    public bool ShowBatteryUsageSection => _settingsService.Current.ShowBatteryUsageSection;
+    public bool IsDashboardGraphRowVisible => ShowBatteryWattsTile || ShowCpuGpuUsageTile;
+    public bool IsAnyDashboardDetailVisible => IsUsageDetailsVisible || IsBatteryWattsDetailsVisible || IsBatteryUsageDetailsVisible;
+    public Visibility BatteryWattsTileVisibility => ShowBatteryWattsTile ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility CpuGpuUsageTileVisibility => ShowCpuGpuUsageTile ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility DashboardGraphRowVisibility => IsDashboardGraphRowVisible ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility BatteryUsageSectionVisibility => ShowBatteryUsageSection ? Visibility.Visible : Visibility.Collapsed;
+    public GridLength DashboardGraphRowHeight => IsDashboardGraphRowVisible ? new GridLength(DashboardGraphSectionHeight) : new GridLength(0);
+    public GridLength DashboardLowerSectionRowHeight => ShowBatteryUsageSection || IsAnyDashboardDetailVisible
+        ? new GridLength(1, GridUnitType.Star)
+        : new GridLength(0);
+    public GridLength BatteryWattsTileColumnWidth => ShowBatteryWattsTile ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+    public GridLength CpuGpuUsageTileColumnWidth => ShowCpuGpuUsageTile ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+    public GridLength DashboardTileGapWidth => ShowBatteryWattsTile && ShowCpuGpuUsageTile ? new GridLength(10) : new GridLength(0);
+    public double DashboardWindowHeight => IsAnyDashboardDetailVisible
+        ? DashboardFullHeight
+        : DashboardBaseHeight -
+          (IsDellThermalControlVisible ? 0 : DashboardThermalSectionHeight) +
+          (IsDashboardGraphRowVisible ? DashboardGraphSectionHeight : 0) +
+          (ShowBatteryUsageSection ? DashboardLowerSectionHeight : 0);
     public string CctkStatusText => _cctkService.IsConfigured ? "OK" : "missing";
     public string SampleIntervalText => $"Sample {_settingsService.Current.SensorSampleIntervalSeconds}s";
     public string PowerModeText => CurrentWindowsPowerMode is { } mode
@@ -939,10 +975,16 @@ public sealed class MainViewModel : ObservableObject
         NotifyDashboardWindowBehaviorChanged();
         OnPropertyChanged(nameof(IsDellChargeModeAvailable));
         NotifyDellThermalSettingsChanged();
+        NotifyDashboardSectionVisibilityChanged();
         OnPropertyChanged(nameof(CctkStatusText));
         OnPropertyChanged(nameof(FooterStatusText));
         OnPropertyChanged(nameof(DetailSamplingText));
         NotifyUsageDetailMetricsChanged();
+        if (!ShowBatteryUsageSection)
+        {
+            SelectedSectionIndex = 0;
+            IsBatteryUsageDetailsVisible = false;
+        }
 
         if (IsDellChargeModeAvailable)
         {
@@ -1589,7 +1631,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task SelectBatteryUsageRangeAsync(object? parameter, bool showDetails)
     {
-        if (parameter is not BatteryUsageSelection selection)
+        if (!ShowBatteryUsageSection || parameter is not BatteryUsageSelection selection)
         {
             return;
         }
@@ -2213,6 +2255,7 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CoolThermalProfileMenuText));
         OnPropertyChanged(nameof(QuietThermalProfileMenuText));
         OnPropertyChanged(nameof(UltraPerformanceThermalProfileMenuText));
+        NotifyDashboardWindowSizeChanged();
     }
 
     private void NotifyDashboardWindowBehaviorChanged()
@@ -2224,6 +2267,32 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDashboardManualCloseSelected));
         OnPropertyChanged(nameof(IsDashboardStayOnTopSelected));
         OnPropertyChanged(nameof(DashboardBehaviorButtonToolTip));
+    }
+
+    private void NotifyDashboardSectionVisibilityChanged()
+    {
+        OnPropertyChanged(nameof(ShowBatteryWattsTile));
+        OnPropertyChanged(nameof(ShowCpuGpuUsageTile));
+        OnPropertyChanged(nameof(ShowBatteryUsageSection));
+        OnPropertyChanged(nameof(IsAnyDashboardDetailVisible));
+        OnPropertyChanged(nameof(IsDashboardGraphRowVisible));
+        OnPropertyChanged(nameof(BatteryWattsTileVisibility));
+        OnPropertyChanged(nameof(CpuGpuUsageTileVisibility));
+        OnPropertyChanged(nameof(DashboardGraphRowVisibility));
+        OnPropertyChanged(nameof(BatteryUsageSectionVisibility));
+        OnPropertyChanged(nameof(DashboardGraphRowHeight));
+        OnPropertyChanged(nameof(DashboardLowerSectionRowHeight));
+        OnPropertyChanged(nameof(BatteryWattsTileColumnWidth));
+        OnPropertyChanged(nameof(CpuGpuUsageTileColumnWidth));
+        OnPropertyChanged(nameof(DashboardTileGapWidth));
+        NotifyDashboardWindowSizeChanged();
+    }
+
+    private void NotifyDashboardWindowSizeChanged()
+    {
+        OnPropertyChanged(nameof(IsAnyDashboardDetailVisible));
+        OnPropertyChanged(nameof(DashboardLowerSectionRowHeight));
+        OnPropertyChanged(nameof(DashboardWindowHeight));
     }
 
     private void NotifyTopCardsChanged()
