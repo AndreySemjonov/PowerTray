@@ -26,7 +26,6 @@ public sealed class AppSettings
     public bool ShowBatteryUsageSection { get; set; } = true;
     public DashboardWindowBehavior DashboardWindowBehavior { get; set; } = DashboardWindowBehavior.AutoHide;
     public AppTheme Theme { get; set; } = AppTheme.FollowSystem;
-    public TrayIconStyle TrayIconStyle { get; set; } = TrayIconStyle.AppIcon;
     public string LastDellThermalSetting { get; set; } = string.Empty;
 }
 
@@ -57,10 +56,4 @@ public enum DashboardWindowBehavior
     AutoHide,
     ManualClose,
     StayOnTop
-}
-
-public enum TrayIconStyle
-{
-    AppIcon,
-    StatusIcon
 }
