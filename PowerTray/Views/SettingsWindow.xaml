@@ -321,11 +321,20 @@
                                 <CheckBox Content="Show Battery Watts tile" IsChecked="{Binding ShowBatteryWattsTile}" />
                                 <CheckBox Content="Show CPU / GPU Usage tile" IsChecked="{Binding ShowCpuGpuUsageTile}" />
                                 <CheckBox Content="Show Battery Usage / Impact (24h)" IsChecked="{Binding ShowBatteryUsageSection}" />
-                                <TextBlock Text="Light theme is hidden until it is fully implemented."
-                                           Foreground="{StaticResource MutedTextBrush}"
-                                           FontSize="10"
-                                           TextWrapping="Wrap"
-                                           Margin="0,6,0,0" />
+                                <Grid Margin="0,6,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="156" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Theme"
+                                               Foreground="{StaticResource MutedTextBrush}"
+                                               VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1"
+                                              ItemsSource="{Binding Themes}"
+                                              DisplayMemberPath="DisplayName"
+                                              SelectedValuePath="Value"
+                                              SelectedValue="{Binding Theme}" />
+                                </Grid>
                             </StackPanel>
                         </Grid>
                     </Border>

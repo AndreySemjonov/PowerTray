@@ -12,6 +12,30 @@
     <Color x:Key="GoodAccentColor">#6EE16D</Color>
     <Color x:Key="ControlBgColor">#2A2C31</Color>
     <Color x:Key="ControlHoverColor">#363940</Color>
+    <Color x:Key="ControlPressedColor">#202328</Color>
+    <Color x:Key="InputBgColor">#11161B</Color>
+    <Color x:Key="CheckboxBgColor">#12171C</Color>
+    <Color x:Key="PopupBgColor">#1D2228</Color>
+    <Color x:Key="SelectionColor">#3358A6FF</Color>
+    <Color x:Key="HighlightBgColor">#26313A</Color>
+    <Color x:Key="HighlightBorderColor">#3B6B86</Color>
+    <Color x:Key="SelectedBgColor">#1F4254</Color>
+    <Color x:Key="ProgressTrackColor">#111316</Color>
+    <Color x:Key="TooltipBgColor">#20252B</Color>
+    <Color x:Key="ContextMenuBgColor">#1C1E22</Color>
+    <Color x:Key="TitleButtonHoverColor">#33363B</Color>
+    <Color x:Key="TitleButtonPressedColor">#464A51</Color>
+    <Color x:Key="TitleCloseHoverColor">#C42B1C</Color>
+    <Color x:Key="TitleClosePressedColor">#A4261A</Color>
+    <Color x:Key="ChipBgColor">#1F2328</Color>
+    <Color x:Key="DashboardChipBgColor">#24282E</Color>
+    <Color x:Key="TabHoverBgColor">#141C23</Color>
+    <Color x:Key="MiniBarBgColor">#252A2F</Color>
+    <Color x:Key="MiniBarFgColor">#3D7BC1</Color>
+    <Color x:Key="MetricCardBgColor">#20252B</Color>
+    <Color x:Key="InsetPanelBgColor">#1D2228</Color>
+    <Color x:Key="ButtonPanelBgColor">#182027</Color>
+    <Color x:Key="GpuAccentColor">#54D6C6</Color>
 
     <SolidColorBrush x:Key="WindowBg" Color="{StaticResource WindowBgColor}" />
     <SolidColorBrush x:Key="TopBarBg" Color="{StaticResource TopBarBgColor}" />
@@ -25,6 +49,30 @@
     <SolidColorBrush x:Key="GoodAccentBrush" Color="{StaticResource GoodAccentColor}" />
     <SolidColorBrush x:Key="ControlBg" Color="{StaticResource ControlBgColor}" />
     <SolidColorBrush x:Key="ControlHover" Color="{StaticResource ControlHoverColor}" />
+    <SolidColorBrush x:Key="ControlPressed" Color="{StaticResource ControlPressedColor}" />
+    <SolidColorBrush x:Key="InputBg" Color="{StaticResource InputBgColor}" />
+    <SolidColorBrush x:Key="CheckboxBg" Color="{StaticResource CheckboxBgColor}" />
+    <SolidColorBrush x:Key="PopupBg" Color="{StaticResource PopupBgColor}" />
+    <SolidColorBrush x:Key="SelectionBrush" Color="{StaticResource SelectionColor}" />
+    <SolidColorBrush x:Key="HighlightBg" Color="{StaticResource HighlightBgColor}" />
+    <SolidColorBrush x:Key="HighlightBorder" Color="{StaticResource HighlightBorderColor}" />
+    <SolidColorBrush x:Key="SelectedBg" Color="{StaticResource SelectedBgColor}" />
+    <SolidColorBrush x:Key="ProgressTrack" Color="{StaticResource ProgressTrackColor}" />
+    <SolidColorBrush x:Key="TooltipBg" Color="{StaticResource TooltipBgColor}" />
+    <SolidColorBrush x:Key="ContextMenuBg" Color="{StaticResource ContextMenuBgColor}" />
+    <SolidColorBrush x:Key="TitleButtonHover" Color="{StaticResource TitleButtonHoverColor}" />
+    <SolidColorBrush x:Key="TitleButtonPressed" Color="{StaticResource TitleButtonPressedColor}" />
+    <SolidColorBrush x:Key="TitleCloseHover" Color="{StaticResource TitleCloseHoverColor}" />
+    <SolidColorBrush x:Key="TitleClosePressed" Color="{StaticResource TitleClosePressedColor}" />
+    <SolidColorBrush x:Key="ChipBg" Color="{StaticResource ChipBgColor}" />
+    <SolidColorBrush x:Key="DashboardChipBg" Color="{StaticResource DashboardChipBgColor}" />
+    <SolidColorBrush x:Key="TabHoverBg" Color="{StaticResource TabHoverBgColor}" />
+    <SolidColorBrush x:Key="MiniBarBg" Color="{StaticResource MiniBarBgColor}" />
+    <SolidColorBrush x:Key="MiniBarFg" Color="{StaticResource MiniBarFgColor}" />
+    <SolidColorBrush x:Key="MetricCardBg" Color="{StaticResource MetricCardBgColor}" />
+    <SolidColorBrush x:Key="InsetPanelBg" Color="{StaticResource InsetPanelBgColor}" />
+    <SolidColorBrush x:Key="ButtonPanelBg" Color="{StaticResource ButtonPanelBgColor}" />
+    <SolidColorBrush x:Key="GpuAccentBrush" Color="{StaticResource GpuAccentColor}" />
 
     <LinearGradientBrush x:Key="PanelGlow" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#20262B" Offset="0" />
@@ -72,7 +120,7 @@
                             <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Border" Property="Background" Value="#202328" />
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource ControlPressed}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.45" />
@@ -84,12 +132,12 @@
     </Style>
 
     <Style TargetType="TextBox">
-        <Setter Property="Background" Value="#11161B" />
+        <Setter Property="Background" Value="{StaticResource InputBg}" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}" />
-        <Setter Property="SelectionBrush" Value="#3358A6FF" />
+        <Setter Property="SelectionBrush" Value="{StaticResource SelectionBrush}" />
         <Setter Property="Padding" Value="10,6" />
         <Setter Property="MinHeight" Value="34" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -118,12 +166,12 @@
     </Style>
 
     <Style TargetType="PasswordBox">
-        <Setter Property="Background" Value="#11161B" />
+        <Setter Property="Background" Value="{StaticResource InputBg}" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CaretBrush" Value="{StaticResource AccentBrush}" />
-        <Setter Property="SelectionBrush" Value="#3358A6FF" />
+        <Setter Property="SelectionBrush" Value="{StaticResource SelectionBrush}" />
         <Setter Property="Padding" Value="10,6" />
         <Setter Property="MinHeight" Value="34" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -166,7 +214,7 @@
                         <Border x:Name="Box"
                                 Width="16"
                                 Height="16"
-                                Background="#12171C"
+                                Background="{StaticResource CheckboxBg}"
                                 BorderBrush="{StaticResource PanelBorder}"
                                 BorderThickness="1"
                                 CornerRadius="4"
@@ -205,7 +253,7 @@
 
     <Style TargetType="{x:Type ComboBoxItem}">
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-        <Setter Property="Background" Value="#1D2228" />
+        <Setter Property="Background" Value="{StaticResource PopupBg}" />
         <Setter Property="Padding" Value="10,6" />
         <Setter Property="MinHeight" Value="30" />
         <Setter Property="Template">
@@ -223,11 +271,11 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="ItemBorder" Property="Background" Value="#26313A" />
-                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#3B6B86" />
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource HighlightBg}" />
+                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{StaticResource HighlightBorder}" />
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="ItemBorder" Property="Background" Value="#1F4254" />
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource SelectedBg}" />
                             <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -237,7 +285,7 @@
     </Style>
 
     <Style TargetType="ComboBox">
-        <Setter Property="Background" Value="#11161B" />
+        <Setter Property="Background" Value="{StaticResource InputBg}" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
         <Setter Property="BorderThickness" Value="1" />
@@ -298,7 +346,7 @@
                                AllowsTransparency="True"
                                Focusable="False"
                                PopupAnimation="Fade">
-                            <Border Background="#1D2228"
+                            <Border Background="{StaticResource PopupBg}"
                                     BorderBrush="{StaticResource PanelBorder}"
                                     BorderThickness="1"
                                     CornerRadius="7"
@@ -325,12 +373,12 @@
 
     <Style TargetType="ProgressBar">
         <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
-        <Setter Property="Background" Value="#111316" />
+        <Setter Property="Background" Value="{StaticResource ProgressTrack}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
     </Style>
 
     <Style TargetType="{x:Type ToolTip}">
-        <Setter Property="Background" Value="#20252B" />
+        <Setter Property="Background" Value="{StaticResource TooltipBg}" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
         <Setter Property="BorderThickness" Value="1" />
@@ -357,7 +405,7 @@
     </Style>
 
     <Style TargetType="{x:Type ContextMenu}">
-        <Setter Property="Background" Value="#1C1E22" />
+        <Setter Property="Background" Value="{StaticResource ContextMenuBg}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
         <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
         <Setter Property="FontFamily" Value="Segoe UI" />
@@ -431,11 +479,11 @@
                             <Setter TargetName="CheckGlyph" Property="Opacity" Value="1" />
                         </Trigger>
                         <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="ItemBorder" Property="Background" Value="#26313A" />
-                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#3B6B86" />
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource HighlightBg}" />
+                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{StaticResource HighlightBorder}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="ItemBorder" Property="Background" Value="#1F4254" />
+                            <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource SelectedBg}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.45" />
@@ -474,10 +522,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Border" Property="Background" Value="#33363B" />
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource TitleButtonHover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Border" Property="Background" Value="#464A51" />
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource TitleButtonPressed}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -494,10 +542,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Border" Property="Background" Value="#C42B1C" />
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource TitleCloseHover}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Border" Property="Background" Value="#A4261A" />
+                            <Setter TargetName="Border" Property="Background" Value="{StaticResource TitleClosePressed}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -514,7 +562,7 @@
     </Style>
 
     <Style x:Key="ChipStyle" TargetType="Border">
-        <Setter Property="Background" Value="#1F2328" />
+        <Setter Property="Background" Value="{StaticResource ChipBg}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="9" />
@@ -522,7 +570,7 @@
     </Style>
 
     <Style x:Key="DashboardChipStyle" TargetType="Border">
-        <Setter Property="Background" Value="#24282E" />
+        <Setter Property="Background" Value="{StaticResource DashboardChipBg}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorder}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="7" />
@@ -587,7 +635,7 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
-                            <Setter TargetName="TabRoot" Property="Background" Value="#141C23" />
+                            <Setter TargetName="TabRoot" Property="Background" Value="{StaticResource TabHoverBg}" />
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
@@ -613,8 +661,8 @@
     <Style x:Key="MiniBarStyle" TargetType="ProgressBar">
         <Setter Property="Height" Value="9" />
         <Setter Property="Minimum" Value="0" />
-        <Setter Property="Background" Value="#252A2F" />
-        <Setter Property="Foreground" Value="#3D7BC1" />
+        <Setter Property="Background" Value="{StaticResource MiniBarBg}" />
+        <Setter Property="Foreground" Value="{StaticResource MiniBarFg}" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Template">
             <Setter.Value>

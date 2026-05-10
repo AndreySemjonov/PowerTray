@@ -72,7 +72,12 @@ public sealed class SettingsViewModel : ObservableObject
 
     public event EventHandler? Saved;
 
-    public IEnumerable<AppTheme> Themes => Enum.GetValues<AppTheme>();
+    public IEnumerable<AppThemeOption> Themes { get; } =
+    [
+        new(AppTheme.FollowSystem, "Follow Windows"),
+        new(AppTheme.Light, "Light"),
+        new(AppTheme.Dark, "Dark")
+    ];
     public IEnumerable<DellThermalControlModeOption> DellThermalControlModes { get; } =
     [
         new(DellThermalControlMode.Off, "Off"),
@@ -342,7 +347,7 @@ public sealed class SettingsViewModel : ObservableObject
             ShowCpuGpuUsageTile = ShowCpuGpuUsageTile,
             ShowBatteryUsageSection = ShowBatteryUsageSection,
             DashboardWindowBehavior = _settingsService.Current.DashboardWindowBehavior,
-            Theme = AppTheme.FollowSystem,
+            Theme = Theme,
             LastDellThermalSetting = _settingsService.Current.LastDellThermalSetting
         };
 
@@ -363,6 +368,11 @@ public sealed class SettingsViewModel : ObservableObject
     }
 
     public sealed record DellThermalProfileOption(DellThermalProfile Value, string DisplayName)
+    {
+        public override string ToString() => DisplayName;
+    }
+
+    public sealed record AppThemeOption(AppTheme Value, string DisplayName)
     {
         public override string ToString() => DisplayName;
     }

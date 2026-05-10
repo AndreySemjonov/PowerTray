@@ -44,6 +44,7 @@ public partial class App : System.Windows.Application
 
         var settingsService = new SettingsService();
         settingsService.Load();
+        ThemeService.Apply(settingsService.Current.Theme);
         var startupService = new StartupService();
         RefreshStartupRegistration(startupService);
         var cctkService = new CctkService(settingsService);
@@ -59,7 +60,11 @@ public partial class App : System.Windows.Application
         {
             var settingsViewModel = new SettingsViewModel(settingsService, startupService);
             var window = new SettingsWindow(settingsViewModel);
-            settingsViewModel.Saved += (_, _) => _mainViewModel.ReloadSettings();
+            settingsViewModel.Saved += (_, _) =>
+            {
+                ThemeService.Apply(settingsService.Current.Theme);
+                _mainViewModel.ReloadSettings();
+            };
             return window;
         });
 
