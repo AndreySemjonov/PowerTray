@@ -43,7 +43,7 @@ public sealed class RingGaugeControl : FrameworkElement
         var center = new WindowsPoint(ActualWidth / 2, ActualHeight / 2);
         double radius = size / 2 - 8;
         double thickness = Math.Max(7, size * 0.09);
-        drawingContext.DrawEllipse(null, new MediaPen(new SolidColorBrush(MediaColor.FromRgb(58, 60, 64)), thickness), center, radius, radius);
+        drawingContext.DrawEllipse(null, new MediaPen(ResourceBrush("PanelBorder", MediaColor.FromRgb(58, 60, 64), 0.85), thickness), center, radius, radius);
 
         double percent = Math.Clamp(Value, 0, 100);
         if (percent <= 0.01)
@@ -69,4 +69,17 @@ public sealed class RingGaugeControl : FrameworkElement
         double angle = angleDegrees * Math.PI / 180d;
         return new WindowsPoint(center.X + radius * Math.Cos(angle), center.Y + radius * Math.Sin(angle));
     }
+
+    private MediaBrush ResourceBrush(string key, MediaColor fallback, double opacity = 1)
+    {
+        if (TryFindResource(key) is SolidColorBrush brush)
+        {
+            return opacity >= 0.999 ? brush : new SolidColorBrush(WithOpacity(brush.Color, opacity));
+        }
+
+        return new SolidColorBrush(WithOpacity(fallback, opacity));
+    }
+
+    private static MediaColor WithOpacity(MediaColor color, double opacity) =>
+        MediaColor.FromArgb((byte)Math.Clamp(opacity * 255, 0, 255), color.R, color.G, color.B);
 }

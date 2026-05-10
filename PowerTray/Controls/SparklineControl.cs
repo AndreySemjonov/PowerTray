@@ -107,7 +107,11 @@ public sealed class SparklineControl : FrameworkElement
         var rect = new Rect(0, 0, ActualWidth, ActualHeight);
         double plotHeight = Math.Max(1, ActualHeight - Layout.TopPadding - Layout.BottomLabelHeight);
         double plotWidth = Math.Max(1, ActualWidth - Layout.LeftPadding - Layout.RightAxisWidth);
-        var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(80, 88, 92, 98)), 1);
+        MediaBrush gridBrush = ResourceBrush("PanelBorder", MediaColor.FromArgb(80, 88, 92, 98), 0.75);
+        MediaBrush mutedBrush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(175, 178, 184));
+        MediaBrush textBrush = ResourceBrush("TextBrush", MediaColor.FromRgb(235, 238, 242));
+        MediaBrush tooltipBrush = ResourceBrush("TooltipBg", MediaColor.FromArgb(220, 24, 27, 31));
+        var gridPen = new MediaPen(gridBrush, 1);
         for (int i = 1; i <= 3; i++)
         {
             double y = Layout.TopPadding + i * plotHeight / 4d;
@@ -118,10 +122,10 @@ public sealed class SparklineControl : FrameworkElement
         double[] values = Values?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
         double[] secondaryValues = SecondaryValues?.Where(v => v.HasValue).Select(v => v!.Value).TakeLast(maxPoints).ToArray() ?? [];
         double[] scaleValues = values.Concat(secondaryValues).ToArray();
-        DrawTimeLabels(drawingContext, Layout.LeftPadding, plotWidth, Layout.TopPadding + plotHeight + 7);
+        DrawTimeLabels(drawingContext, Layout.LeftPadding, plotWidth, Layout.TopPadding + plotHeight + 7, mutedBrush);
         if (scaleValues.Length < 2 || ActualWidth <= 1 || ActualHeight <= 1)
         {
-            var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
+            var pen = new MediaPen(gridBrush, 1);
             drawingContext.DrawLine(pen, new WindowsPoint(Layout.LeftPadding, Layout.TopPadding + plotHeight / 2), new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding + plotHeight / 2));
             return;
         }
@@ -162,19 +166,18 @@ public sealed class SparklineControl : FrameworkElement
             drawingContext.DrawGeometry(null, CreateCurvePen(SecondaryStroke), secondaryGeometry);
         }
 
-        var axisPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(47, 54, 64)), 1);
+        var axisPen = new MediaPen(gridBrush, 1);
         drawingContext.DrawLine(axisPen, new WindowsPoint(Layout.LeftPadding, Layout.TopPadding + plotHeight), new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding + plotHeight));
         drawingContext.DrawLine(axisPen, new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding), new WindowsPoint(Layout.LeftPadding + plotWidth, Layout.TopPadding + plotHeight));
 
-        var textBrush = new SolidColorBrush(MediaColor.FromRgb(175, 178, 184));
-        DrawLabel(drawingContext, max, textBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding - 1);
-        DrawLabel(drawingContext, (max + min) / 2d, textBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding + plotHeight / 2d - 7);
-        DrawLabel(drawingContext, min, textBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding + plotHeight - 14);
+        DrawLabel(drawingContext, max, mutedBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding - 1);
+        DrawLabel(drawingContext, (max + min) / 2d, mutedBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding + plotHeight / 2d - 7);
+        DrawLabel(drawingContext, min, mutedBrush, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding + plotHeight - 14);
 
         if (secondaryPoints.Count > 2 && !isFlat)
         {
-            DrawSeriesMaxLabel(drawingContext, points, Stroke, rect, preferAbove: true);
-            DrawSeriesMaxLabel(drawingContext, secondaryPoints, SecondaryStroke, rect, preferAbove: false);
+            DrawSeriesMaxLabel(drawingContext, points, Stroke, rect, true, textBrush, tooltipBrush);
+            DrawSeriesMaxLabel(drawingContext, secondaryPoints, SecondaryStroke, rect, false, textBrush, tooltipBrush);
         }
         else if (points.Count > 2 && !isFlat)
         {
@@ -193,12 +196,12 @@ public sealed class SparklineControl : FrameworkElement
                 }
             }
 
-            DrawPeakLabel(drawingContext, points[maxIndex].Point, points[maxIndex].Value, Stroke, rect, preferAbove: true);
-            DrawPeakLabel(drawingContext, points[minIndex].Point, points[minIndex].Value, Stroke, rect, preferAbove: false);
+            DrawPeakLabel(drawingContext, points[maxIndex].Point, points[maxIndex].Value, Stroke, rect, true, textBrush, tooltipBrush);
+            DrawPeakLabel(drawingContext, points[minIndex].Point, points[minIndex].Value, Stroke, rect, false, textBrush, tooltipBrush);
         }
     }
 
-    private static void DrawSeriesMaxLabel(DrawingContext context, IReadOnlyList<(WindowsPoint Point, double Value)> points, MediaBrush accent, Rect bounds, bool preferAbove)
+    private static void DrawSeriesMaxLabel(DrawingContext context, IReadOnlyList<(WindowsPoint Point, double Value)> points, MediaBrush accent, Rect bounds, bool preferAbove, MediaBrush textBrush, MediaBrush backgroundBrush)
     {
         if (points.Count == 0)
         {
@@ -214,7 +217,7 @@ public sealed class SparklineControl : FrameworkElement
             }
         }
 
-        DrawPeakLabel(context, points[maxIndex].Point, points[maxIndex].Value, accent, bounds, preferAbove);
+        DrawPeakLabel(context, points[maxIndex].Point, points[maxIndex].Value, accent, bounds, preferAbove, textBrush, backgroundBrush);
     }
 
     private static List<(WindowsPoint Point, double Value)> BuildPoints(double[] values, double min, double max, int maxPoints, double leftPadding, double plotWidth, double topPadding, double plotHeight)
@@ -371,7 +374,7 @@ public sealed class SparklineControl : FrameworkElement
         context.DrawText(formatted, new WindowsPoint(x, y));
     }
 
-    private static void DrawPeakLabel(DrawingContext context, WindowsPoint point, double value, MediaBrush accent, Rect bounds, bool preferAbove)
+    private static void DrawPeakLabel(DrawingContext context, WindowsPoint point, double value, MediaBrush accent, Rect bounds, bool preferAbove, MediaBrush textBrush, MediaBrush backgroundBrush)
     {
         string text = Math.Abs(value) >= 10 ? value.ToString("N0") : value.ToString("N1");
         var formatted = new FormattedText(
@@ -380,7 +383,7 @@ public sealed class SparklineControl : FrameworkElement
             System.Windows.FlowDirection.LeftToRight,
             new Typeface("Segoe UI Semibold"),
             8,
-            new SolidColorBrush(MediaColor.FromRgb(235, 238, 242)),
+            textBrush,
             1.0);
 
         double width = formatted.Width + 8;
@@ -397,14 +400,13 @@ public sealed class SparklineControl : FrameworkElement
         }
 
         var labelRect = new Rect(x, y, width, height);
-        context.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromArgb(220, 24, 27, 31)), new MediaPen(accent, 1), labelRect, 3, 3);
+        context.DrawRoundedRectangle(backgroundBrush, new MediaPen(accent, 1), labelRect, 3, 3);
         context.DrawText(formatted, new WindowsPoint(x + 4, y));
     }
 
-    private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)
+    private static void DrawTimeLabels(DrawingContext context, double left, double width, double y, MediaBrush brush)
     {
         string[] labels = ["10m", "8m", "6m", "4m", "2m", "Now"];
-        var brush = new SolidColorBrush(MediaColor.FromRgb(165, 171, 178));
         for (int i = 0; i < labels.Length; i++)
         {
             double x = left + i * width / (labels.Length - 1);
@@ -428,4 +430,17 @@ public sealed class SparklineControl : FrameworkElement
             context.DrawText(formatted, new WindowsPoint(x, y));
         }
     }
+
+    private MediaBrush ResourceBrush(string key, MediaColor fallback, double opacity = 1)
+    {
+        if (TryFindResource(key) is SolidColorBrush brush)
+        {
+            return opacity >= 0.999 ? brush : new SolidColorBrush(WithOpacity(brush.Color, opacity));
+        }
+
+        return new SolidColorBrush(WithOpacity(fallback, opacity));
+    }
+
+    private static MediaColor WithOpacity(MediaColor color, double opacity) =>
+        MediaColor.FromArgb((byte)Math.Clamp(opacity * 255, 0, 255), color.R, color.G, color.B);
 }

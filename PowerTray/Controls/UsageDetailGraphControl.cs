@@ -147,22 +147,27 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         double zeroY = MapValueToY(0, scale, Layout.TopPadding, plotHeight);
         double?[] displayRaw = SmoothLine ? SmoothValues(raw) : raw;
 
-        DrawGrid(drawingContext, Layout.LeftPadding, Layout.TopPadding, plotWidth, plotHeight);
-        DrawAxisLabels(drawingContext, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding, plotHeight, scale, AxisUnit, AxisFormat);
-        DrawTimeLabels(drawingContext, Layout.LeftPadding, plotWidth, plotBottom + Layout.TimeLabelTopGap);
+        MediaBrush gridBrush = ResourceBrush("PanelBorder", MediaColor.FromArgb(62, 94, 101, 111), 0.7);
+        MediaBrush mutedBrush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(183, 188, 196));
+        MediaBrush textBrush = ResourceBrush("TextBrush", MediaColor.FromRgb(240, 244, 248));
+        MediaBrush tooltipBrush = ResourceBrush("TooltipBg", MediaColor.FromArgb(230, 25, 30, 36));
+
+        DrawGrid(drawingContext, Layout.LeftPadding, Layout.TopPadding, plotWidth, plotHeight, gridBrush);
+        DrawAxisLabels(drawingContext, Layout.LeftPadding + plotWidth + Layout.RightAxisLabelGap, Layout.TopPadding, plotHeight, scale, AxisUnit, AxisFormat, mutedBrush);
+        DrawTimeLabels(drawingContext, Layout.LeftPadding, plotWidth, plotBottom + Layout.TimeLabelTopGap, mutedBrush);
 
         var points = BuildPoints(displayRaw, firstVisibleIndex, maxPoints, scale, Layout.LeftPadding, Layout.TopPadding, plotWidth, plotHeight);
 
         if (points.Count < 2)
         {
-            var emptyPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
+            var emptyPen = new MediaPen(gridBrush, 1);
             drawingContext.DrawLine(emptyPen, new WindowsPoint(Layout.LeftPadding, zeroY), new WindowsPoint(Layout.LeftPadding + plotWidth, zeroY));
             return;
         }
 
         DrawArea(drawingContext, points, zeroY, CreateAreaBrush(Fill, points, zeroY));
         DrawLine(drawingContext, points);
-        DrawPeaks(drawingContext, points, bounds);
+        DrawPeaks(drawingContext, points, bounds, textBrush, tooltipBrush);
     }
 
     private void DrawArea(DrawingContext context, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points, double baselineY, MediaBrush? fill)
@@ -323,7 +328,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         return smoothed;
     }
 
-    private void DrawPeaks(DrawingContext context, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points, Rect bounds)
+    private void DrawPeaks(DrawingContext context, IReadOnlyList<(int Index, WindowsPoint Point, double Value)> points, Rect bounds, MediaBrush textBrush, MediaBrush backgroundBrush)
     {
         Dictionary<int, WindowsPoint> pointsByIndex = points.ToDictionary(point => point.Index, point => point.Point);
         var usedLabelRects = new List<Rect>();
@@ -334,12 +339,12 @@ public sealed class UsageDetailGraphControl : FrameworkElement
                 continue;
             }
 
-            context.DrawEllipse(new SolidColorBrush(MediaColor.FromArgb(210, 26, 31, 36)), new MediaPen(Stroke, 1.4), point, Layout.PeakMarkerRadius, Layout.PeakMarkerRadius);
-            DrawPeakLabel(context, peak.LabelText, point, bounds, usedLabelRects);
+            context.DrawEllipse(backgroundBrush, new MediaPen(Stroke, 1.4), point, Layout.PeakMarkerRadius, Layout.PeakMarkerRadius);
+            DrawPeakLabel(context, peak.LabelText, point, bounds, usedLabelRects, textBrush, backgroundBrush);
         }
     }
 
-    private void DrawPeakLabel(DrawingContext context, string text, WindowsPoint point, Rect bounds, IList<Rect> usedLabelRects)
+    private void DrawPeakLabel(DrawingContext context, string text, WindowsPoint point, Rect bounds, IList<Rect> usedLabelRects, MediaBrush textBrush, MediaBrush backgroundBrush)
     {
         var formatted = new FormattedText(
             text,
@@ -347,7 +352,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             System.Windows.FlowDirection.LeftToRight,
             new Typeface("Segoe UI Semibold"),
             Typography.PeakLabelSize,
-            new SolidColorBrush(MediaColor.FromRgb(240, 244, 248)),
+            textBrush,
             1.0)
         {
             MaxTextWidth = Math.Min(Layout.PeakLabelMaxWidth, Math.Max(Layout.PeakLabelMinWidth, bounds.Width - Layout.PeakLabelMinWidth)),
@@ -378,7 +383,7 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         }
 
         usedLabelRects.Add(labelRect);
-        context.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromArgb(230, 25, 30, 36)), new MediaPen(Stroke, 1), labelRect, 4, 4);
+        context.DrawRoundedRectangle(backgroundBrush, new MediaPen(Stroke, 1), labelRect, 4, 4);
         context.DrawText(formatted, new WindowsPoint(labelRect.X + 5, labelRect.Y + 2));
     }
 
@@ -462,9 +467,9 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         return top + height - Math.Clamp((value - scale.Minimum) / range, 0, 1) * (height - 4);
     }
 
-    private static void DrawGrid(DrawingContext context, double left, double top, double width, double height)
+    private static void DrawGrid(DrawingContext context, double left, double top, double width, double height, MediaBrush gridBrush)
     {
-        var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(62, 94, 101, 111)), 1)
+        var gridPen = new MediaPen(gridBrush, 1)
         {
             DashStyle = new DashStyle([4, 4], 0)
         };
@@ -474,12 +479,12 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             context.DrawLine(gridPen, new WindowsPoint(left, y), new WindowsPoint(left + width, y));
         }
 
-        var axisPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(47, 54, 64)), 1);
+        var axisPen = new MediaPen(gridBrush, 1);
         context.DrawLine(axisPen, new WindowsPoint(left, top + height), new WindowsPoint(left + width, top + height));
         context.DrawLine(axisPen, new WindowsPoint(left + width, top), new WindowsPoint(left + width, top + height));
     }
 
-    private static void DrawAxisLabels(DrawingContext context, double x, double top, double height, GraphScale scale, string unit, string format)
+    private static void DrawAxisLabels(DrawingContext context, double x, double top, double height, GraphScale scale, string unit, string format, MediaBrush brush)
     {
         string[] labels =
         [
@@ -489,7 +494,6 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             FormatAxisValue(scale.Minimum + (scale.Maximum - scale.Minimum) * 0.25, unit, format),
             FormatAxisValue(scale.Minimum, unit, format)
         ];
-        var brush = new SolidColorBrush(MediaColor.FromRgb(183, 188, 196));
         for (int i = 0; i < labels.Length; i++)
         {
             double y = top + i * height / 4d - 7;
@@ -508,10 +512,9 @@ public sealed class UsageDetailGraphControl : FrameworkElement
         return $"{value.ToString(effectiveFormat)}{unit}";
     }
 
-    private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)
+    private static void DrawTimeLabels(DrawingContext context, double left, double width, double y, MediaBrush brush)
     {
         string[] labels = ["10m", "8m", "6m", "4m", "2m", "Now"];
-        var brush = new SolidColorBrush(MediaColor.FromRgb(165, 171, 178));
         for (int i = 0; i < labels.Length; i++)
         {
             var formatted = CreateText(labels[i], brush, "Segoe UI", Typography.TimeLabelSize);
@@ -549,6 +552,19 @@ public sealed class UsageDetailGraphControl : FrameworkElement
             EndLineCap = PenLineCap.Round,
             LineJoin = PenLineJoin.Round
         };
+
+    private MediaBrush ResourceBrush(string key, MediaColor fallback, double opacity = 1)
+    {
+        if (TryFindResource(key) is SolidColorBrush brush)
+        {
+            return opacity >= 0.999 ? brush : new SolidColorBrush(WithOpacity(brush.Color, opacity));
+        }
+
+        return new SolidColorBrush(WithOpacity(fallback, opacity));
+    }
+
+    private static MediaColor WithOpacity(MediaColor color, double opacity) =>
+        MediaColor.FromArgb((byte)Math.Clamp(opacity * 255, 0, 255), color.R, color.G, color.B);
 
     private readonly record struct GraphScale(double Minimum, double Maximum);
 }

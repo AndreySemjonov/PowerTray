@@ -97,13 +97,23 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
     {
         _hoverText = new TextBlock
         {
-            Foreground = new SolidColorBrush(MediaColor.FromRgb(242, 244, 247)),
             FontFamily = new System.Windows.Media.FontFamily("Segoe UI"),
             FontSize = 12,
             LineHeight = 19,
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = 280
         };
+        _hoverText.SetResourceReference(TextBlock.ForegroundProperty, "TextBrush");
+        var hoverBorder = new Border
+        {
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(7),
+            IsHitTestVisible = false,
+            Padding = new Thickness(9, 6, 9, 6),
+            Child = _hoverText
+        };
+        hoverBorder.SetResourceReference(Border.BackgroundProperty, "TooltipBg");
+        hoverBorder.SetResourceReference(Border.BorderBrushProperty, "PanelBorder");
         _hoverPopup = new Popup
         {
             AllowsTransparency = true,
@@ -112,16 +122,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             Placement = PlacementMode.Relative,
             PlacementTarget = this,
             StaysOpen = true,
-            Child = new Border
-            {
-                Background = new SolidColorBrush(MediaColor.FromRgb(32, 37, 43)),
-                BorderBrush = new SolidColorBrush(MediaColor.FromRgb(52, 56, 61)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(7),
-                IsHitTestVisible = false,
-                Padding = new Thickness(9, 6, 9, 6),
-                Child = _hoverText
-            }
+            Child = hoverBorder
         };
         _hoverCloseTimer = new DispatcherTimer(DispatcherPriority.Input)
         {
@@ -153,6 +154,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         }
 
         ChartLayout layout = CreateLayout(ActualWidth, ActualHeight);
+        MediaBrush mutedBrush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(142, 149, 158));
 
         DrawNoDataBands(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
         DrawExternalPowerBands(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
@@ -165,8 +167,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         DrawAverageWattsLane(context, buckets, layout.Left, layout.PlotWidth, layout.AverageWattsLaneY);
         DrawCurrentMarker(context, buckets, layout.Left, layout.PlotWidth, layout.Top, layout.PlotHeight);
         DrawAxisLabels(context, layout.RightLabelX, layout.Top, layout.PlotHeight);
-        DrawText(context, "Avg W", Typography.LaneLabelSize, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), layout.RightLabelX, layout.AverageWattsLaneY);
-        DrawText(context, "Time", Typography.LaneLabelSize, new SolidColorBrush(MediaColor.FromRgb(142, 149, 158)), layout.RightLabelX, layout.TimeLabelsY);
+        DrawText(context, "Avg W", Typography.LaneLabelSize, mutedBrush, layout.RightLabelX, layout.AverageWattsLaneY);
+        DrawText(context, "Time", Typography.LaneLabelSize, mutedBrush, layout.RightLabelX, layout.TimeLabelsY);
         DrawTimeLabels(context, layout.Left, layout.PlotWidth, layout.TimeLabelsY);
     }
 
@@ -186,10 +188,10 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             bottom + Layout.TimeLabelsOffset);
     }
 
-    private static void DrawNoDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
+    private void DrawNoDataBands(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         double slot = width / buckets.Count;
-        var bandBrush = new SolidColorBrush(MediaColor.FromArgb(42, 36, 40, 45));
+        MediaBrush bandBrush = ResourceBrush("ProgressTrack", MediaColor.FromArgb(42, 36, 40, 45), 0.75);
         foreach ((double start, double end) in Ranges(buckets, b => b.Kind == BatteryUsageBucketKind.NoData))
         {
             double x = left + start * slot;
@@ -294,16 +296,16 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         }
     }
 
-    private static void DrawGrid(DrawingContext context, double left, double width, double top, double height)
+    private void DrawGrid(DrawingContext context, double left, double width, double top, double height)
     {
-        var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(74, 85, 91, 99)), 1);
+        var gridPen = new MediaPen(ResourceBrush("PanelBorder", MediaColor.FromArgb(74, 85, 91, 99), 0.82), 1);
         foreach (double percent in new[] { 100d, 50d, 0d })
         {
             double y = PercentToY(percent, top, height);
             context.DrawLine(gridPen, new WindowsPoint(left, y), new WindowsPoint(left + width, y));
         }
 
-        var thresholdPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(52, 85, 91, 99)), 1)
+        var thresholdPen = new MediaPen(ResourceBrush("PanelBorder", MediaColor.FromArgb(52, 85, 91, 99), 0.55), 1)
         {
             DashStyle = new DashStyle([4, 4], 0)
         };
@@ -314,7 +316,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         }
     }
 
-    private static void DrawBars(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
+    private void DrawBars(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         double slot = width / buckets.Count;
         double gap = Math.Clamp(slot * Layout.BarGapRatio, Layout.MinBarGap, Layout.MaxBarGap);
@@ -334,8 +336,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             var rect = new Rect(x, y, barWidth, barHeight);
             if (bucket.Kind == BatteryUsageBucketKind.Missing)
             {
-                var fill = new SolidColorBrush(MediaColor.FromArgb(52, 196, 204, 214));
-                var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(196, 204, 214)), 1)
+                MediaBrush fill = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(196, 204, 214), 0.28);
+                var pen = new MediaPen(ResourceBrush("MutedTextBrush", MediaColor.FromRgb(196, 204, 214), 0.65), 1)
                 {
                     DashStyle = new DashStyle([2, 2], 0)
                 };
@@ -390,8 +392,8 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         double slot = layout.PlotWidth / buckets.Count;
         double x = layout.Left + selection.Start * slot;
         double width = Math.Max(2, (selection.End - selection.Start) * slot);
-        var fill = new SolidColorBrush(MediaColor.FromArgb(34, 255, 255, 255));
-        var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(115, 180, 190, 202)), 1);
+        MediaBrush fill = ResourceBrush("HighlightBg", MediaColor.FromArgb(34, 255, 255, 255), 0.72);
+        var pen = new MediaPen(ResourceBrush("HighlightBorder", MediaColor.FromArgb(115, 180, 190, 202), 0.85), 1);
         if (selection.Kind == HoverKind.PowerMode)
         {
             context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.PowerModeLaneY - Layout.PowerPlanHighlightHeight / 2d, width, Layout.PowerPlanHighlightHeight), 4, 4);
@@ -433,14 +435,14 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         double slot = layout.PlotWidth / buckets.Count;
         double x = layout.Left + start * slot;
         double width = Math.Max(2, (end - start) * slot);
-        var fill = new SolidColorBrush(MediaColor.FromArgb(38, 74, 168, 255));
-        var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(170, 116, 182, 255)), 1);
+        MediaBrush fill = ResourceBrush("SelectionBrush", MediaColor.FromArgb(38, 74, 168, 255), 0.75);
+        var pen = new MediaPen(ResourceBrush("AccentBrush", MediaColor.FromArgb(170, 116, 182, 255), 0.7), 1);
         context.DrawRoundedRectangle(fill, pen, new Rect(x, layout.Top, width, layout.TimeLabelsY + Layout.HoverHighlightBottomPadding - layout.Top), 4, 4);
     }
 
-    private static void DrawLaneSeparators(DrawingContext context, double left, double width, double powerModeLaneY, double averageWattsLaneY)
+    private void DrawLaneSeparators(DrawingContext context, double left, double width, double powerModeLaneY, double averageWattsLaneY)
     {
-        var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(88, 75, 82, 90)), 1);
+        var pen = new MediaPen(ResourceBrush("PanelBorder", MediaColor.FromArgb(88, 75, 82, 90), 0.8), 1);
         context.DrawLine(pen, new WindowsPoint(left, powerModeLaneY + Layout.FirstLaneSeparatorOffset), new WindowsPoint(left + width, powerModeLaneY + Layout.FirstLaneSeparatorOffset));
         context.DrawLine(pen, new WindowsPoint(left, averageWattsLaneY + Layout.SecondLaneSeparatorOffset), new WindowsPoint(left + width, averageWattsLaneY + Layout.SecondLaneSeparatorOffset));
     }
@@ -839,7 +841,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         return $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))}m";
     }
 
-    private static void DrawCurrentMarker(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
+    private void DrawCurrentMarker(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double top, double height)
     {
         int index = -1;
         for (int i = 0; i < buckets.Count; i++)
@@ -858,7 +860,7 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
 
         double slot = width / buckets.Count;
         double x = left + index * slot + slot / 2d;
-        var markerPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(105, 116, 182, 255)), 1);
+        var markerPen = new MediaPen(ResourceBrush("AccentBrush", MediaColor.FromArgb(105, 116, 182, 255), 0.65), 1);
         context.DrawLine(markerPen, new WindowsPoint(x, top), new WindowsPoint(x, top + height));
     }
 
@@ -912,15 +914,15 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
             and not BatteryUsageBucketKind.NoData
         && bucket.IsPowerSave;
 
-    private static void DrawAxisLabels(DrawingContext context, double x, double top, double height)
+    private void DrawAxisLabels(DrawingContext context, double x, double top, double height)
     {
-        var majorBrush = new SolidColorBrush(MediaColor.FromRgb(188, 193, 200));
+        MediaBrush majorBrush = ResourceBrush("TextBrush", MediaColor.FromRgb(188, 193, 200), 0.86);
         foreach (double percent in new[] { 100d, 50d, 0d })
         {
             DrawText(context, $"{percent:N0}%", Typography.AxisLabelSize, majorBrush, x, PercentToY(percent, top, height) - 9);
         }
 
-        var thresholdBrush = new SolidColorBrush(MediaColor.FromRgb(142, 149, 158));
+        MediaBrush thresholdBrush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(142, 149, 158));
         foreach (double percent in new[] { 75d, 25d })
         {
             DrawText(context, $"{percent:N0}%", Typography.ThresholdLabelSize, thresholdBrush, x, PercentToY(percent, top, height) - 7);
@@ -930,9 +932,9 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
     private static double PercentToY(double percent, double top, double height) =>
         top + (1d - Math.Clamp(percent, 0, 100) / 100d) * height;
 
-    private static void DrawTimeLabels(DrawingContext context, double left, double width, double y)
+    private void DrawTimeLabels(DrawingContext context, double left, double width, double y)
     {
-        var brush = new SolidColorBrush(MediaColor.FromRgb(174, 180, 188));
+        MediaBrush brush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(174, 180, 188));
         for (int hour = 0; hour <= 24; hour += 2)
         {
             string label = hour.ToString("00");
@@ -951,14 +953,26 @@ public sealed class BatteryUsageCombinedControl : FrameworkElement
         }
     }
 
-    private static void DrawCollecting(DrawingContext context, Rect bounds)
+    private void DrawCollecting(DrawingContext context, Rect bounds)
     {
-        var pen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(80, 92, 98, 106)), 1);
+        var pen = new MediaPen(ResourceBrush("PanelBorder", MediaColor.FromArgb(80, 92, 98, 106), 0.75), 1);
         context.DrawLine(pen, new WindowsPoint(12, bounds.Height / 2d), new WindowsPoint(Math.Max(12, bounds.Width - 12), bounds.Height / 2d));
-        var brush = new SolidColorBrush(MediaColor.FromRgb(175, 181, 190));
+        MediaBrush brush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(175, 181, 190));
         var text = FormatText("Collecting battery usage data...", Typography.EmptyTextSize, brush);
         context.DrawText(text, new WindowsPoint(Math.Max(8, bounds.Width / 2d - text.Width / 2d), bounds.Height / 2d - text.Height - 8));
     }
+
+    private MediaBrush ResourceBrush(string key, MediaColor fallback, double opacity = 1)
+    {
+        MediaColor color = TryFindResource(key) is SolidColorBrush brush
+            ? brush.Color
+            : fallback;
+
+        return new SolidColorBrush(WithOpacity(color, opacity));
+    }
+
+    private static MediaColor WithOpacity(MediaColor color, double opacity) =>
+        MediaColor.FromArgb((byte)Math.Clamp(opacity * 255, 0, 255), color.R, color.G, color.B);
 
     private static void DrawText(DrawingContext context, string text, double size, MediaBrush brush, double x, double y, string typeface = "Segoe UI")
     {

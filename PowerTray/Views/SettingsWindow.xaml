@@ -10,9 +10,9 @@
         ResizeMode="NoResize"
         AllowsTransparency="True"
         Background="Transparent"
-        Foreground="{StaticResource TextBrush}">
-    <Border Background="{StaticResource WindowBg}"
-            BorderBrush="{StaticResource PanelBorder}"
+        Foreground="{DynamicResource TextBrush}">
+    <Border Background="{DynamicResource WindowBg}"
+            BorderBrush="{DynamicResource PanelBorder}"
             BorderThickness="1"
             CornerRadius="11"
             SnapsToDevicePixels="True">
@@ -23,8 +23,8 @@
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0"
-                    Background="{StaticResource TopBarBg}"
-                    BorderBrush="{StaticResource PanelBorder}"
+                    Background="{DynamicResource TopBarBg}"
+                    BorderBrush="{DynamicResource PanelBorder}"
                     BorderThickness="0,0,0,1"
                     CornerRadius="10,10,0,0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -55,11 +55,11 @@
 
                 <StackPanel Margin="0,0,0,8">
                     <TextBlock Text="Settings"
-                               Foreground="{StaticResource AccentBrush}"
+                               Foreground="{DynamicResource AccentBrush}"
                                FontSize="18"
                                FontWeight="SemiBold" />
                     <TextBlock Text="Startup, sensors, battery presets, and appearance"
-                               Foreground="{StaticResource MutedTextBrush}"
+                               Foreground="{DynamicResource MutedTextBrush}"
                                FontSize="11"
                                Margin="0,1,0,0" />
                 </StackPanel>
@@ -82,7 +82,7 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <TextBlock Text="Dell Command"
-                                       Foreground="{StaticResource AccentBrush}"
+                                       Foreground="{DynamicResource AccentBrush}"
                                        FontSize="14"
                                        FontWeight="SemiBold" />
                             <DockPanel Grid.Row="1" Margin="0,8,0,0">
@@ -118,7 +118,7 @@
                                 <TextBlock Grid.Row="1"
                                            Grid.ColumnSpan="2"
                                            Text="{Binding BiosSetupPasswordStatusText}"
-                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Foreground="{DynamicResource MutedTextBrush}"
                                            FontSize="10"
                                            Margin="0,4,0,0" />
                             </Grid>
@@ -140,7 +140,7 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <TextBlock Text="Dell Thermal Profile"
-                                           Foreground="{StaticResource AccentBrush}"
+                                           Foreground="{DynamicResource AccentBrush}"
                                            FontSize="14"
                                            FontWeight="SemiBold" />
                                 <Grid Grid.Row="1" Margin="0,8,0,0">
@@ -149,7 +149,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Control mode"
-                                               Foreground="{StaticResource MutedTextBrush}"
+                                               Foreground="{DynamicResource MutedTextBrush}"
                                                VerticalAlignment="Center" />
                                     <ComboBox Grid.Column="1"
                                               ItemsSource="{Binding DellThermalControlModes}"
@@ -172,7 +172,7 @@
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Text="Efficiency"
-                                               Foreground="{StaticResource MutedTextBrush}"
+                                               Foreground="{DynamicResource MutedTextBrush}"
                                                VerticalAlignment="Center" />
                                     <ComboBox Grid.Column="1"
                                               ItemsSource="{Binding DellThermalProfiles}"
@@ -182,7 +182,7 @@
 
                                     <TextBlock Grid.Row="2"
                                                Text="Balanced"
-                                               Foreground="{StaticResource MutedTextBrush}"
+                                               Foreground="{DynamicResource MutedTextBrush}"
                                                VerticalAlignment="Center" />
                                     <ComboBox Grid.Row="2"
                                               Grid.Column="1"
@@ -193,7 +193,7 @@
 
                                     <TextBlock Grid.Row="4"
                                                Text="Performance"
-                                               Foreground="{StaticResource MutedTextBrush}"
+                                               Foreground="{DynamicResource MutedTextBrush}"
                                                VerticalAlignment="Center" />
                                     <ComboBox Grid.Row="4"
                                               Grid.Column="1"
@@ -214,7 +214,7 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <TextBlock Text="Startup And Sensors"
-                                           Foreground="{StaticResource AccentBrush}"
+                                           Foreground="{DynamicResource AccentBrush}"
                                            FontSize="14"
                                            FontWeight="SemiBold" />
                                 <UniformGrid Grid.Row="1" Columns="1" Margin="0,8,0,0">
@@ -228,7 +228,7 @@
 
                                 <TextBlock Grid.Row="2"
                                            Text="Personal recovery script"
-                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Foreground="{DynamicResource MutedTextBrush}"
                                            Margin="0,2,0,4" />
                                 <DockPanel Grid.Row="3">
                                     <Button DockPanel.Dock="Right"
@@ -258,12 +258,12 @@
                             </Grid.RowDefinitions>
 
                             <TextBlock Text="Behavior"
-                                       Foreground="{StaticResource AccentBrush}"
+                                       Foreground="{DynamicResource AccentBrush}"
                                        FontSize="14"
                                        FontWeight="SemiBold" />
                             <TextBlock Grid.Column="2"
                                        Text="Appearance"
-                                       Foreground="{StaticResource AccentBrush}"
+                                       Foreground="{DynamicResource AccentBrush}"
                                        FontSize="14"
                                        FontWeight="SemiBold" />
 
@@ -273,7 +273,7 @@
                                     <ColumnDefinition Width="96" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Sample interval seconds"
-                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Foreground="{DynamicResource MutedTextBrush}"
                                            VerticalAlignment="Center" />
                                 <TextBox Grid.Column="1"
                                          Text="{Binding SensorSampleIntervalSeconds, UpdateSourceTrigger=PropertyChanged}" />
@@ -287,12 +287,12 @@
                                     <ColumnDefinition Width="58" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Health preset start / stop"
-                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Foreground="{DynamicResource MutedTextBrush}"
                                            VerticalAlignment="Center" />
                                 <TextBox Grid.Column="1" Text="{Binding HealthStart}" />
                                 <TextBlock Grid.Column="2"
                                            Text="-"
-                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Foreground="{DynamicResource MutedTextBrush}"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center" />
                                 <TextBox Grid.Column="3" Text="{Binding HealthStop}" />
@@ -306,12 +306,12 @@
                                     <ColumnDefinition Width="58" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Balanced preset start / stop"
-                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Foreground="{DynamicResource MutedTextBrush}"
                                            VerticalAlignment="Center" />
                                 <TextBox Grid.Column="1" Text="{Binding BalancedStart}" />
                                 <TextBlock Grid.Column="2"
                                            Text="-"
-                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Foreground="{DynamicResource MutedTextBrush}"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center" />
                                 <TextBox Grid.Column="3" Text="{Binding BalancedStop}" />
@@ -327,7 +327,7 @@
                                         <ColumnDefinition Width="156" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Theme"
-                                               Foreground="{StaticResource MutedTextBrush}"
+                                               Foreground="{DynamicResource MutedTextBrush}"
                                                VerticalAlignment="Center" />
                                     <ComboBox Grid.Column="1"
                                               ItemsSource="{Binding Themes}"
@@ -346,7 +346,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{Binding Status}"
-                               Foreground="{StaticResource AccentBrush}"
+                               Foreground="{DynamicResource AccentBrush}"
                                TextWrapping="Wrap"
                                VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1"

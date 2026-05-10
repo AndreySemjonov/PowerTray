@@ -60,6 +60,14 @@ public static class ThemeService
         SetBrush("InsetPanelBg", palette.InsetPanelBg);
         SetBrush("ButtonPanelBg", palette.ButtonPanelBg);
         SetBrush("GpuAccentBrush", palette.GpuAccent);
+        SetBrush("BatteryGraphFill", palette.BatteryGraphFill);
+        SetBrush("CpuGraphFill", palette.CpuGraphFill);
+        SetBrush("GpuGraphFill", palette.GpuGraphFill);
+        SetBrush("ThermalGraphFill", palette.ThermalGraphFill);
+        SetBrush("ImpactBadgeBg", palette.ImpactBadgeBg);
+        SetBrush("ImpactBadgeBorder", palette.ImpactBadgeBorder);
+        SetBrush("ImpactBarBrush", palette.ImpactBar);
+        SetBrush("ScrollbarThumb", palette.ScrollbarThumb);
         SetPanelGlow(palette.PanelGlowStart, palette.PanelGlowEnd);
     }
 
@@ -162,6 +170,14 @@ public static class ThemeService
         MediaColor InsetPanelBg,
         MediaColor ButtonPanelBg,
         MediaColor GpuAccent,
+        MediaColor BatteryGraphFill,
+        MediaColor CpuGraphFill,
+        MediaColor GpuGraphFill,
+        MediaColor ThermalGraphFill,
+        MediaColor ImpactBadgeBg,
+        MediaColor ImpactBadgeBorder,
+        MediaColor ImpactBar,
+        MediaColor ScrollbarThumb,
         MediaColor PanelGlowStart,
         MediaColor PanelGlowEnd)
     {
@@ -202,6 +218,14 @@ public static class ThemeService
             MediaColor.FromRgb(29, 34, 40),
             MediaColor.FromRgb(24, 32, 39),
             MediaColor.FromRgb(84, 214, 198),
+            MediaColor.FromArgb(51, 245, 170, 45),
+            MediaColor.FromArgb(32, 74, 168, 255),
+            MediaColor.FromArgb(32, 64, 166, 149),
+            MediaColor.FromArgb(42, 255, 111, 135),
+            MediaColor.FromRgb(32, 42, 52),
+            MediaColor.FromRgb(55, 67, 81),
+            MediaColor.FromRgb(106, 157, 255),
+            MediaColor.FromRgb(74, 81, 88),
             MediaColor.FromRgb(32, 38, 43),
             MediaColor.FromRgb(26, 28, 31));
 
@@ -242,6 +266,14 @@ public static class ThemeService
             MediaColor.FromRgb(247, 249, 252),
             MediaColor.FromRgb(239, 245, 251),
             MediaColor.FromRgb(22, 137, 125),
+            MediaColor.FromArgb(54, 211, 130, 0),
+            MediaColor.FromArgb(44, 14, 113, 202),
+            MediaColor.FromArgb(44, 22, 137, 125),
+            MediaColor.FromArgb(46, 209, 55, 83),
+            MediaColor.FromRgb(232, 241, 250),
+            MediaColor.FromRgb(191, 211, 230),
+            MediaColor.FromRgb(38, 119, 199),
+            MediaColor.FromRgb(142, 153, 166),
             MediaColor.FromRgb(255, 255, 255),
             MediaColor.FromRgb(246, 248, 251));
     }

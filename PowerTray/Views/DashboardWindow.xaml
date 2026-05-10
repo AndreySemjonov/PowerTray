@@ -16,9 +16,9 @@
         AllowsTransparency="True"
         Topmost="{Binding IsDashboardTopmost}"
         Background="Transparent"
-        Foreground="{StaticResource TextBrush}">
-    <Border Background="{StaticResource WindowBg}"
-            BorderBrush="{StaticResource PanelBorder}"
+        Foreground="{DynamicResource TextBrush}">
+    <Border Background="{DynamicResource WindowBg}"
+            BorderBrush="{DynamicResource PanelBorder}"
             BorderThickness="1"
             CornerRadius="12"
             SnapsToDevicePixels="True">
@@ -31,7 +31,7 @@
                 <RowDefinition Height="28" />
             </Grid.RowDefinitions>
 
-            <Border Grid.Row="0" Background="{StaticResource TopBarBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,0,0,1" CornerRadius="11,11,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Border Grid.Row="0" Background="{DynamicResource TopBarBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,0,0,1" CornerRadius="11,11,0,0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -39,11 +39,11 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
-                        <Border Background="{StaticResource AccentBrush}" BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="6" Width="26" Height="26" Margin="0,0,10,0">
+                        <Border Background="{DynamicResource AccentBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="6" Width="26" Height="26" Margin="0,0,10,0">
                             <TextBlock Text="⚡" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <TextBlock Text="PowerTray" FontSize="19" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding AppVersionText}" FontSize="10" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Bottom" Margin="8,3,0,0" />
+                        <TextBlock Text="{Binding AppVersionText}" FontSize="10" Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Bottom" Margin="8,3,0,0" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
@@ -133,12 +133,12 @@
                     <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="10">
                         <Grid>
                             <StackPanel>
-                                <TextBlock Text="Battery" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Text="Battery" Foreground="{DynamicResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
                                 <TextBlock Text="{Binding BatteryPercentText}" FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0" />
-                                <TextBlock Text="{Binding PowerStateText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0" />
-                                <TextBlock Text="{Binding BatteryHealthSummaryText}" Foreground="{StaticResource TextBrush}" FontSize="11" Margin="0,9,0,0" ToolTip="{Binding BatteryHealthToolTip}" />
+                                <TextBlock Text="{Binding PowerStateText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0" />
+                                <TextBlock Text="{Binding BatteryHealthSummaryText}" Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,9,0,0" ToolTip="{Binding BatteryHealthToolTip}" />
                             </StackPanel>
-                            <controls:BatteryGaugeControl Percentage="{Binding BatteryLevelPercent}" Accent="{StaticResource AccentBrush}" Width="42" Height="64" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,0,0" />
+                            <controls:BatteryGaugeControl Percentage="{Binding BatteryLevelPercent}" Accent="{DynamicResource AccentBrush}" Width="42" Height="64" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,5,0,0" />
                         </Grid>
                     </Border>
 
@@ -147,34 +147,34 @@
                             <MouseBinding Gesture="LeftClick" Command="{Binding ShowBatteryWattsDetailsCommand}" />
                         </Border.InputBindings>
                         <StackPanel>
-                            <TextBlock Text="Power" Foreground="{StaticResource BatteryAccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Power" Foreground="{DynamicResource BatteryAccentBrush}" FontSize="13" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding BatteryPowerValueText}" FontSize="22" FontWeight="SemiBold" Margin="0,2,0,0" />
-                            <TextBlock Text="{Binding BatteryAveragePowerText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Text="{Binding BatteryRateValueText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding BatteryAveragePowerText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding BatteryRateValueText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
 
                     <Border Grid.Column="4" Style="{StaticResource CardStyle}" Padding="10">
                         <StackPanel>
-                            <TextBlock Text="Thermals" Foreground="{StaticResource ThermalAccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Thermals" Foreground="{DynamicResource ThermalAccentBrush}" FontSize="13" FontWeight="SemiBold" />
                             <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <Path Width="13" Height="18" Stretch="Uniform" Stroke="{StaticResource ThermalAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M8,2 A3,3 0 0 1 11,5 L11,11.5 A5,5 0 1 1 5,11.5 L5,5 A3,3 0 0 1 8,2 Z M8,5 L8,13" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                <Path Width="13" Height="18" Stretch="Uniform" Stroke="{DynamicResource ThermalAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M8,2 A3,3 0 0 1 11,5 L11,11.5 A5,5 0 1 1 5,11.5 L5,5 A3,3 0 0 1 8,2 Z M8,5 L8,13" VerticalAlignment="Center" Margin="0,0,10,0" />
                                 <TextBlock Text="{Binding ThermalTemperatureText}" FontSize="22" FontWeight="SemiBold" />
                             </StackPanel>
-                            <TextBlock Text="{Binding ThermalModeText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding DellThermalProfileToolTip}" />
-                            <TextBlock Text="{Binding ThermalPackagePowerText}" Foreground="{StaticResource TextBrush}" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding ThermalModeText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="{Binding DellThermalProfileToolTip}" />
+                            <TextBlock Text="{Binding ThermalPackagePowerText}" Foreground="{DynamicResource TextBrush}" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
 
                     <Border Grid.Column="6" Style="{StaticResource CardStyle}" Padding="10">
                         <StackPanel>
-                            <TextBlock Text="Activity" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                            <TextBlock Text="Activity" Foreground="{DynamicResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
                             <StackPanel Margin="0,4,0,0">
-                                <TextBlock Text="{Binding ActivityCpuText}" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding ActivityGpuText}" Foreground="{StaticResource GpuAccentBrush}" FontSize="13" FontWeight="SemiBold" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding ActivityCpuText}" Foreground="{DynamicResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding ActivityGpuText}" Foreground="{DynamicResource GpuAccentBrush}" FontSize="13" FontWeight="SemiBold" Margin="0,2,0,0" />
                             </StackPanel>
-                            <Border Background="{StaticResource PanelBorder}" Height="1" Opacity="0.65" Margin="0,5,0,7" />
-                            <TextBlock Text="Top process" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,-4,0,0" />
+                            <Border Background="{DynamicResource PanelBorder}" Height="1" Opacity="0.65" Margin="0,5,0,7" />
+                            <TextBlock Text="Top process" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" Margin="0,-4,0,0" />
                             <TextBlock Text="{Binding PrimaryCpuDriverText}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding PrimaryCpuDriverToolTip}" />
                         </StackPanel>
                     </Border>
@@ -192,8 +192,8 @@
                             <ColumnDefinition Width="1*" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="Power Plan" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
-                <Border Grid.Row="1" Background="{StaticResource ButtonPanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="32" VerticalAlignment="Center">
+                        <TextBlock Text="Power Plan" Foreground="{DynamicResource AccentBrush}" FontSize="13" FontWeight="SemiBold" />
+                <Border Grid.Row="1" Background="{DynamicResource ButtonPanelBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="32" VerticalAlignment="Center">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
@@ -203,14 +203,14 @@
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <Button Content="{Binding PowerEfficiencyMenuText}" Command="{Binding ApplyWindowsPowerModeCommand}" CommandParameter="BestPowerEfficiency" Background="Transparent" BorderBrush="Transparent" FontSize="12" Padding="4,0" MinHeight="30" />
-                                <Border Grid.Column="1" Background="{StaticResource PanelBorder}" Margin="0,6" />
+                                <Border Grid.Column="1" Background="{DynamicResource PanelBorder}" Margin="0,6" />
                                 <Button Grid.Column="2" Content="{Binding BalancedPowerModeMenuText}" Command="{Binding ApplyWindowsPowerModeCommand}" CommandParameter="Balanced" Background="Transparent" BorderBrush="Transparent" FontSize="12" Padding="4,0" MinHeight="30" />
-                                <Border Grid.Column="3" Background="{StaticResource PanelBorder}" Margin="0,6" />
+                                <Border Grid.Column="3" Background="{DynamicResource PanelBorder}" Margin="0,6" />
                                 <Button Grid.Column="4" Content="{Binding PerformancePowerModeMenuText}" Command="{Binding ApplyWindowsPowerModeCommand}" CommandParameter="BestPerformance" Background="Transparent" BorderBrush="Transparent" FontSize="12" Padding="4,0" MinHeight="30" />
                             </Grid>
                         </Border>
 
-                        <TextBlock Grid.Column="2" Text="Mode" Foreground="{StaticResource AccentBrush}" FontSize="13" FontWeight="SemiBold">
+                        <TextBlock Grid.Column="2" Text="Mode" Foreground="{DynamicResource AccentBrush}" FontSize="13" FontWeight="SemiBold">
                             <TextBlock.Style>
                                 <Style TargetType="{x:Type TextBlock}" BasedOn="{StaticResource {x:Type TextBlock}}">
                                     <Setter Property="Visibility" Value="Visible" />
@@ -242,7 +242,7 @@
                                 </Style>
                             </Button.Style>
                             <StackPanel Orientation="Horizontal">
-                                <Path Width="13" Height="13" Stretch="Uniform" Fill="{StaticResource AccentBrush}" Data="M8,0 L8,5 L13,5 L6,16 L6,10 L1,10 Z" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <Path Width="13" Height="13" Stretch="Uniform" Fill="{DynamicResource AccentBrush}" Data="M8,0 L8,5 L13,5 L6,16 L6,10 L1,10 Z" Margin="0,0,8,0" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding ModeChipText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             </StackPanel>
                             <Button.ContextMenu>
@@ -288,14 +288,14 @@
                         </Grid.ColumnDefinitions>
 
                         <TextBlock Text="Dell Thermal"
-                                   Foreground="{StaticResource AccentBrush}"
+                                   Foreground="{DynamicResource AccentBrush}"
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
 
                         <Border Grid.Column="1"
-                                Background="{StaticResource ButtonPanelBg}"
-                                BorderBrush="{StaticResource PanelBorder}"
+                                Background="{DynamicResource ButtonPanelBg}"
+                                BorderBrush="{DynamicResource PanelBorder}"
                                 BorderThickness="1"
                                 CornerRadius="7"
                                 Height="34"
@@ -322,18 +322,18 @@
                                     <ColumnDefinition Width="1.35*" />
                                 </Grid.ColumnDefinitions>
                                 <Button Content="{Binding OptimizedThermalProfileMenuText}" Command="{Binding ApplyDellThermalProfileCommand}" CommandParameter="Optimized" Background="Transparent" BorderBrush="Transparent" FontSize="11" Padding="3,0" MinHeight="32" />
-                                <Border Grid.Column="1" Background="{StaticResource PanelBorder}" Margin="0,7" />
+                                <Border Grid.Column="1" Background="{DynamicResource PanelBorder}" Margin="0,7" />
                                 <Button Grid.Column="2" Content="{Binding CoolThermalProfileMenuText}" Command="{Binding ApplyDellThermalProfileCommand}" CommandParameter="Cool" Background="Transparent" BorderBrush="Transparent" FontSize="11" Padding="3,0" MinHeight="32" />
-                                <Border Grid.Column="3" Background="{StaticResource PanelBorder}" Margin="0,7" />
+                                <Border Grid.Column="3" Background="{DynamicResource PanelBorder}" Margin="0,7" />
                                 <Button Grid.Column="4" Content="{Binding QuietThermalProfileMenuText}" Command="{Binding ApplyDellThermalProfileCommand}" CommandParameter="Quiet" Background="Transparent" BorderBrush="Transparent" FontSize="11" Padding="3,0" MinHeight="32" />
-                                <Border Grid.Column="5" Background="{StaticResource PanelBorder}" Margin="0,7" />
+                                <Border Grid.Column="5" Background="{DynamicResource PanelBorder}" Margin="0,7" />
                                 <Button Grid.Column="6" Content="{Binding UltraPerformanceThermalProfileMenuText}" Command="{Binding ApplyDellThermalProfileCommand}" CommandParameter="UltraPerformance" Background="Transparent" BorderBrush="Transparent" FontSize="11" Padding="3,0" MinHeight="32" />
                             </Grid>
                         </Border>
 
                         <Border Grid.Column="1"
-                            Background="{StaticResource ButtonPanelBg}"
-                                BorderBrush="{StaticResource PanelBorder}"
+                            Background="{DynamicResource ButtonPanelBg}"
+                                BorderBrush="{DynamicResource PanelBorder}"
                                 BorderThickness="1"
                                 CornerRadius="7"
                                 Height="34"
@@ -351,11 +351,11 @@
                             </Border.Style>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
                                 <TextBlock Text="Synced with power plan"
-                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Foreground="{DynamicResource MutedTextBrush}"
                                            FontSize="11"
                                            VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding DellThermalProfileText}"
-                                           Foreground="{StaticResource TextBrush}"
+                                           Foreground="{DynamicResource TextBrush}"
                                            FontSize="12"
                                            FontWeight="SemiBold"
                                            Margin="12,0,0,0"
@@ -384,15 +384,15 @@
                         </Grid.RowDefinitions>
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                                <Path Width="13" Height="16" Stretch="Uniform" Fill="{StaticResource BatteryAccentBrush}" Data="M9,0 L2,9 H7 L5,16 L14,6 H9 Z" Margin="0,1,7,0" />
-                                <TextBlock Text="BATTERY WATTS" Foreground="{StaticResource BatteryAccentBrush}" FontSize="12" FontWeight="SemiBold" />
+                                <Path Width="13" Height="16" Stretch="Uniform" Fill="{DynamicResource BatteryAccentBrush}" Data="M9,0 L2,9 H7 L5,16 L14,6 H9 Z" Margin="0,1,7,0" />
+                                <TextBlock Text="BATTERY WATTS" Foreground="{DynamicResource BatteryAccentBrush}" FontSize="12" FontWeight="SemiBold" />
                             </StackPanel>
                             <StackPanel Margin="0,7,0,0">
-                                <TextBlock Text="{Binding BatteryWattsGraphSummaryTop}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
-                                <TextBlock Text="{Binding BatteryWattsGraphSummaryBottom}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
+                                <TextBlock Text="{Binding BatteryWattsGraphSummaryTop}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
+                                <TextBlock Text="{Binding BatteryWattsGraphSummaryBottom}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
                             </StackPanel>
                         </StackPanel>
-                        <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" Margin="0,3,0,0" />
+                        <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{DynamicResource BatteryAccentBrush}" Fill="{DynamicResource BatteryGraphFill}" Margin="0,3,0,0" />
                     </Grid>
                 </Border>
 
@@ -407,20 +407,20 @@
                         </Grid.RowDefinitions>
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                                <Path Width="14" Height="14" Stretch="Uniform" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,2,7,0" />
-                                <TextBlock Text="CPU / GPU USAGE" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold" />
+                                <Path Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,2,7,0" />
+                                <TextBlock Text="CPU / GPU USAGE" Foreground="{DynamicResource AccentBrush}" FontSize="12" FontWeight="SemiBold" />
                             </StackPanel>
                             <StackPanel Margin="0,7,0,0">
-                                <TextBlock Text="{Binding SystemUsageGraphSummaryTop}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
-                                <TextBlock Text="{Binding SystemUsageGraphSummaryBottom}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
+                                <TextBlock Text="{Binding SystemUsageGraphSummaryTop}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
+                                <TextBlock Text="{Binding SystemUsageGraphSummaryBottom}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" TextAlignment="Left" />
                             </StackPanel>
                         </StackPanel>
                         <controls:SparklineControl Grid.Row="1"
                                                    Values="{Binding CpuGraphValues}"
                                                    SecondaryValues="{Binding GpuGraphValues}"
-                                                   Stroke="{StaticResource AccentBrush}"
-                                     SecondaryStroke="{StaticResource GpuAccentBrush}"
-                                                   Fill="#204AA8FF"
+                                                   Stroke="{DynamicResource AccentBrush}"
+                                     SecondaryStroke="{DynamicResource GpuAccentBrush}"
+                                                   Fill="{DynamicResource CpuGraphFill}"
                                                    Minimum="0"
                                                    Margin="0,3,0,0" />
                     </Grid>
@@ -439,10 +439,10 @@
                             <ColumnDefinition Width="16" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="⚡  Battery watts" Foreground="{StaticResource BatteryAccentBrush}" FontSize="15" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="2" Text="{Binding BatteryWattsGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
+                        <TextBlock Text="⚡  Battery watts" Foreground="{DynamicResource BatteryAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="{Binding BatteryWattsGraphSummary}" HorizontalAlignment="Right" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{StaticResource BatteryAccentBrush}" Fill="#33F5AA2D" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding BatteryWattsGraphValues}" Stroke="{DynamicResource BatteryAccentBrush}" Fill="{DynamicResource BatteryGraphFill}" />
                 </Grid>
             </Border>
 
@@ -458,10 +458,10 @@
                             <ColumnDefinition Width="16" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="♨  CPU temperature" Foreground="{StaticResource ThermalAccentBrush}" FontSize="15" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="2" Text="{Binding TemperatureGraphSummary}" HorizontalAlignment="Right" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
+                        <TextBlock Text="♨  CPU temperature" Foreground="{DynamicResource ThermalAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="{Binding TemperatureGraphSummary}" HorizontalAlignment="Right" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
                     </Grid>
-                    <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{StaticResource ThermalAccentBrush}" Fill="#2AFF6F87" />
+                    <controls:SparklineControl Grid.Row="1" Values="{Binding TemperatureGraphValues}" Stroke="{DynamicResource ThermalAccentBrush}" Fill="{DynamicResource ThermalGraphFill}" />
                 </Grid>
             </Border>
 
@@ -497,7 +497,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding BatteryUsageTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding BatteryUsageTitle}" Foreground="{DynamicResource GoodAccentBrush}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button Content="&lt;" Command="{Binding PreviousBatteryUsageDayCommand}" Width="30" MinWidth="30" Height="26" MinHeight="26" Padding="0" FontSize="12" ToolTip="Previous day" />
                                 <Button Content="{Binding BatteryUsageDateText}" Command="{Binding TodayBatteryUsageCommand}" Width="68" MinWidth="68" Height="26" MinHeight="26" Padding="4,0" FontSize="11" Margin="5,0" ToolTip="Today" />
@@ -518,8 +518,8 @@
                                 <RowDefinition Height="17" />
                                 <RowDefinition Height="17" />
                             </Grid.RowDefinitions>
-                            <TextBlock Text="{Binding BatteryUsageSleepDrainText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
-                            <TextBlock Grid.Row="1" Text="{Binding BatteryUsageChargeBehaviorText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding BatteryUsageSleepDrainText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+                            <TextBlock Grid.Row="1" Text="{Binding BatteryUsageChargeBehaviorText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
                         </Grid>
                     </Grid>
                 </Border>
@@ -554,18 +554,18 @@
                                 <RowDefinition Height="*" />
                                 <RowDefinition Height="26" />
                             </Grid.RowDefinitions>
-                            <TextBlock Text="Windows battery usage (last 24h)" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                            <TextBlock Text="Windows battery usage (last 24h)" Foreground="{DynamicResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="110" />
                                     <ColumnDefinition Width="52" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="App" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                                <TextBlock Grid.Column="2" Text="Share" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
+                                <TextBlock Text="App" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                                <TextBlock Grid.Column="2" Text="Share" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
                             </Grid>
                             <Grid Grid.Row="2">
-                                <TextBlock Text="{Binding WindowsBatteryUsageEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,8,0" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding WindowsBatteryUsageEmptyText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,8,0" TextWrapping="Wrap" />
                                 <ItemsControl ItemsSource="{Binding WindowsBatteryUsageProcesses}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -577,11 +577,11 @@
                                                 </Grid.ColumnDefinitions>
                                                 <StackPanel VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" />
-                                                    <TextBlock Text="{Binding DetailText}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource MutedTextBrush}" FontSize="9" />
+                                                    <TextBlock Text="{Binding DetailText}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedTextBrush}" FontSize="9" />
                                                 </StackPanel>
                                                 <Grid Grid.Column="1" Margin="8,0,10,0" VerticalAlignment="Center">
-                                                        <Border Background="{StaticResource MiniBarBg}" Height="5" CornerRadius="2.5" />
-                                                    <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{StaticResource BatteryAccentBrush}" />
+                                                        <Border Background="{DynamicResource MiniBarBg}" Height="5" CornerRadius="2.5" />
+                                                    <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{DynamicResource BatteryAccentBrush}" />
                                                 </Grid>
                                                 <TextBlock Grid.Column="2" Text="{Binding PercentText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
                                             </Grid>
@@ -591,14 +591,14 @@
                             </Grid>
                             <TextBlock Grid.Row="3"
                                        Text="{Binding WindowsBatteryUsageAuditText}"
-                                       Foreground="{StaticResource MutedTextBrush}"
+                                       Foreground="{DynamicResource MutedTextBrush}"
                                        FontSize="10"
                                        VerticalAlignment="Bottom"
                                        TextTrimming="CharacterEllipsis"
                                        ToolTip="{Binding WindowsBatteryUsageAuditText}" />
                         </Grid>
 
-                        <Border Grid.Column="1" Background="{StaticResource PanelBorder}" Opacity="0.65" Margin="10,2" />
+                        <Border Grid.Column="1" Background="{DynamicResource PanelBorder}" Opacity="0.65" Margin="10,2" />
 
                         <Grid Grid.Column="2" Margin="20,0,0,0">
                             <Grid.RowDefinitions>
@@ -606,18 +606,18 @@
                                 <RowDefinition Height="22" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
-                            <TextBlock Text="Live resource impact" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                            <TextBlock Text="Live resource impact" Foreground="{DynamicResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="110" />
                                     <ColumnDefinition Width="52" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="Process / service" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                                <TextBlock Grid.Column="2" Text="Score" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
+                                <TextBlock Text="Process / service" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                                <TextBlock Grid.Column="2" Text="Score" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
                             </Grid>
                             <Grid Grid.Row="2">
-                                <TextBlock Text="{Binding TopAppUsageEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,0,0" />
+                                <TextBlock Text="{Binding TopAppUsageEmptyText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,0,0" />
                                 <ItemsControl ItemsSource="{Binding EnergyImpactProcesses}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -633,13 +633,13 @@
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" VerticalAlignment="Center" />
-                                                    <Border Grid.Column="1" Background="#202A34" BorderBrush="#374351" BorderThickness="1" CornerRadius="5" Padding="5,1" Margin="7,0,0,0" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding ResourceImpactBadgeText}" Foreground="{StaticResource MutedTextBrush}" FontSize="9" />
+                                                    <Border Grid.Column="1" Background="{DynamicResource ImpactBadgeBg}" BorderBrush="{DynamicResource ImpactBadgeBorder}" BorderThickness="1" CornerRadius="5" Padding="5,1" Margin="7,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ResourceImpactBadgeText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="9" />
                                                     </Border>
                                                 </Grid>
                                                 <Grid Grid.Column="1" Margin="8,0,10,0" VerticalAlignment="Center">
-                                                        <Border Background="{StaticResource MiniBarBg}" Height="5" CornerRadius="2.5" />
-                                                    <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding EstimatedEnergyImpactBarPercent}" Maximum="100" Height="5" Foreground="#6A9DFF" />
+                                                        <Border Background="{DynamicResource MiniBarBg}" Height="5" CornerRadius="2.5" />
+                                                    <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding EstimatedEnergyImpactBarPercent}" Maximum="100" Height="5" Foreground="{DynamicResource ImpactBarBrush}" />
                                                 </Grid>
                                                 <TextBlock Grid.Column="2" Text="{Binding ResourceImpactText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
                                             </Grid>
@@ -653,7 +653,7 @@
                 </TabItem>
             </TabControl>
 
-            <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="22" Margin="10,8,10,8" Background="{StaticResource WindowBg}">
+            <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="22" Margin="10,8,10,8" Background="{DynamicResource WindowBg}">
                 <Grid.Style>
                     <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Collapsed" />
@@ -700,71 +700,71 @@
                                 ToolTip="Back" />
                         <StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Top">
                             <TextBlock Text="Battery Watts Details" FontSize="20" FontWeight="SemiBold" />
-                            <TextBlock Text="Detailed drain spikes, high-drain periods, and runtime context" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,2,0,0" />
+                            <TextBlock Text="Detailed drain spikes, high-drain periods, and runtime context" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="0,2,0,0" />
                         </StackPanel>
 
                         <UniformGrid Grid.Row="1" Grid.ColumnSpan="2" Columns="5" Margin="0,12,0,0">
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Width="16" Height="18" Stretch="Uniform" Fill="{StaticResource BatteryAccentBrush}" Data="M9,0 L2,9 H7 L5,16 L14,6 H9 Z" VerticalAlignment="Center" />
+                                    <Path Width="16" Height="18" Stretch="Uniform" Fill="{DynamicResource BatteryAccentBrush}" Data="M9,0 L2,9 H7 L5,16 L14,6 H9 Z" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Now" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Now" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding BatteryWattsNowDetailText}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource BatteryAccentBrush}" FontSize="16" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource BatteryAccentBrush}" FontSize="16" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="10m Avg" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="10m Avg" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding BatteryWattsAverageDetailText}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Width="17" Height="17" Stretch="Uniform" Stroke="{StaticResource BatteryAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,4 L6,9 L9,7 L14,14" VerticalAlignment="Center" />
+                                    <Path Width="17" Height="17" Stretch="Uniform" Stroke="{DynamicResource BatteryAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,4 L6,9 L9,7 L14,14" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Min Drain" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Min Drain" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding BatteryWattsMinDrainDetailText}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Width="17" Height="17" Stretch="Uniform" Stroke="{StaticResource GoodAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,13 L6,8 L9,10 L14,3" VerticalAlignment="Center" />
+                                    <Path Width="17" Height="17" Stretch="Uniform" Stroke="{DynamicResource GoodAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,13 L6,8 L9,10 L14,3" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Max Charge" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Max Charge" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding BatteryWattsMaxChargeDetailText}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource MutedTextBrush}" FontSize="17" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource MutedTextBrush}" FontSize="17" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Rate" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Rate" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding BatteryWattsRateDetailText}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </Grid>
@@ -782,41 +782,41 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                            <Path Width="13" Height="16" Stretch="Uniform" Fill="{StaticResource BatteryAccentBrush}" Data="M9,0 L2,9 H7 L5,16 L14,6 H9 Z" Margin="0,1,8,0" />
-                            <TextBlock Text="Battery Watts" Foreground="{StaticResource BatteryAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                            <Path Width="13" Height="16" Stretch="Uniform" Fill="{DynamicResource BatteryAccentBrush}" Data="M9,0 L2,9 H7 L5,16 L14,6 H9 Z" Margin="0,1,8,0" />
+                            <TextBlock Text="Battery Watts" Foreground="{DynamicResource BatteryAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         </StackPanel>
 
                         <controls:UsageDetailGraphControl Grid.Row="1"
                                                           Values="{Binding BatteryDrainGraphValues}"
                                                           Peaks="{Binding BatteryDrainPeaks}"
-                                                          Stroke="{StaticResource BatteryAccentBrush}"
-                                                          Fill="#33F5AA2D"
+                                                          Stroke="{DynamicResource BatteryAccentBrush}"
+                                                          Fill="{DynamicResource BatteryGraphFill}"
                                                           AxisUnit=" W"
                                                           AxisFormat="N1"
                                                           IsSigned="True"
                                                           SmoothLine="True"
                                                           Margin="0,4,0,0" />
 
-                    <Border Grid.Row="2" Background="{StaticResource InsetPanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,0,0">
+                    <Border Grid.Row="2" Background="{DynamicResource InsetPanelBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,0,0">
                             <UniformGrid Columns="3" Margin="10,6">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource BatteryAccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource BatteryAccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Avg Drain" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Avg Drain" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding BatteryDrainAverageDetailText}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource BatteryAccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource BatteryAccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Time &gt; 12 W" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Time &gt; 12 W" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding BatteryDrainTimeAbove12Text}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource MutedTextBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource MutedTextBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Samples" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Samples" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding BatteryDrainSamplesDetailText}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
@@ -831,10 +831,10 @@
                             <RowDefinition Height="30" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="Drain Events" Foreground="{StaticResource TextBrush}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" />
+                        <TextBlock Text="Drain Events" Foreground="{DynamicResource TextBrush}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" />
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <StackPanel>
-                                <TextBlock Text="{Binding BatteryDrainEventsEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                <TextBlock Text="{Binding BatteryDrainEventsEmptyText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 <ItemsControl ItemsSource="{Binding BatteryDrainEvents}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -851,11 +851,11 @@
                                                         <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource BatteryAccentBrush}" Margin="8,0,0,0" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource BatteryAccentBrush}" Margin="8,0,0,0" />
                                                 </Grid>
-                                                <TextBlock Grid.Row="1" Text="{Binding DetailText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Row="2" Text="{Binding ContextText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,1,0,3" TextTrimming="CharacterEllipsis" />
-                                                <ProgressBar Grid.Row="3" Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{StaticResource BatteryAccentBrush}" />
+                                                <TextBlock Grid.Row="1" Text="{Binding DetailText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Row="2" Text="{Binding ContextText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" Margin="0,1,0,3" TextTrimming="CharacterEllipsis" />
+                                                <ProgressBar Grid.Row="3" Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{DynamicResource BatteryAccentBrush}" />
                                             </Grid>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -866,7 +866,7 @@
                 </Border>
             </Grid>
 
-            <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="21" Margin="10,8,10,8" Background="{StaticResource WindowBg}">
+            <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="21" Margin="10,8,10,8" Background="{DynamicResource WindowBg}">
                 <Grid.Style>
                     <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Collapsed" />
@@ -905,8 +905,8 @@
                                 ToolTip="Back" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Top">
                             <TextBlock Text="Battery Usage Details" FontSize="20" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding SelectedBatteryUsageTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="13" Margin="0,4,0,0" />
-                            <TextBlock Text="{Binding SelectedBatteryUsageSummary}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding SelectedBatteryUsageTitle}" Foreground="{DynamicResource GoodAccentBrush}" FontSize="13" Margin="0,4,0,0" />
+                            <TextBlock Text="{Binding SelectedBatteryUsageSummary}" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -922,7 +922,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding BatteryUsageTitle}" Foreground="{StaticResource GoodAccentBrush}" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding BatteryUsageTitle}" Foreground="{DynamicResource GoodAccentBrush}" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                 <Button Content="&lt;" Command="{Binding PreviousBatteryUsageDayCommand}" Width="30" MinWidth="30" Height="26" MinHeight="26" Padding="0" FontSize="12" ToolTip="Previous day" />
                                 <Button Content="{Binding BatteryUsageDateText}" Command="{Binding TodayBatteryUsageCommand}" Width="68" MinWidth="68" Height="26" MinHeight="26" Padding="4,0" FontSize="11" Margin="5,0" ToolTip="Today" />
@@ -948,18 +948,18 @@
                             <RowDefinition Height="*" />
                             <RowDefinition Height="28" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="Windows battery impact during selected range" Foreground="{StaticResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock Text="Windows battery impact during selected range" Foreground="{DynamicResource GoodAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         <Grid Grid.Row="1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="180" />
                                 <ColumnDefinition Width="64" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="App" Foreground="{StaticResource MutedTextBrush}" FontSize="12" />
-                            <TextBlock Grid.Column="2" Text="Share" Foreground="{StaticResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
+                            <TextBlock Text="App" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                            <TextBlock Grid.Column="2" Text="Share" Foreground="{DynamicResource MutedTextBrush}" HorizontalAlignment="Right" FontSize="12" />
                         </Grid>
                         <Grid Grid.Row="2">
-                            <TextBlock Text="{Binding SelectedWindowsBatteryUsageEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,0,0" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding SelectedWindowsBatteryUsageEmptyText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" VerticalAlignment="Top" Margin="0,8,0,0" TextWrapping="Wrap" />
                             <ItemsControl ItemsSource="{Binding SelectedWindowsBatteryUsageProcesses}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -971,11 +971,11 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="12" />
-                                                <TextBlock Text="{Binding DetailText}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource MutedTextBrush}" FontSize="9" />
+                                                <TextBlock Text="{Binding DetailText}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource MutedTextBrush}" FontSize="9" />
                                             </StackPanel>
                                             <Grid Grid.Column="1" Margin="8,0,12,0" VerticalAlignment="Center">
-                                                        <Border Background="{StaticResource MiniBarBg}" Height="5" CornerRadius="2.5" />
-                                                <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{StaticResource BatteryAccentBrush}" />
+                                                        <Border Background="{DynamicResource MiniBarBg}" Height="5" CornerRadius="2.5" />
+                                                <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{DynamicResource BatteryAccentBrush}" />
                                             </Grid>
                                             <TextBlock Grid.Column="2" Text="{Binding PercentText}" HorizontalAlignment="Right" FontSize="12" VerticalAlignment="Center" />
                                         </Grid>
@@ -985,7 +985,7 @@
                         </Grid>
                         <TextBlock Grid.Row="3"
                                    Text="{Binding SelectedBatteryUsageImpactAuditText}"
-                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Foreground="{DynamicResource MutedTextBrush}"
                                    FontSize="11"
                                    VerticalAlignment="Bottom"
                                    TextTrimming="CharacterEllipsis"
@@ -994,7 +994,7 @@
                 </Border>
             </Grid>
 
-            <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="20" Margin="10,8,10,8" Background="{StaticResource WindowBg}">
+            <Grid Grid.Row="1" Grid.RowSpan="4" Panel.ZIndex="20" Margin="10,8,10,8" Background="{DynamicResource WindowBg}">
                 <Grid.Style>
                     <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Collapsed" />
@@ -1043,71 +1043,71 @@
                                 ToolTip="Back" />
                         <StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Top">
                             <TextBlock Text="CPU / GPU Usage Details" FontSize="20" FontWeight="SemiBold" />
-                            <TextBlock Text="Detailed activity and recent CPU driver processes" Foreground="{StaticResource MutedTextBrush}" FontSize="12" Margin="0,2,0,0" />
+                            <TextBlock Text="Detailed activity and recent CPU driver processes" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" Margin="0,2,0,0" />
                         </StackPanel>
 
                         <UniformGrid Grid.Row="1" Grid.ColumnSpan="2" Columns="5" Margin="0,12,0,0">
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Width="18" Height="18" Stretch="Uniform" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" VerticalAlignment="Center" />
+                                    <Path Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="CPU Now" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="CPU Now" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding CpuNowDetailText}" FontSize="18" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                        <Path Width="18" Height="18" Stretch="Uniform" Stroke="{StaticResource GpuAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" VerticalAlignment="Center" />
+                        <Path Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource GpuAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="GPU Now" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="GPU Now" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding GpuNowDetailText}" FontSize="18" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Path Width="18" Height="18" Stretch="Uniform" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,13 L6,9 L9,11 L14,4 M11,4 H14 V7" VerticalAlignment="Center" />
+                                    <Path Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,13 L6,9 L9,11 L14,4 M11,4 H14 V7" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="CPU Max" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="CPU Max" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding CpuMaxDetailText}" FontSize="18" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54" Margin="0,0,8,0">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                        <Path Width="18" Height="18" Stretch="Uniform" Stroke="{StaticResource GpuAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,13 L6,9 L9,11 L14,4 M11,4 H14 V7" VerticalAlignment="Center" />
+                        <Path Width="18" Height="18" Stretch="Uniform" Stroke="{DynamicResource GpuAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M2,13 L6,9 L9,11 L14,4 M11,4 H14 V7" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="GPU Max" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="GPU Max" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding GpuMaxDetailText}" FontSize="18" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                        <Border Background="{StaticResource MetricCardBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54">
+                        <Border Background="{DynamicResource MetricCardBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Height="54">
                                 <Grid Margin="10,7">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="26" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource MutedTextBrush}" FontSize="17" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource MutedTextBrush}" FontSize="17" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1">
-                                        <TextBlock Text="Sampling" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Sampling" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding DetailSamplingText}" FontSize="18" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </Grid>
@@ -1128,39 +1128,39 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                            <Path Width="17" Height="17" Stretch="Uniform" Stroke="{StaticResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,1,8,0" />
-                            <TextBlock Text="CPU Usage" Foreground="{StaticResource AccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                            <Path Width="17" Height="17" Stretch="Uniform" Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,1,8,0" />
+                            <TextBlock Text="CPU Usage" Foreground="{DynamicResource AccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         </StackPanel>
       
 
                         <controls:UsageDetailGraphControl Grid.Row="1"
                                                           Values="{Binding CpuGraphValues}"
                                                           Peaks="{Binding CpuUsagePeaks}"
-                                                          Stroke="{StaticResource AccentBrush}"
-                                                          Fill="#203A82C9"
+                                                          Stroke="{DynamicResource AccentBrush}"
+                                                          Fill="{DynamicResource CpuGraphFill}"
                                                           SmoothLine="True"
                                                           Margin="0,4,0,0" />
 
-                    <Border Grid.Row="2" Grid.Column="0" Background="{StaticResource InsetPanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,0,0">
+                    <Border Grid.Row="2" Grid.Column="0" Background="{DynamicResource InsetPanelBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,0,0">
                             <UniformGrid Columns="3" Margin="10,6">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource AccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource AccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Average" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Average" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding CpuAverageDetailText}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource AccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource AccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Total Time &gt; 50%" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Total Time &gt; 50%" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding CpuTimeAbove50Text}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource MutedTextBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource MutedTextBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Samples" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Samples" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding CpuSamplesDetailText}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
@@ -1177,17 +1177,17 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Text="CPU Drivers" Foreground="{StaticResource TextBrush}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" />
+                        <TextBlock Text="CPU Drivers" Foreground="{DynamicResource TextBrush}" FontSize="13" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Top" />
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                             <ScrollViewer.Resources>
                                 <Style TargetType="{x:Type ScrollBar}">
                                     <Setter Property="Width" Value="6" />
                                     <Setter Property="MinWidth" Value="6" />
-                                                        <Setter Property="Background" Value="{StaticResource WindowBg}" />
+                                                        <Setter Property="Background" Value="{DynamicResource WindowBg}" />
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="{x:Type ScrollBar}">
-                                                            <Grid Width="6" Background="{StaticResource WindowBg}">
+                                                            <Grid Width="6" Background="{DynamicResource WindowBg}">
                                                     <Track x:Name="PART_Track" IsDirectionReversed="True">
                                                         <Track.DecreaseRepeatButton>
                                                             <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Opacity="0" IsTabStop="False" />
@@ -1196,7 +1196,7 @@
                                                             <Thumb>
                                                                 <Thumb.Template>
                                                                     <ControlTemplate TargetType="{x:Type Thumb}">
-                                                                        <Border Width="6" Background="#4A5158" CornerRadius="3" />
+                                                                        <Border Width="6" Background="{DynamicResource ScrollbarThumb}" CornerRadius="3" />
                                                                     </ControlTemplate>
                                                                 </Thumb.Template>
                                                             </Thumb>
@@ -1212,7 +1212,7 @@
                                 </Style>
                             </ScrollViewer.Resources>
                             <StackPanel>
-                                <TextBlock Text="{Binding CpuDriverEmptyText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
+                                <TextBlock Text="{Binding CpuDriverEmptyText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
                                 <ItemsControl ItemsSource="{Binding CpuDriverProcesses}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
@@ -1224,15 +1224,15 @@
                                                     <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
                                                 <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Grid.Row="1" Text="{Binding NowAverageText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,1,0,0" />
-                                                <TextBlock Grid.Row="2" Text="{Binding MaxActiveText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" Margin="0,1,0,3" />
+                                                <TextBlock Grid.Row="1" Text="{Binding NowAverageText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" Margin="0,1,0,0" />
+                                                <TextBlock Grid.Row="2" Text="{Binding MaxActiveText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" Margin="0,1,0,3" />
                                                 <Grid Grid.Row="3">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="42" />
                                                     </Grid.ColumnDefinitions>
-                                                    <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="1" Text="{Binding TrendText}" Foreground="{StaticResource MutedTextBrush}" FontSize="10" HorizontalAlignment="Right" />
+                                                    <ProgressBar Style="{StaticResource MiniBarStyle}" Value="{Binding BarPercent}" Maximum="100" Height="5" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding TrendText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" HorizontalAlignment="Right" />
                                                 </Grid>
                                             </Grid>
                                         </DataTemplate>
@@ -1255,38 +1255,38 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                        <Path Width="17" Height="17" Stretch="Uniform" Stroke="{StaticResource GpuAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,1,8,0" />
-                        <TextBlock Text="GPU Usage" Foreground="{StaticResource GpuAccentBrush}" FontSize="15" FontWeight="SemiBold" />
+                        <Path Width="17" Height="17" Stretch="Uniform" Stroke="{DynamicResource GpuAccentBrush}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,5 H13 V11 H3 Z M5,3 V5 M8,3 V5 M11,3 V5 M5,11 V13 M8,11 V13 M11,11 V13 M1,6 H3 M1,10 H3 M13,6 H15 M13,10 H15" Margin="0,1,8,0" />
+                        <TextBlock Text="GPU Usage" Foreground="{DynamicResource GpuAccentBrush}" FontSize="15" FontWeight="SemiBold" />
                         </StackPanel>
 
                         <controls:UsageDetailGraphControl Grid.Row="1"
                                                           Values="{Binding GpuGraphValues}"
                                                           Peaks="{Binding GpuUsagePeaks}"
-                               Stroke="{StaticResource GpuAccentBrush}"
-                                                          Fill="#2040A695"
+                               Stroke="{DynamicResource GpuAccentBrush}"
+                                                          Fill="{DynamicResource GpuGraphFill}"
                                                           SmoothLine="True"
                                                           Margin="0,4,0,0" />
 
-                    <Border Grid.Row="2" Grid.Column="0" Background="{StaticResource InsetPanelBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,0,0">
+                    <Border Grid.Row="2" Grid.Column="0" Background="{DynamicResource InsetPanelBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="1" CornerRadius="7" Margin="0,8,0,0">
                             <UniformGrid Columns="3" Margin="10,6">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource GpuAccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource GpuAccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Average" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Average" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding GpuAverageDetailText}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource GpuAccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource GpuAccentBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Total Time &gt; 50%" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Total Time &gt; 50%" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding GpuTimeAbove50Text}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{StaticResource MutedTextBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets" Foreground="{DynamicResource MutedTextBrush}" FontSize="16" Margin="0,0,10,0" VerticalAlignment="Center" />
                                     <StackPanel>
-                                        <TextBlock Text="Samples" Foreground="{StaticResource MutedTextBrush}" FontSize="10" />
+                                        <TextBlock Text="Samples" Foreground="{DynamicResource MutedTextBrush}" FontSize="10" />
                                         <TextBlock Text="{Binding GpuSamplesDetailText}" FontSize="14" FontWeight="SemiBold" />
                                     </StackPanel>
                                 </StackPanel>
@@ -1298,8 +1298,8 @@
             </Grid>
 
 
-            <Border Grid.Row="4" Background="{StaticResource TopBarBg}" BorderBrush="{StaticResource PanelBorder}" BorderThickness="0,1,0,0" CornerRadius="0,0,11,11">
-                <TextBlock Text="{Binding FooterStatusText}" Foreground="{StaticResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" Margin="14,0" />
+            <Border Grid.Row="4" Background="{DynamicResource TopBarBg}" BorderBrush="{DynamicResource PanelBorder}" BorderThickness="0,1,0,0" CornerRadius="0,0,11,11">
+                <TextBlock Text="{Binding FooterStatusText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" VerticalAlignment="Center" Margin="14,0" />
             </Border>
         </Grid>
     </Border>

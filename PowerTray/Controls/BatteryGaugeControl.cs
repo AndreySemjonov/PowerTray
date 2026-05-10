@@ -39,15 +39,30 @@ public sealed class BatteryGaugeControl : FrameworkElement
             return;
         }
 
-        var outlinePen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(82, 86, 92)), 3);
+        MediaBrush outlineBrush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(82, 86, 92), 0.55);
+        MediaBrush bodyBrush = ResourceBrush("PanelBg", MediaColor.FromRgb(26, 29, 33));
+        var outlinePen = new MediaPen(outlineBrush, 3);
         double nubWidth = width * 0.34;
         var nub = new Rect((width - nubWidth) / 2, 1.5, nubWidth, 12);
         var body = new Rect(5, 12, width - 10, height - 15);
         drawingContext.DrawRoundedRectangle(null, outlinePen, nub, 4, 4);
-        drawingContext.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromRgb(26, 29, 33)), outlinePen, body, 8, 8);
+        drawingContext.DrawRoundedRectangle(bodyBrush, outlinePen, body, 8, 8);
 
         double fillRatio = Math.Clamp(Percentage, 0, 100) / 100d;
         var fill = new Rect(body.Left + 8, body.Bottom - 8 - ((body.Height - 16) * fillRatio), body.Width - 16, (body.Height - 16) * fillRatio);
         drawingContext.DrawRoundedRectangle(Accent, null, fill, 3, 3);
     }
+
+    private MediaBrush ResourceBrush(string key, MediaColor fallback, double opacity = 1)
+    {
+        if (TryFindResource(key) is SolidColorBrush brush)
+        {
+            return opacity >= 0.999 ? brush : new SolidColorBrush(WithOpacity(brush.Color, opacity));
+        }
+
+        return new SolidColorBrush(WithOpacity(fallback, opacity));
+    }
+
+    private static MediaColor WithOpacity(MediaColor color, double opacity) =>
+        MediaColor.FromArgb((byte)Math.Clamp(opacity * 255, 0, 255), color.R, color.G, color.B);
 }

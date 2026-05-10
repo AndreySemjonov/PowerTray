@@ -10,9 +10,9 @@
         ResizeMode="NoResize"
         AllowsTransparency="True"
         Background="Transparent"
-        Foreground="{StaticResource TextBrush}">
-    <Border Background="{StaticResource WindowBg}"
-            BorderBrush="{StaticResource PanelBorder}"
+        Foreground="{DynamicResource TextBrush}">
+    <Border Background="{DynamicResource WindowBg}"
+            BorderBrush="{DynamicResource PanelBorder}"
             BorderThickness="1"
             CornerRadius="11"
             SnapsToDevicePixels="True">
@@ -23,8 +23,8 @@
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0"
-                    Background="{StaticResource TopBarBg}"
-                    BorderBrush="{StaticResource PanelBorder}"
+                    Background="{DynamicResource TopBarBg}"
+                    BorderBrush="{DynamicResource PanelBorder}"
                     BorderThickness="0,0,0,1"
                     CornerRadius="10,10,0,0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -51,11 +51,11 @@
 
                 <StackPanel Margin="0,0,0,12">
                     <TextBlock Text="PowerTray"
-                               Foreground="{StaticResource AccentBrush}"
+                               Foreground="{DynamicResource AccentBrush}"
                                FontSize="22"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="VersionText"
-                               Foreground="{StaticResource MutedTextBrush}"
+                               Foreground="{DynamicResource MutedTextBrush}"
                                FontSize="12"
                                Margin="0,2,0,0" />
                 </StackPanel>
@@ -63,7 +63,7 @@
                 <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="14">
                     <StackPanel>
                         <TextBlock TextWrapping="Wrap"
-                                   Foreground="{StaticResource TextBrush}"
+                                   Foreground="{DynamicResource TextBrush}"
                                    LineHeight="19"
                                    Text="PowerTray is a lightweight Windows tray utility for quick Dell battery mode, Windows power plan, Dell thermal profile, battery history, and CPU/GPU monitoring." />
 
@@ -79,16 +79,16 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <TextBlock Text="Author" Foreground="{StaticResource MutedTextBrush}" />
+                            <TextBlock Text="Author" Foreground="{DynamicResource MutedTextBrush}" />
                             <TextBlock Grid.Column="1" Text="Andrejs Semjonovs" />
 
-                            <TextBlock Grid.Row="1" Text="License" Foreground="{StaticResource MutedTextBrush}" Margin="0,8,0,0" />
+                            <TextBlock Grid.Row="1" Text="License" Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" />
                             <TextBlock Grid.Row="1" Grid.Column="1" Text="GPLv3" Margin="0,8,0,0" />
 
-                            <TextBlock Grid.Row="2" Text="GitHub" Foreground="{StaticResource MutedTextBrush}" Margin="0,8,0,0" />
+                            <TextBlock Grid.Row="2" Text="GitHub" Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" />
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="github.com/AndreySemjonov/PowerTray" TextTrimming="CharacterEllipsis" Margin="0,8,0,0" />
 
-                            <TextBlock Grid.Row="3" Text="Sensors" Foreground="{StaticResource MutedTextBrush}" Margin="0,8,0,0" />
+                            <TextBlock Grid.Row="3" Text="Sensors" Foreground="{DynamicResource MutedTextBrush}" Margin="0,8,0,0" />
                             <TextBlock Grid.Row="3" Grid.Column="1" Text="HWiNFO optional" Margin="0,8,0,0" />
                         </Grid>
                     </StackPanel>

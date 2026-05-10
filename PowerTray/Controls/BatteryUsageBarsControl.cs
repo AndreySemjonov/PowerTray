@@ -50,7 +50,7 @@ public sealed class BatteryUsageBarsControl : FrameworkElement
         const double bottomLabelHeight = 20;
         double plotWidth = Math.Max(1, ActualWidth - leftPadding - rightPadding);
         double plotHeight = Math.Max(1, ActualHeight - topPadding - bottomLabelHeight);
-        var gridPen = new MediaPen(new SolidColorBrush(MediaColor.FromArgb(70, 88, 92, 98)), 1);
+        var gridPen = new MediaPen(ResourceBrush("PanelBorder", MediaColor.FromArgb(70, 88, 92, 98), 0.75), 1);
         if (!activityMode)
         {
             context.DrawLine(gridPen, new WindowsPoint(leftPadding, topPadding), new WindowsPoint(leftPadding + plotWidth, topPadding));
@@ -77,7 +77,7 @@ public sealed class BatteryUsageBarsControl : FrameworkElement
 
             if (bucket.IsCurrent)
             {
-                var markerPen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(74, 168, 255)), 1);
+                var markerPen = new MediaPen(ResourceBrush("AccentBrush", MediaColor.FromRgb(74, 168, 255), 0.7), 1);
                 context.DrawLine(markerPen, new WindowsPoint(x + barWidth / 2, topPadding), new WindowsPoint(x + barWidth / 2, topPadding + plotHeight));
             }
 
@@ -85,7 +85,7 @@ public sealed class BatteryUsageBarsControl : FrameworkElement
 
         if (!activityMode)
         {
-            var axisBrush = new SolidColorBrush(MediaColor.FromRgb(185, 190, 197));
+            MediaBrush axisBrush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(185, 190, 197));
             DrawText(context, "100%", 10, axisBrush, 0, topPadding - 4);
             DrawText(context, "50%", 10, axisBrush, 6, topPadding + plotHeight / 2 - 7);
             DrawText(context, "0%", 10, axisBrush, 12, topPadding + plotHeight - 13);
@@ -121,9 +121,9 @@ public sealed class BatteryUsageBarsControl : FrameworkElement
         return new SolidColorBrush(MediaColor.FromRgb(82, 88, 96));
     }
 
-    private static void DrawEmptyLine(DrawingContext context, Rect bounds)
+    private void DrawEmptyLine(DrawingContext context, Rect bounds)
     {
-        var pen = new MediaPen(new SolidColorBrush(MediaColor.FromRgb(62, 70, 82)), 1);
+        var pen = new MediaPen(ResourceBrush("PanelBorder", MediaColor.FromRgb(62, 70, 82), 0.75), 1);
         context.DrawLine(pen, new WindowsPoint(6, bounds.Height / 2), new WindowsPoint(Math.Max(6, bounds.Width - 6), bounds.Height / 2));
     }
 
@@ -140,10 +140,10 @@ public sealed class BatteryUsageBarsControl : FrameworkElement
         context.DrawText(formatted, new WindowsPoint(x, y));
     }
 
-    private static void DrawTimeLabels(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double y)
+    private void DrawTimeLabels(DrawingContext context, IReadOnlyList<BatteryUsageBucket> buckets, double left, double width, double y)
     {
         int[] positions = [0, buckets.Count / 4, buckets.Count / 2, buckets.Count * 3 / 4, buckets.Count - 1];
-        var brush = new SolidColorBrush(MediaColor.FromRgb(163, 169, 176));
+        MediaBrush brush = ResourceBrush("MutedTextBrush", MediaColor.FromRgb(163, 169, 176));
         for (int i = 0; i < positions.Length; i++)
         {
             int bucketIndex = Math.Clamp(positions[i], 0, buckets.Count - 1);
@@ -168,5 +168,14 @@ public sealed class BatteryUsageBarsControl : FrameworkElement
 
             context.DrawText(formatted, new WindowsPoint(x, y));
         }
+    }
+
+    private MediaBrush ResourceBrush(string key, MediaColor fallback, double opacity = 1)
+    {
+        MediaColor color = TryFindResource(key) is SolidColorBrush brush
+            ? brush.Color
+            : fallback;
+
+        return new SolidColorBrush(MediaColor.FromArgb((byte)Math.Clamp(opacity * 255, 0, 255), color.R, color.G, color.B));
     }
 }
