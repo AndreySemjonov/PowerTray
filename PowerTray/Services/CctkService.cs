@@ -13,6 +13,7 @@ public sealed class CctkService
 {
     private const string QueryArgument = "--PrimaryBattChargeCfg";
     private const string ThermalQueryArgument = "--thermalmanagement";
+    private const string ThermalExportName = "ThermalManagement";
     private readonly SettingsService _settingsService;
 
     public CctkService(SettingsService settingsService)
@@ -54,12 +55,34 @@ public sealed class CctkService
     public async Task<CommandResult> ShowThermalManagementAsync(bool allowElevation = false)
     {
         CommandResult result = await ExecuteAsync(ThermalQueryArgument, requiresAdmin: false);
-        if (result.Success || !allowElevation || IsAdministrator())
+        if (result.Success)
         {
             return result;
         }
 
-        return await ExecuteAsync(ThermalQueryArgument, requiresAdmin: true);
+        if (RequiresAdministrator(result) && allowElevation && !IsAdministrator())
+        {
+            return await ReadThermalManagementFromExportAsync(allowElevation: true);
+        }
+
+        if (RequiresThermalExportReadback(result))
+        {
+            CommandResult exportResult = await ReadThermalManagementFromExportAsync(allowElevation);
+            if (exportResult.Success || !allowElevation || IsAdministrator())
+            {
+                return exportResult;
+            }
+        }
+
+        if (!allowElevation || IsAdministrator())
+        {
+            return result;
+        }
+
+        CommandResult elevatedResult = await ExecuteAsync(ThermalQueryArgument, requiresAdmin: true);
+        return RequiresThermalExportReadback(elevatedResult)
+            ? await ReadThermalManagementFromExportAsync(allowElevation: true)
+            : elevatedResult;
     }
 
     public async Task<CommandResult> ApplyThermalProfileAsync(DellThermalProfile profile)
@@ -254,6 +277,101 @@ public sealed class CctkService
         }
 
         return message;
+    }
+
+    private async Task<CommandResult> ReadThermalManagementFromExportAsync(bool allowElevation)
+    {
+        string exportDirectory = Path.Combine(Path.GetTempPath(), "PowerTray");
+        Directory.CreateDirectory(exportDirectory);
+        string exportPath = Path.Combine(exportDirectory, $"{Guid.NewGuid():N}.ini");
+
+        try
+        {
+            CommandResult result = await ExecuteAsync($"-o {Quote(exportPath)}", requiresAdmin: allowElevation);
+            if (!result.Success)
+            {
+                return result;
+            }
+
+            if (!File.Exists(exportPath))
+            {
+                return new CommandResult
+                {
+                    Success = false,
+                    ExitCode = -1,
+                    Message = "Dell thermal readback export did not create an INI file."
+                };
+            }
+
+            string? thermalValue = ReadIniValue(exportPath, ThermalExportName);
+            if (string.IsNullOrWhiteSpace(thermalValue))
+            {
+                return new CommandResult
+                {
+                    Success = false,
+                    ExitCode = -1,
+                    Message = "Dell thermal setting was not found in the CCTK export."
+                };
+            }
+
+            string output = $"{ThermalExportName}={thermalValue.Trim()}";
+            return new CommandResult
+            {
+                Success = true,
+                ExitCode = 0,
+                StandardOutput = output,
+                Message = output
+            };
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(exportPath))
+                {
+                    File.Delete(exportPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "Failed to delete temporary CCTK export.");
+            }
+        }
+    }
+
+    private static bool RequiresThermalExportReadback(CommandResult result) =>
+        result.ExitCode == 65 &&
+        result.Message.Contains("ThermalManagement", StringComparison.OrdinalIgnoreCase) &&
+        result.Message.Contains("requires an argument", StringComparison.OrdinalIgnoreCase);
+
+    private static bool RequiresAdministrator(CommandResult result) =>
+        result.ExitCode == 95 ||
+        result.Message.Contains("admin/root", StringComparison.OrdinalIgnoreCase);
+
+    private static string? ReadIniValue(string path, string key)
+    {
+        foreach (string line in File.ReadLines(path))
+        {
+            string trimmed = line.Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith(';') || trimmed.StartsWith('['))
+            {
+                continue;
+            }
+
+            int separator = trimmed.IndexOf('=');
+            if (separator <= 0)
+            {
+                continue;
+            }
+
+            string name = trimmed[..separator].Trim();
+            if (name.Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed[(separator + 1)..].Trim();
+            }
+        }
+
+        return null;
     }
 
     private static string RedactSetupPassword(string text)
