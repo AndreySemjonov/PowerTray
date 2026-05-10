@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using PowerTray.Models;
 using WpfApplication = System.Windows.Application;
 using MediaColor = System.Windows.Media.Color;
+using WpfPoint = System.Windows.Point;
 
 namespace PowerTray.Services;
 
@@ -80,33 +81,20 @@ public static class ThemeService
 
     private static void SetBrush(string key, MediaColor color)
     {
-        if (WpfApplication.Current.TryFindResource(key) is SolidColorBrush brush)
-        {
-            if (brush.IsFrozen)
-            {
-                brush = brush.CloneCurrentValue();
-                ReplaceResource(key, brush);
-            }
-
-            brush.Color = color;
-        }
+        ReplaceResource(key, new SolidColorBrush(color));
     }
 
     private static void SetPanelGlow(MediaColor start, MediaColor end)
     {
-        if (WpfApplication.Current.TryFindResource("PanelGlow") is not LinearGradientBrush brush || brush.GradientStops.Count < 2)
+        var brush = new LinearGradientBrush
         {
-            return;
-        }
+            StartPoint = new WpfPoint(0, 0),
+            EndPoint = new WpfPoint(1, 1)
+        };
 
-        if (brush.IsFrozen)
-        {
-            brush = brush.CloneCurrentValue();
-            ReplaceResource("PanelGlow", brush);
-        }
-
-        brush.GradientStops[0].Color = start;
-        brush.GradientStops[1].Color = end;
+        brush.GradientStops.Add(new GradientStop(start, 0));
+        brush.GradientStops.Add(new GradientStop(end, 1));
+        ReplaceResource("PanelGlow", brush);
     }
 
     private static void ReplaceResource(string key, object value)
