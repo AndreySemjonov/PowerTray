@@ -20,9 +20,11 @@ public sealed class MainViewModel : ObservableObject
     private static readonly TimeSpan DiagnosticProcessRefreshInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan WindowsBatteryUsageRefreshInterval = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan RefreshTimingLogInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan DellThermalStartupRetryDelay = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan CpuDriverHistoryWindow = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan CpuDriverRecentWindow = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan CpuDriverShortWindow = TimeSpan.FromSeconds(30);
+    private const int DellThermalStartupRetryAttempts = 6;
     private const double CpuDriverActiveThreshold = 1.0;
     private const double SlowRefreshThresholdMs = 1000;
     private const double SlowUiRefreshThresholdMs = 200;
@@ -916,7 +918,7 @@ public sealed class MainViewModel : ObservableObject
         if (IsDellChargeModeAvailable)
         {
             _ = RefreshDellChargeAsync();
-            _ = RefreshDellThermalAsync();
+            _ = RefreshDellThermalAsync(retryOnFailure: true);
         }
 
         _ = RefreshAsync();
@@ -1012,7 +1014,9 @@ public sealed class MainViewModel : ObservableObject
         StatusMessage = result.Message;
     }
 
-    public async Task RefreshDellThermalAsync()
+    public Task RefreshDellThermalAsync() => RefreshDellThermalAsync(retryOnFailure: false);
+
+    private async Task RefreshDellThermalAsync(bool retryOnFailure)
     {
         if (!IsDellChargeModeAvailable || _settingsService.Current.DellThermalControlMode == DellThermalControlMode.Off)
         {
@@ -1021,7 +1025,47 @@ public sealed class MainViewModel : ObservableObject
         }
 
         CommandResult result = await _cctkService.ShowThermalManagementAsync(allowElevation: true);
-        DellThermalSetting = result.Success ? CleanCctkOutput(result.StandardOutput) : "Unavailable";
+        if (result.Success)
+        {
+            DellThermalSetting = CleanCctkOutput(result.StandardOutput);
+            StatusMessage = result.Message;
+            return;
+        }
+
+        if (!retryOnFailure)
+        {
+            DellThermalSetting = "Unavailable";
+            StatusMessage = result.Message;
+            return;
+        }
+
+        StatusMessage = $"{result.Message} Retrying Dell thermal read...";
+        LogService.Info($"Initial Dell thermal query failed after startup. Retrying. {result.Message}");
+
+        for (int attempt = 1; attempt < DellThermalStartupRetryAttempts; attempt++)
+        {
+            await Task.Delay(DellThermalStartupRetryDelay);
+            if (!IsDellChargeModeAvailable || _settingsService.Current.DellThermalControlMode == DellThermalControlMode.Off)
+            {
+                return;
+            }
+
+            result = await _cctkService.ShowThermalManagementAsync(allowElevation: true);
+            if (result.Success)
+            {
+                DellThermalSetting = CleanCctkOutput(result.StandardOutput);
+                StatusMessage = result.Message;
+                return;
+            }
+
+            StatusMessage = $"{result.Message} Retrying Dell thermal read...";
+        }
+
+        if (IsUnknownOrUnavailable(DellThermalSetting))
+        {
+            DellThermalSetting = "Unavailable";
+        }
+
         StatusMessage = result.Message;
     }
 
@@ -1792,6 +1836,10 @@ public sealed class MainViewModel : ObservableObject
         string cleaned = output.Trim();
         return string.IsNullOrWhiteSpace(cleaned) ? "No output from cctk.exe" : cleaned;
     }
+
+    private static bool IsUnknownOrUnavailable(string value) =>
+        value.Equals("Unknown", StringComparison.OrdinalIgnoreCase) ||
+        value.Equals("Unavailable", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatGraphSummary(IEnumerable<double?> values, string format, string unit)
     {

@@ -9,6 +9,7 @@ public sealed class StartupService
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupApprovedRunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
     private const string AppName = "PowerTray";
+    private const string AppExecutableName = "PowerTray.exe";
     private const string LegacyAppName = "XPSBatteryTray";
     private static readonly byte[] StartupApprovedEnabled = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -37,6 +38,14 @@ public sealed class StartupService
             key.DeleteValue(AppName, false);
             key.DeleteValue(LegacyAppName, false);
             DeleteStartupApprovedValues();
+        }
+    }
+
+    public void RefreshEnabledRegistration()
+    {
+        if (IsEnabled())
+        {
+            SetEnabled(enabled: true);
         }
     }
 
@@ -71,6 +80,12 @@ public sealed class StartupService
         string assemblyPath = Assembly.GetEntryAssembly()?.Location ?? string.Empty;
         if (Path.GetFileName(executable).Equals("dotnet.exe", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(assemblyPath))
         {
+            string appHostPath = Path.Combine(Path.GetDirectoryName(assemblyPath) ?? string.Empty, AppExecutableName);
+            if (File.Exists(appHostPath))
+            {
+                return $"\"{appHostPath}\" --minimized";
+            }
+
             return $"\"{executable}\" \"{assemblyPath}\" --minimized";
         }
 

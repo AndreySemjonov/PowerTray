@@ -25,6 +25,7 @@ public partial class App : System.Windows.Application
         var settingsService = new SettingsService();
         settingsService.Load();
         var startupService = new StartupService();
+        RefreshStartupRegistration(startupService);
         var cctkService = new CctkService(settingsService);
         var batteryService = new BatteryService();
         var processStatsService = new ProcessStatsService();
@@ -56,5 +57,17 @@ public partial class App : System.Windows.Application
     {
         _trayIconManager?.Dispose();
         base.OnExit(e);
+    }
+
+    private static void RefreshStartupRegistration(StartupService startupService)
+    {
+        try
+        {
+            startupService.RefreshEnabledRegistration();
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to refresh startup registration.");
+        }
     }
 }
