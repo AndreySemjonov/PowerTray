@@ -13,16 +13,8 @@ public sealed class WindowsBatteryUsagePipeClient
     {
         try
         {
-            using var pipe = new NamedPipeClientStream(".", WindowsBatteryUsageIpc.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
-            using var connectTimeout = new CancellationTokenSource(WindowsBatteryUsageIpc.ConnectTimeout);
-            await pipe.ConnectAsync(connectTimeout.Token);
-
-            using var responseTimeout = new CancellationTokenSource(WindowsBatteryUsageIpc.ResponseTimeout);
             var request = new WindowsBatteryUsageRequest { RangeStart = rangeStart, RangeEnd = rangeEnd };
-            await WriteMessageAsync(pipe, request, responseTimeout.Token);
-            pipe.WaitForPipeDrain();
-
-            return await ReadMessageAsync<WindowsBatteryUsageSnapshot>(pipe, responseTimeout.Token);
+            return await SendRequestAsync<WindowsBatteryUsageSnapshot>(request);
         }
         catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or IOException or UnauthorizedAccessException)
         {
@@ -34,6 +26,44 @@ public sealed class WindowsBatteryUsagePipeClient
             LogService.Error(ex, "Failed to query Windows battery usage helper.");
             return null;
         }
+    }
+
+    public async Task<CommandResult?> TryGetCctkReadbackAsync(string cctkPath, string readback)
+    {
+        try
+        {
+            var request = new WindowsBatteryUsageRequest
+            {
+                RequestType = WindowsBatteryUsageIpc.CctkReadbackRequestType,
+                CctkPath = cctkPath,
+                CctkReadback = readback
+            };
+
+            return await SendRequestAsync<CommandResult>(request);
+        }
+        catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or IOException or UnauthorizedAccessException)
+        {
+            LogService.Info($"PowerTray helper CCTK readback unavailable: {ex.Message}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to query PowerTray helper CCTK readback.");
+            return null;
+        }
+    }
+
+    private static async Task<T?> SendRequestAsync<T>(WindowsBatteryUsageRequest request)
+    {
+        using var pipe = new NamedPipeClientStream(".", WindowsBatteryUsageIpc.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+        using var connectTimeout = new CancellationTokenSource(WindowsBatteryUsageIpc.ConnectTimeout);
+        await pipe.ConnectAsync(connectTimeout.Token);
+
+        using var responseTimeout = new CancellationTokenSource(WindowsBatteryUsageIpc.ResponseTimeout);
+        await WriteMessageAsync(pipe, request, responseTimeout.Token);
+        pipe.WaitForPipeDrain();
+
+        return await ReadMessageAsync<T>(pipe, responseTimeout.Token);
     }
 
     private static async Task WriteMessageAsync<T>(Stream stream, T value, CancellationToken cancellationToken)

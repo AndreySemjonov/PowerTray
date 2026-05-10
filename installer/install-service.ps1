@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = "Stop"
 $serviceName = "PowerTrayBatteryImpact"
 $displayName = "PowerTray Battery Impact Helper"
-$description = "Reads Windows battery impact data for PowerTray."
+$description = "Reads Windows battery impact and safe Dell status data for PowerTray."
 $dotnet = Join-Path $env:ProgramFiles "dotnet\dotnet.exe"
 $serviceDll = Join-Path $InstallDir "PowerTray.Service.dll"
 

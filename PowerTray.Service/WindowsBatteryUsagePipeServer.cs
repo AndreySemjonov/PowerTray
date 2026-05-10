@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Diagnostics;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text.Json;
@@ -71,6 +72,14 @@ public sealed class WindowsBatteryUsagePipeServer : IDisposable
             try
             {
                 WindowsBatteryUsageRequest? request = await ReadMessageAsync<WindowsBatteryUsageRequest>(pipe, cancellationToken);
+                if (request?.RequestType == WindowsBatteryUsageIpc.CctkReadbackRequestType)
+                {
+                    CommandResult result = await GetCctkReadbackAsync(request);
+                    await WriteMessageAsync(pipe, result, cancellationToken);
+                    pipe.WaitForPipeDrain();
+                    return;
+                }
+
                 WindowsBatteryUsageSnapshot snapshot = request?.RangeStart is { } start && request.RangeEnd is { } end
                     ? _batteryUsageService.GetSnapshot(start, end)
                     : _batteryUsageService.GetSnapshot();
@@ -129,4 +138,177 @@ public sealed class WindowsBatteryUsagePipeServer : IDisposable
             outBufferSize: 16 * 1024,
             pipeSecurity: security);
     }
+
+    private static async Task<CommandResult> GetCctkReadbackAsync(WindowsBatteryUsageRequest request)
+    {
+        if (!IsValidCctkPath(request.CctkPath))
+        {
+            string message = "Dell Command | Configure cctk.exe was not found.";
+            return new CommandResult { Success = false, ExitCode = -1, Message = message, StandardError = message };
+        }
+
+        return request.CctkReadback switch
+        {
+            var value when value.Equals(WindowsBatteryUsageIpc.PrimaryBatteryChargeReadback, StringComparison.OrdinalIgnoreCase)
+                => await RunCctkAsync(request.CctkPath, "--PrimaryBattChargeCfg"),
+            var value when value.Equals(WindowsBatteryUsageIpc.ThermalManagementReadback, StringComparison.OrdinalIgnoreCase)
+                => await ReadThermalManagementAsync(request.CctkPath),
+            _ => new CommandResult { Success = false, ExitCode = -1, Message = "Unsupported CCTK readback request." }
+        };
+    }
+
+    private static async Task<CommandResult> ReadThermalManagementAsync(string cctkPath)
+    {
+        CommandResult result = await RunCctkAsync(cctkPath, "--thermalmanagement");
+        if (result.Success)
+        {
+            return result;
+        }
+
+        if (!RequiresThermalExportReadback(result))
+        {
+            return result;
+        }
+
+        string exportPath = Path.Combine(Path.GetTempPath(), "PowerTray", $"{Guid.NewGuid():N}.ini");
+        Directory.CreateDirectory(Path.GetDirectoryName(exportPath)!);
+        try
+        {
+            result = await RunCctkAsync(cctkPath, $"-o {Quote(exportPath)}");
+            if (!result.Success)
+            {
+                return result;
+            }
+
+            string? thermalValue = ReadIniValue(exportPath, WindowsBatteryUsageIpc.ThermalManagementReadback);
+            if (string.IsNullOrWhiteSpace(thermalValue))
+            {
+                return new CommandResult
+                {
+                    Success = false,
+                    ExitCode = -1,
+                    Message = "Dell thermal setting was not found in the CCTK export."
+                };
+            }
+
+            string output = $"{WindowsBatteryUsageIpc.ThermalManagementReadback}={thermalValue.Trim()}";
+            return new CommandResult
+            {
+                Success = true,
+                ExitCode = 0,
+                StandardOutput = output,
+                Message = output
+            };
+        }
+        finally
+        {
+            try
+            {
+                if (File.Exists(exportPath))
+                {
+                    File.Delete(exportPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogService.Error(ex, "Failed to delete temporary service CCTK export.");
+            }
+        }
+    }
+
+    private static async Task<CommandResult> RunCctkAsync(string cctkPath, string argument)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = cctkPath,
+                Arguments = argument,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("Could not start cctk.exe.");
+            string stdout = await process.StandardOutput.ReadToEndAsync();
+            string stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            string message = string.IsNullOrWhiteSpace(stderr) ? stdout.Trim() : stderr.Trim();
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                message = process.ExitCode == 0 ? "Command completed." : $"Command failed with exit code {process.ExitCode}.";
+            }
+
+            var result = new CommandResult
+            {
+                Success = process.ExitCode == 0,
+                ExitCode = process.ExitCode,
+                StandardOutput = stdout,
+                StandardError = stderr,
+                Message = message
+            };
+            LogService.Info($"helper cctk {argument} -> exit {result.ExitCode}. stdout: {stdout.Trim()} stderr: {stderr.Trim()}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to run helper cctk.exe.");
+            return new CommandResult { Success = false, ExitCode = -1, Message = ex.Message, StandardError = ex.ToString() };
+        }
+    }
+
+    private static bool IsValidCctkPath(string path)
+    {
+        if (!File.Exists(path) || !Path.GetFileName(path).Equals("cctk.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string fullPath = Path.GetFullPath(path);
+        string[] allowedPaths =
+        [
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Dell\Command Configure\X86_64\cctk.exe"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"Dell\Command Configure\X86_64\cctk.exe")
+        ];
+
+        return allowedPaths
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+            .Select(Path.GetFullPath)
+            .Any(candidate => candidate.Equals(fullPath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool RequiresThermalExportReadback(CommandResult result) =>
+        result.ExitCode == 65 &&
+        result.Message.Contains("ThermalManagement", StringComparison.OrdinalIgnoreCase) &&
+        result.Message.Contains("requires an argument", StringComparison.OrdinalIgnoreCase);
+
+    private static string? ReadIniValue(string path, string key)
+    {
+        foreach (string line in File.ReadLines(path))
+        {
+            string trimmed = line.Trim();
+            if (trimmed.Length == 0 || trimmed.StartsWith(';') || trimmed.StartsWith('['))
+            {
+                continue;
+            }
+
+            int separator = trimmed.IndexOf('=');
+            if (separator <= 0)
+            {
+                continue;
+            }
+
+            string name = trimmed[..separator].Trim();
+            if (name.Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed[(separator + 1)..].Trim();
+            }
+        }
+
+        return null;
+    }
+
+    private static string Quote(string value) => "\"" + value.Replace("\"", "\\\"") + "\"";
 }

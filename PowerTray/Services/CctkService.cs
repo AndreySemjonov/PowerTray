@@ -15,6 +15,7 @@ public sealed class CctkService
     private const string ThermalQueryArgument = "--thermalmanagement";
     private const string ThermalExportName = "ThermalManagement";
     private readonly SettingsService _settingsService;
+    private readonly WindowsBatteryUsagePipeClient _helperClient = new();
 
     public CctkService(SettingsService settingsService)
     {
@@ -44,12 +45,23 @@ public sealed class CctkService
     public async Task<CommandResult> ShowCurrentAsync(bool allowElevation = false)
     {
         CommandResult result = await ExecuteAsync(QueryArgument, requiresAdmin: false);
-        if (result.Success || !allowElevation || IsAdministrator())
+        if (result.Success || IsAdministrator())
         {
             return result;
         }
 
-        return await ExecuteAsync(QueryArgument, requiresAdmin: true);
+        if (RequiresAdministrator(result))
+        {
+            CommandResult? helperResult = await TryReadViaHelperAsync(WindowsBatteryUsageIpc.PrimaryBatteryChargeReadback);
+            if (helperResult is not null)
+            {
+                return helperResult;
+            }
+        }
+
+        return allowElevation
+            ? await ExecuteAsync(QueryArgument, requiresAdmin: true)
+            : result;
     }
 
     public async Task<CommandResult> ShowThermalManagementAsync(bool allowElevation = false)
@@ -60,9 +72,18 @@ public sealed class CctkService
             return result;
         }
 
-        if (RequiresAdministrator(result) && allowElevation && !IsAdministrator())
+        if (RequiresAdministrator(result) && !IsAdministrator())
         {
-            return await ReadThermalManagementFromExportAsync(allowElevation: true);
+            CommandResult? helperResult = await TryReadViaHelperAsync(WindowsBatteryUsageIpc.ThermalManagementReadback);
+            if (helperResult is not null)
+            {
+                return helperResult;
+            }
+
+            if (allowElevation)
+            {
+                return await ReadThermalManagementFromExportAsync(allowElevation: true);
+            }
         }
 
         if (RequiresThermalExportReadback(result))
@@ -337,6 +358,18 @@ public sealed class CctkService
                 LogService.Error(ex, "Failed to delete temporary CCTK export.");
             }
         }
+    }
+
+    private async Task<CommandResult?> TryReadViaHelperAsync(string readback)
+    {
+        CommandResult? result = await _helperClient.TryGetCctkReadbackAsync(_settingsService.Current.CctkPath, readback);
+        if (result is null)
+        {
+            return null;
+        }
+
+        LogService.Info($"helper cctk readback {readback} -> exit {result.ExitCode}.");
+        return result;
     }
 
     private static bool RequiresThermalExportReadback(CommandResult result) =>
