@@ -18,12 +18,12 @@ public sealed class WindowsBatteryUsagePipeClient
         }
         catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or IOException or UnauthorizedAccessException)
         {
-            LogService.Info($"Windows battery usage helper unavailable: {ex.Message}");
+            LogService.FeatureInfo(LogFeature.BatteryUsage, $"Windows battery usage helper unavailable: {ex.Message}");
             return null;
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to query Windows battery usage helper.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to query Windows battery usage helper.");
             return null;
         }
     }

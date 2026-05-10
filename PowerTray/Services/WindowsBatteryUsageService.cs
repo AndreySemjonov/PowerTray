@@ -249,7 +249,7 @@ public sealed class WindowsBatteryUsageService : IWindowsBatteryUsageService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to load Windows battery usage.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to load Windows battery usage.");
             return new SrumRecordLoadResult([], $"Windows battery usage unavailable: {ex.Message}");
         }
         finally
@@ -334,7 +334,7 @@ public sealed class WindowsBatteryUsageService : IWindowsBatteryUsageService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to run powercfg /srumutil.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to run powercfg /srumutil.");
             return new CommandResult { Success = false, ExitCode = -1, Message = ex.Message, StandardError = ex.ToString() };
         }
     }
@@ -487,7 +487,7 @@ public sealed class WindowsBatteryUsageService : IWindowsBatteryUsageService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to parse Windows SRUM XML.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to parse Windows SRUM XML.");
             return new SrumRecordParseResult([], $"Windows SRUM XML parse failed: {ex.Message}", ShouldTryXmlFallback: false);
         }
     }

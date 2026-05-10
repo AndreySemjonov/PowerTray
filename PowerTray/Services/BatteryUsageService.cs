@@ -70,7 +70,7 @@ public sealed class BatteryUsageService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to load battery usage history; starting fresh.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to load battery usage history; starting fresh.");
             _state = new BatteryUsageState();
         }
     }
@@ -392,7 +392,7 @@ public sealed class BatteryUsageService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to save battery usage history.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to save battery usage history.");
         }
     }
 

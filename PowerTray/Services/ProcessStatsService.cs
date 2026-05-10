@@ -228,7 +228,7 @@ public sealed class ProcessStatsService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to load energy history; starting a new session.");
+            LogService.FeatureErrorAny([LogFeature.CpuGpuUsage, LogFeature.BatteryUsage], ex, "Failed to load energy history; starting a new session.");
             _energyState = new EnergyHistoryState();
         }
     }
@@ -261,7 +261,7 @@ public sealed class ProcessStatsService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to save energy history.");
+            LogService.FeatureErrorAny([LogFeature.CpuGpuUsage, LogFeature.BatteryUsage], ex, "Failed to save energy history.");
         }
     }
 

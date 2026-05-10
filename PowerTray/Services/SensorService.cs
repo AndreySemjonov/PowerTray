@@ -171,7 +171,7 @@ public sealed class SensorService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to load cached CPU sensor values.");
+            LogService.FeatureError(LogFeature.CpuGpuUsage, ex, "Failed to load cached CPU sensor values.");
         }
     }
 
@@ -190,7 +190,7 @@ public sealed class SensorService
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to save cached CPU sensor values.");
+            LogService.FeatureError(LogFeature.CpuGpuUsage, ex, "Failed to save cached CPU sensor values.");
         }
     }
 

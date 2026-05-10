@@ -53,12 +53,12 @@ public sealed class HwinfoSensorProvider : ISensorProvider
         }
         catch (UnauthorizedAccessException ex)
         {
-            LogService.Error(ex, "HWiNFO shared memory access denied.");
+            LogService.FeatureErrorAny([LogFeature.BatteryWatts, LogFeature.CpuGpuUsage], ex, "HWiNFO shared memory access denied.");
             return Unavailable("HWiNFO shared memory access denied", log: true);
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to read HWiNFO shared memory.");
+            LogService.FeatureErrorAny([LogFeature.BatteryWatts, LogFeature.CpuGpuUsage], ex, "Failed to read HWiNFO shared memory.");
             return Unavailable("HWiNFO sensors detected but could not be parsed", log: true);
         }
     }
@@ -90,7 +90,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
 
         if (readingOffset == 0 || readingElementSize < 64 || readingCount == 0 || readingOffset + readingElementSize > accessor.Capacity)
         {
-            LogService.Info($"HWiNFO descriptors invalid. sensorOffset={sensorOffset}, sensorElementSize={sensorElementSize}, sensorCount={sensorCount}, readingOffset={readingOffset}, readingElementSize={readingElementSize}, readingCount={readingCount}, capacity={accessor.Capacity}.");
+            LogService.FeatureInfoAny([LogFeature.BatteryWatts, LogFeature.CpuGpuUsage], $"HWiNFO descriptors invalid. sensorOffset={sensorOffset}, sensorElementSize={sensorElementSize}, sensorCount={sensorCount}, readingOffset={readingOffset}, readingElementSize={readingElementSize}, readingCount={readingCount}, capacity={accessor.Capacity}.");
             return Unavailable("HWiNFO sensors detected but no readings were exposed", log: true);
         }
 
@@ -292,7 +292,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             d.Contains("power", StringComparison.OrdinalIgnoreCase) ||
             d.Contains(" W", StringComparison.OrdinalIgnoreCase));
         string sample = string.Join(Environment.NewLine, priority.Concat(diagnostics).Distinct().Take(140));
-        LogService.Info($"HWiNFO detected but some expected sensors were not matched. CPU temp={cpuTemp?.ToString("N1") ?? "none"}, CPU power={cpuPower?.ToString("N1") ?? "none"}, battery power={batteryPower?.ToString("N1") ?? "none"}, fans={fanCount}.{Environment.NewLine}{sample}");
+        LogService.FeatureInfoAny([LogFeature.BatteryWatts, LogFeature.CpuGpuUsage], $"HWiNFO detected but some expected sensors were not matched. CPU temp={cpuTemp?.ToString("N1") ?? "none"}, CPU power={cpuPower?.ToString("N1") ?? "none"}, battery power={batteryPower?.ToString("N1") ?? "none"}, fans={fanCount}.{Environment.NewLine}{sample}");
     }
 
     private static SensorReadings Unavailable(string status, bool log = false)
@@ -303,7 +303,7 @@ public sealed class HwinfoSensorProvider : ISensorProvider
             if (now - _lastUnavailableLog >= TimeSpan.FromMinutes(1))
             {
                 _lastUnavailableLog = now;
-                LogService.Info(status);
+                LogService.FeatureInfoAny([LogFeature.BatteryWatts, LogFeature.CpuGpuUsage], status);
             }
         }
 

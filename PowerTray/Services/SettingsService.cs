@@ -37,6 +37,7 @@ public sealed class SettingsService
         }
 
         Current.SensorSampleIntervalSeconds = Math.Clamp(Current.SensorSampleIntervalSeconds, 1, 60);
+        ApplyFeatureLogging(Current);
         return Current;
     }
 
@@ -47,6 +48,7 @@ public sealed class SettingsService
             Directory.CreateDirectory(LogService.AppDataRoot);
             settings.SensorSampleIntervalSeconds = Math.Clamp(settings.SensorSampleIntervalSeconds, 1, 60);
             Current = settings;
+            ApplyFeatureLogging(Current);
             File.WriteAllText(SettingsPath, JsonSerializer.Serialize(Current, JsonOptions));
         }
         catch (Exception ex)
@@ -54,5 +56,13 @@ public sealed class SettingsService
             LogService.Error(ex, "Failed to save settings.");
             throw;
         }
+    }
+
+    private static void ApplyFeatureLogging(AppSettings settings)
+    {
+        LogService.ConfigureFeatureLogging(
+            settings.ShowBatteryWattsTile,
+            settings.ShowCpuGpuUsageTile,
+            settings.ShowBatteryUsageSection);
     }
 }

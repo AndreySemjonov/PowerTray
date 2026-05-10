@@ -63,7 +63,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
             catch (Exception ex)
             {
                 _openFailed = true;
-                LogService.Error(ex, "Failed to read LibreHardwareMonitor sensors.");
+                LogService.FeatureErrorAny([LogFeature.BatteryWatts, LogFeature.CpuGpuUsage], ex, "Failed to read LibreHardwareMonitor sensors.");
                 return Unavailable(CctkService.IsAdministrator()
                     ? "LibreHardwareMonitor sensors unavailable"
                     : "LibreHardwareMonitor may require administrator rights");
@@ -245,7 +245,7 @@ public sealed class LibreHardwareMonitorSensorProvider : ISensorProvider, IDispo
 
         _lastDiagnosticLog = now;
         string sample = string.Join(Environment.NewLine, diagnostics.Take(140));
-        LogService.Info($"LibreHardwareMonitor diagnostics: {reason}.{Environment.NewLine}{sample}");
+        LogService.FeatureInfoAny([LogFeature.BatteryWatts, LogFeature.CpuGpuUsage], $"LibreHardwareMonitor diagnostics: {reason}.{Environment.NewLine}{sample}");
     }
 
     private static string Format(double? value) => value?.ToString("N1") ?? "none";

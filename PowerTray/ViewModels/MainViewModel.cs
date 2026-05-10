@@ -1382,6 +1382,7 @@ public sealed class MainViewModel : ObservableObject
             DateTime selectedDate = SelectedBatteryUsageDate;
             DateTimeOffset now = DateTimeOffset.Now;
             bool dashboardVisible = IsDashboardVisible;
+            bool trackBatteryUsage = ShowBatteryUsageSection;
             TimeSpan processRefreshInterval = GetProcessRefreshInterval();
             bool shouldRefreshProcesses = dashboardVisible && (now - _lastProcessRefresh >= processRefreshInterval || TopCpuProcesses.Count == 0);
             RefreshSnapshot snapshot = await Task.Run(() =>
@@ -1422,7 +1423,9 @@ public sealed class MainViewModel : ObservableObject
                 double powerModeMs = stepWatch.Elapsed.TotalMilliseconds;
 
                 stepWatch.Restart();
-                BatteryUsageSnapshot batteryUsage = _batteryUsageService.Record(battery, selectedDate, powerMode);
+                BatteryUsageSnapshot batteryUsage = trackBatteryUsage
+                    ? _batteryUsageService.Record(battery, selectedDate, powerMode)
+                    : new BatteryUsageSnapshot { Date = selectedDate };
                 double batteryUsageMs = stepWatch.Elapsed.TotalMilliseconds;
                 totalWatch.Stop();
 
@@ -1477,7 +1480,7 @@ public sealed class MainViewModel : ObservableObject
             Battery = battery;
             BatteryPowerWatts = Battery.ChargeRateWatts;
             CurrentWindowsPowerMode = snapshot.PowerMode;
-            if (snapshot.SelectedDate == SelectedBatteryUsageDate)
+            if (trackBatteryUsage && snapshot.SelectedDate == SelectedBatteryUsageDate)
             {
                 BatteryUsage = snapshot.BatteryUsage;
             }
@@ -1606,7 +1609,8 @@ public sealed class MainViewModel : ObservableObject
         }
 
         _lastRefreshTimingLog = now;
-        LogService.Info(
+        LogService.FeatureInfoAny(
+            [LogFeature.BatteryWatts, LogFeature.CpuGpuUsage, LogFeature.BatteryUsage],
             $"Refresh timing visible={dashboardVisible} total={timing.TotalMs:N0}ms sensor={timing.SensorMs:N0}ms battery={timing.BatteryStatusMs:N0}ms process={timing.ProcessMs:N0}ms powerMode={timing.PowerModeMs:N0}ms usageRecord={timing.BatteryUsageMs:N0}ms ui={uiMs:N0}ms processSampled={timing.ProcessSampled} deferredGraphs={_deferredGraphRefresh} samples={_samples.Count:N0}");
     }
 
@@ -1644,7 +1648,7 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to refresh battery usage snapshot.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to refresh battery usage snapshot.");
             StatusMessage = ex.Message;
         }
     }
@@ -1672,7 +1676,7 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to load Windows battery usage.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to load Windows battery usage.");
             WindowsBatteryUsageStatusText = ex.Message;
             WindowsBatteryUsageAuditText = string.Empty;
             OnPropertyChanged(nameof(WindowsBatteryUsageEmptyText));
@@ -1720,7 +1724,7 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            LogService.Error(ex, "Failed to load selected Windows battery usage.");
+            LogService.FeatureError(LogFeature.BatteryUsage, ex, "Failed to load selected Windows battery usage.");
             SelectedBatteryUsageImpactStatusText = ex.Message;
             SelectedBatteryUsageImpactAuditText = string.Empty;
             OnPropertyChanged(nameof(SelectedWindowsBatteryUsageEmptyText));
