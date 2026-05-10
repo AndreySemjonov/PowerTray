@@ -80,6 +80,14 @@ public sealed class WindowsBatteryUsagePipeServer : IDisposable
                     return;
                 }
 
+                if (request?.RequestType == WindowsBatteryUsageIpc.CctkWriteRequestType)
+                {
+                    CommandResult result = await ApplyCctkWriteAsync(request);
+                    await WriteMessageAsync(pipe, result, cancellationToken);
+                    pipe.WaitForPipeDrain();
+                    return;
+                }
+
                 WindowsBatteryUsageSnapshot snapshot = request?.RangeStart is { } start && request.RangeEnd is { } end
                     ? _batteryUsageService.GetSnapshot(start, end)
                     : _batteryUsageService.GetSnapshot();
@@ -216,6 +224,56 @@ public sealed class WindowsBatteryUsagePipeServer : IDisposable
         }
     }
 
+    private static async Task<CommandResult> ApplyCctkWriteAsync(WindowsBatteryUsageRequest request)
+    {
+        if (!IsValidCctkPath(request.CctkPath))
+        {
+            string message = "Dell Command | Configure cctk.exe was not found.";
+            return new CommandResult { Success = false, ExitCode = -1, Message = message, StandardError = message };
+        }
+
+        string? argument = request.CctkWriteAction switch
+        {
+            var value when value.Equals(WindowsBatteryUsageIpc.ThermalOptimizedWrite, StringComparison.OrdinalIgnoreCase)
+                => "--thermalmanagement=optimized",
+            var value when value.Equals(WindowsBatteryUsageIpc.ThermalCoolWrite, StringComparison.OrdinalIgnoreCase)
+                => "--thermalmanagement=cool",
+            var value when value.Equals(WindowsBatteryUsageIpc.ThermalQuietWrite, StringComparison.OrdinalIgnoreCase)
+                => "--thermalmanagement=quiet",
+            var value when value.Equals(WindowsBatteryUsageIpc.ThermalUltraPerformanceWrite, StringComparison.OrdinalIgnoreCase)
+                => "--thermalmanagement=ultraperformance",
+            var value when value.Equals(WindowsBatteryUsageIpc.ChargeStandardWrite, StringComparison.OrdinalIgnoreCase)
+                => "--PrimaryBattChargeCfg=Standard",
+            var value when value.Equals(WindowsBatteryUsageIpc.ChargePrimarilyAcUseWrite, StringComparison.OrdinalIgnoreCase)
+                => "--PrimaryBattChargeCfg=PrimAcUse",
+            var value when value.Equals(WindowsBatteryUsageIpc.ChargeAdaptiveWrite, StringComparison.OrdinalIgnoreCase)
+                => "--PrimaryBattChargeCfg=Adaptive",
+            var value when value.Equals(WindowsBatteryUsageIpc.ChargeCustomWrite, StringComparison.OrdinalIgnoreCase)
+                => BuildCustomChargeArgument(request.CctkChargeStart, request.CctkChargeStop),
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(argument))
+        {
+            return new CommandResult { Success = false, ExitCode = -1, Message = "Unsupported CCTK write request." };
+        }
+
+        if (request.CctkWriteAction.Equals(WindowsBatteryUsageIpc.ChargeCustomWrite, StringComparison.OrdinalIgnoreCase))
+        {
+            CommandResult direct = await RunCctkAsync(request.CctkPath, AppendSetupPassword(argument, request.CctkSetupPassword));
+            if (direct.Success)
+            {
+                return direct;
+            }
+
+            string fallback = $"--PrimaryBattChargeCfg=Custom --CustomChargeStart={request.CctkChargeStart} --CustomChargeStop={request.CctkChargeStop}";
+            CommandResult fallbackResult = await RunCctkAsync(request.CctkPath, AppendSetupPassword(fallback, request.CctkSetupPassword));
+            return fallbackResult.Success ? fallbackResult : direct;
+        }
+
+        return await RunCctkAsync(request.CctkPath, AppendSetupPassword(argument, request.CctkSetupPassword));
+    }
+
     private static async Task<CommandResult> RunCctkAsync(string cctkPath, string argument)
     {
         try
@@ -235,6 +293,8 @@ public sealed class WindowsBatteryUsagePipeServer : IDisposable
             string stderr = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
 
+            stdout = RedactSetupPassword(stdout);
+            stderr = RedactSetupPassword(stderr);
             string message = string.IsNullOrWhiteSpace(stderr) ? stdout.Trim() : stderr.Trim();
             if (string.IsNullOrWhiteSpace(message))
             {
@@ -249,7 +309,7 @@ public sealed class WindowsBatteryUsagePipeServer : IDisposable
                 StandardError = stderr,
                 Message = message
             };
-            LogService.Info($"helper cctk {argument} -> exit {result.ExitCode}. stdout: {stdout.Trim()} stderr: {stderr.Trim()}");
+            LogService.Info($"helper cctk {RedactSetupPassword(argument)} -> exit {result.ExitCode}. stdout: {RedactSetupPassword(stdout.Trim())} stderr: {RedactSetupPassword(stderr.Trim())}");
             return result;
         }
         catch (Exception ex)
@@ -283,6 +343,31 @@ public sealed class WindowsBatteryUsagePipeServer : IDisposable
         result.ExitCode == 65 &&
         result.Message.Contains("ThermalManagement", StringComparison.OrdinalIgnoreCase) &&
         result.Message.Contains("requires an argument", StringComparison.OrdinalIgnoreCase);
+
+    private static string? BuildCustomChargeArgument(int start, int stop)
+    {
+        if (start < 50 || start > 95 || stop < 55 || stop > 100 || stop - start < 5)
+        {
+            return null;
+        }
+
+        return $"--PrimaryBattChargeCfg=Custom:{start}-{stop}";
+    }
+
+    private static string AppendSetupPassword(string argument, string setupPassword) =>
+        string.IsNullOrEmpty(setupPassword)
+            ? argument
+            : $"{argument} --ValSetupPwd={Quote(setupPassword)}";
+
+    private static string RedactSetupPassword(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return text;
+        }
+
+        return System.Text.RegularExpressions.Regex.Replace(text, "--ValSetupPwd(?:=|\\s+)\"?[^\"]+\"?", "--ValSetupPwd=<redacted>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
 
     private static string? ReadIniValue(string path, string key)
     {

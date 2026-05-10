@@ -1254,9 +1254,7 @@ public sealed class MainViewModel : ObservableObject
             }
         }
 
-        StatusMessage = CctkService.IsAdministrator()
-            ? "Applying Dell battery setting..."
-            : "Requesting administrator approval...";
+        StatusMessage = "Applying Dell battery setting...";
 
         CommandResult result = await _cctkService.ApplyPresetAsync(preset);
         StatusMessage = result.Message;
@@ -1325,9 +1323,7 @@ public sealed class MainViewModel : ObservableObject
             }
         }
 
-        StatusMessage = CctkService.IsAdministrator()
-            ? $"Applying Dell thermal profile: {ToDellThermalDisplayName(profile)}..."
-            : "Requesting administrator approval...";
+        StatusMessage = $"Applying Dell thermal profile: {ToDellThermalDisplayName(profile)}...";
 
         CommandResult result = await _cctkService.ApplyThermalProfileAsync(profile);
         StatusMessage = result.Success

@@ -108,6 +108,15 @@ public sealed class CctkService
 
     public async Task<CommandResult> ApplyThermalProfileAsync(DellThermalProfile profile)
     {
+        if (!IsAdministrator())
+        {
+            CommandResult? helperResult = await TryWriteViaHelperAsync(ToHelperThermalWriteAction(profile));
+            if (helperResult is not null)
+            {
+                return helperResult;
+            }
+        }
+
         string argument = $"--thermalmanagement={ToCctkThermalValue(profile)}";
         return await ExecuteAsync(argument, requiresAdmin: true);
     }
@@ -132,6 +141,15 @@ public sealed class CctkService
             BatteryPreset.Adaptive => "--PrimaryBattChargeCfg=Adaptive",
             _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, null)
         };
+
+        if (!IsAdministrator())
+        {
+            CommandResult? helperResult = await TryWriteViaHelperAsync(ToHelperChargeWriteAction(preset));
+            if (helperResult is not null)
+            {
+                return helperResult;
+            }
+        }
 
         return await ExecuteAsync(argument, requiresAdmin: true);
     }
@@ -372,6 +390,23 @@ public sealed class CctkService
         return result;
     }
 
+    private async Task<CommandResult?> TryWriteViaHelperAsync(string action, int chargeStart = 0, int chargeStop = 0)
+    {
+        CommandResult? result = await _helperClient.TryApplyCctkWriteAsync(
+            _settingsService.Current.CctkPath,
+            action,
+            chargeStart,
+            chargeStop,
+            GetSetupPasswordForHelper());
+        if (result is null)
+        {
+            return null;
+        }
+
+        LogService.Info($"helper cctk write {action} -> exit {result.ExitCode}.");
+        return result;
+    }
+
     private static bool RequiresThermalExportReadback(CommandResult result) =>
         result.ExitCode == 65 &&
         result.Message.Contains("ThermalManagement", StringComparison.OrdinalIgnoreCase) &&
@@ -426,6 +461,34 @@ public sealed class CctkService
         _ => "optimized"
     };
 
+    private static string ToHelperThermalWriteAction(DellThermalProfile profile) => profile switch
+    {
+        DellThermalProfile.Optimized => WindowsBatteryUsageIpc.ThermalOptimizedWrite,
+        DellThermalProfile.Cool => WindowsBatteryUsageIpc.ThermalCoolWrite,
+        DellThermalProfile.Quiet => WindowsBatteryUsageIpc.ThermalQuietWrite,
+        DellThermalProfile.UltraPerformance => WindowsBatteryUsageIpc.ThermalUltraPerformanceWrite,
+        _ => WindowsBatteryUsageIpc.ThermalOptimizedWrite
+    };
+
+    private static string ToHelperChargeWriteAction(BatteryPreset preset) => preset switch
+    {
+        BatteryPreset.Standard => WindowsBatteryUsageIpc.ChargeStandardWrite,
+        BatteryPreset.PrimarilyAcUse => WindowsBatteryUsageIpc.ChargePrimarilyAcUseWrite,
+        BatteryPreset.Adaptive => WindowsBatteryUsageIpc.ChargeAdaptiveWrite,
+        _ => WindowsBatteryUsageIpc.ChargeCustomWrite
+    };
+
+    private string GetSetupPasswordForHelper()
+    {
+        AppSettings settings = _settingsService.Current;
+        if (!settings.UseBiosSetupPassword)
+        {
+            return string.Empty;
+        }
+
+        return SecretProtectionService.Unprotect(settings.EncryptedBiosSetupPassword) ?? string.Empty;
+    }
+
     private async Task<CommandResult> ApplyCustomPresetAsync(int start, int stop, string label)
     {
         if (start < 50 || start > 95 || stop < 55 || stop > 100 || stop - start < 5)
@@ -439,6 +502,24 @@ public sealed class CctkService
         }
 
         string expected = $"Custom:{start}-{stop}";
+        if (!IsAdministrator())
+        {
+            CommandResult? helperResult = await TryWriteViaHelperAsync(WindowsBatteryUsageIpc.ChargeCustomWrite, start, stop);
+            if (helperResult is not null)
+            {
+                return helperResult.Success
+                    ? new CommandResult
+                    {
+                        Success = true,
+                        ExitCode = helperResult.ExitCode,
+                        StandardOutput = helperResult.StandardOutput,
+                        StandardError = helperResult.StandardError,
+                        Message = $"{label} applied: {expected}"
+                    }
+                    : helperResult;
+            }
+        }
+
         string directArgument = $"--PrimaryBattChargeCfg={expected}";
         CommandResult direct = await ExecuteAsync(directArgument, requiresAdmin: true);
 

@@ -53,6 +53,39 @@ public sealed class WindowsBatteryUsagePipeClient
         }
     }
 
+    public async Task<CommandResult?> TryApplyCctkWriteAsync(
+        string cctkPath,
+        string action,
+        int chargeStart,
+        int chargeStop,
+        string setupPassword)
+    {
+        try
+        {
+            var request = new WindowsBatteryUsageRequest
+            {
+                RequestType = WindowsBatteryUsageIpc.CctkWriteRequestType,
+                CctkPath = cctkPath,
+                CctkWriteAction = action,
+                CctkChargeStart = chargeStart,
+                CctkChargeStop = chargeStop,
+                CctkSetupPassword = setupPassword
+            };
+
+            return await SendRequestAsync<CommandResult>(request);
+        }
+        catch (Exception ex) when (ex is TimeoutException or OperationCanceledException or IOException or UnauthorizedAccessException)
+        {
+            LogService.Info($"PowerTray helper CCTK write unavailable: {ex.Message}");
+            return null;
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to query PowerTray helper CCTK write.");
+            return null;
+        }
+    }
+
     private static async Task<T?> SendRequestAsync<T>(WindowsBatteryUsageRequest request)
     {
         using var pipe = new NamedPipeClientStream(".", WindowsBatteryUsageIpc.PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
