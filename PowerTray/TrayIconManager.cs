@@ -20,6 +20,7 @@ public sealed class TrayIconManager : IDisposable
     private readonly MainViewModel _viewModel;
     private readonly Func<SettingsWindow> _settingsWindowFactory;
     private readonly NotifyIcon _notifyIcon;
+    private readonly Icon _appIcon;
     private Icon? _dynamicIcon;
     private DashboardWindow? _dashboardWindow;
     private SettingsWindow? _settingsWindow;
@@ -31,6 +32,7 @@ public sealed class TrayIconManager : IDisposable
         _settingsWindowFactory = settingsWindowFactory;
         _viewModel.OpenSettingsRequested += (_, _) => ShowSettings();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        _appIcon = LoadTrayIcon();
         _notifyIcon = CreateNotifyIcon();
         UpdateTrayStatus();
     }
@@ -103,6 +105,7 @@ public sealed class TrayIconManager : IDisposable
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
         _dynamicIcon?.Dispose();
+        _appIcon.Dispose();
     }
 
     private NotifyIcon CreateNotifyIcon()
@@ -129,7 +132,7 @@ public sealed class TrayIconManager : IDisposable
 
         var icon = new NotifyIcon
         {
-            Icon = LoadTrayIcon(),
+            Icon = _appIcon,
             Text = AppDisplayName,
             ContextMenuStrip = contextMenu,
             Visible = false
@@ -157,7 +160,8 @@ public sealed class TrayIconManager : IDisposable
             or nameof(MainViewModel.BatteryPowerWatts)
             or nameof(MainViewModel.CpuTemperatureCelsius)
             or nameof(MainViewModel.PowerModeText)
-            or nameof(MainViewModel.HwinfoChipText))
+            or nameof(MainViewModel.HwinfoChipText)
+            or nameof(MainViewModel.TrayIconStyle))
         {
             UpdateTrayStatus();
         }
@@ -168,6 +172,15 @@ public sealed class TrayIconManager : IDisposable
         try
         {
             TrayState state = GetTrayState();
+            if (_viewModel.TrayIconStyle == TrayIconStyle.AppIcon)
+            {
+                _notifyIcon.Icon = _appIcon;
+                _dynamicIcon?.Dispose();
+                _dynamicIcon = null;
+                _notifyIcon.Text = TruncateTooltip(BuildTrayTooltip(state), 63);
+                return;
+            }
+
             Icon icon = CreateStateIcon(state);
             Icon? oldIcon = _dynamicIcon;
             _dynamicIcon = icon;

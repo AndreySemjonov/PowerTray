@@ -723,6 +723,7 @@ public sealed class MainViewModel : ObservableObject
     public bool ShowBatteryWattsTile => _settingsService.Current.ShowBatteryWattsTile;
     public bool ShowCpuGpuUsageTile => _settingsService.Current.ShowCpuGpuUsageTile;
     public bool ShowBatteryUsageSection => _settingsService.Current.ShowBatteryUsageSection;
+    public TrayIconStyle TrayIconStyle => _settingsService.Current.TrayIconStyle;
     public bool IsDashboardGraphRowVisible => ShowBatteryWattsTile || ShowCpuGpuUsageTile;
     public bool IsAnyDashboardDetailVisible => IsUsageDetailsVisible || IsBatteryWattsDetailsVisible || IsBatteryUsageDetailsVisible;
     public Visibility BatteryWattsTileVisibility => ShowBatteryWattsTile ? Visibility.Visible : Visibility.Collapsed;
@@ -983,6 +984,7 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDellChargeModeAvailable));
         NotifyDellThermalSettingsChanged();
         NotifyDashboardSectionVisibilityChanged();
+        OnPropertyChanged(nameof(TrayIconStyle));
         OnPropertyChanged(nameof(CctkStatusText));
         OnPropertyChanged(nameof(FooterStatusText));
         OnPropertyChanged(nameof(DetailSamplingText));

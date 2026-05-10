@@ -321,6 +321,13 @@
                                 <CheckBox Content="Show Battery Watts tile" IsChecked="{Binding ShowBatteryWattsTile}" />
                                 <CheckBox Content="Show CPU / GPU Usage tile" IsChecked="{Binding ShowCpuGpuUsageTile}" />
                                 <CheckBox Content="Show Battery Usage / Impact (24h)" IsChecked="{Binding ShowBatteryUsageSection}" />
+                                <TextBlock Text="Tray icon"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Margin="0,8,0,4" />
+                                <ComboBox ItemsSource="{Binding TrayIconStyles}"
+                                          SelectedValue="{Binding TrayIconStyle}"
+                                          SelectedValuePath="Value"
+                                          Height="32" />
                                 <TextBlock Text="Light theme is hidden until it is fully implemented."
                                            Foreground="{StaticResource MutedTextBrush}"
                                            FontSize="10"

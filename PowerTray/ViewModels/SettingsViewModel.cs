@@ -33,6 +33,7 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _showCpuGpuUsageTile;
     private bool _showBatteryUsageSection;
     private AppTheme _theme;
+    private TrayIconStyle _trayIconStyle;
     private string _status = string.Empty;
 
     public SettingsViewModel(SettingsService settingsService, StartupService startupService)
@@ -63,6 +64,7 @@ public sealed class SettingsViewModel : ObservableObject
         _showCpuGpuUsageTile = settings.ShowCpuGpuUsageTile;
         _showBatteryUsageSection = settings.ShowBatteryUsageSection;
         _theme = settings.Theme;
+        _trayIconStyle = settings.TrayIconStyle;
 
         BrowseCommand = new RelayCommand(Browse);
         BrowseHwinfoRecoveryScriptCommand = new RelayCommand(BrowseHwinfoRecoveryScript);
@@ -73,6 +75,12 @@ public sealed class SettingsViewModel : ObservableObject
     public event EventHandler? Saved;
 
     public IEnumerable<AppTheme> Themes => Enum.GetValues<AppTheme>();
+    public IEnumerable<TrayIconStyleOption> TrayIconStyles { get; } =
+    [
+        new(TrayIconStyle.AppIcon, "App icon"),
+        new(TrayIconStyle.StatusIcon, "Status icon")
+    ];
+
     public IEnumerable<DellThermalControlModeOption> DellThermalControlModes { get; } =
     [
         new(DellThermalControlMode.Off, "Off"),
@@ -250,6 +258,12 @@ public sealed class SettingsViewModel : ObservableObject
         set => SetProperty(ref _theme, value);
     }
 
+    public TrayIconStyle TrayIconStyle
+    {
+        get => _trayIconStyle;
+        set => SetProperty(ref _trayIconStyle, value);
+    }
+
     public string Status
     {
         get => _status;
@@ -341,7 +355,10 @@ public sealed class SettingsViewModel : ObservableObject
             ShowBatteryWattsTile = ShowBatteryWattsTile,
             ShowCpuGpuUsageTile = ShowCpuGpuUsageTile,
             ShowBatteryUsageSection = ShowBatteryUsageSection,
-            Theme = AppTheme.FollowSystem
+            DashboardWindowBehavior = _settingsService.Current.DashboardWindowBehavior,
+            Theme = AppTheme.FollowSystem,
+            TrayIconStyle = TrayIconStyle,
+            LastDellThermalSetting = _settingsService.Current.LastDellThermalSetting
         };
 
         _settingsService.Save(settings);
@@ -361,6 +378,11 @@ public sealed class SettingsViewModel : ObservableObject
     }
 
     public sealed record DellThermalProfileOption(DellThermalProfile Value, string DisplayName)
+    {
+        public override string ToString() => DisplayName;
+    }
+
+    public sealed record TrayIconStyleOption(TrayIconStyle Value, string DisplayName)
     {
         public override string ToString() => DisplayName;
     }
