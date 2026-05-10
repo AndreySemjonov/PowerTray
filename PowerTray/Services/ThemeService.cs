@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
 using PowerTray.Models;
@@ -81,6 +82,12 @@ public static class ThemeService
     {
         if (WpfApplication.Current.TryFindResource(key) is SolidColorBrush brush)
         {
+            if (brush.IsFrozen)
+            {
+                brush = brush.CloneCurrentValue();
+                ReplaceResource(key, brush);
+            }
+
             brush.Color = color;
         }
     }
@@ -92,8 +99,42 @@ public static class ThemeService
             return;
         }
 
+        if (brush.IsFrozen)
+        {
+            brush = brush.CloneCurrentValue();
+            ReplaceResource("PanelGlow", brush);
+        }
+
         brush.GradientStops[0].Color = start;
         brush.GradientStops[1].Color = end;
+    }
+
+    private static void ReplaceResource(string key, object value)
+    {
+        ResourceDictionary? dictionary = FindResourceDictionary(WpfApplication.Current.Resources, key);
+        if (dictionary is not null)
+        {
+            dictionary[key] = value;
+        }
+    }
+
+    private static ResourceDictionary? FindResourceDictionary(ResourceDictionary dictionary, string key)
+    {
+        if (dictionary.Contains(key))
+        {
+            return dictionary;
+        }
+
+        foreach (ResourceDictionary mergedDictionary in dictionary.MergedDictionaries)
+        {
+            ResourceDictionary? match = FindResourceDictionary(mergedDictionary, key);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
     }
 
     private sealed record Palette(
