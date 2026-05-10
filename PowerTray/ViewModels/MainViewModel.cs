@@ -115,6 +115,11 @@ public sealed class MainViewModel : ObservableObject
         SelectedWindowsBatteryUsageProcesses = new ObservableCollection<WindowsBatteryUsageInfo>();
         FanReadings = new ObservableCollection<string>();
 
+        if (!string.IsNullOrWhiteSpace(_settingsService.Current.LastDellThermalSetting))
+        {
+            _dellThermalSetting = _settingsService.Current.LastDellThermalSetting;
+        }
+
         RefreshDellChargeCommand = new RelayCommand(async () => await RefreshDellChargeAsync());
         ApplyBatteryPresetCommand = new RelayCommand(async parameter => await ApplyBatteryPresetAsync(parameter));
         ApplyWindowsPowerModeCommand = new RelayCommand(async parameter => await ApplyWindowsPowerModeAsync(parameter));
@@ -834,7 +839,7 @@ public sealed class MainViewModel : ObservableObject
     public string BatteryAveragePowerText => _averageBatteryDischargeWatts is { } avg ? $"10m avg -{avg:N1} W" : "10m avg --";
     public string BatteryRateValueText => $"Rate {CalculateBatteryPercentRateText(Battery, _averageBatteryDischargeWatts)}";
     public string ThermalTemperatureText => CpuTemperatureCelsius is { } value ? $"{value:N0} °C" : "-- °C";
-    public string ThermalModeText => DellThermalProfileText is "Unknown" or "Unavailable" ? PowerModeChipText : $"{DellThermalProfileText} mode";
+    public string ThermalModeText => DellThermalProfileText is "Unknown" or "Unavailable" or "Admin required" ? PowerModeChipText : $"{DellThermalProfileText} mode";
     public string ThermalPackagePowerText => CpuPackagePowerWatts is { } value ? $"Package {value:N1} W" : "Package -- W";
     public string ActivityCpuText => $"CPU {CpuUsagePercent:N0}%";
     public string ActivityGpuText => GpuUsagePercent is { } value ? $"GPU {value:N0}%" : "GPU --";
@@ -913,12 +918,12 @@ public sealed class MainViewModel : ObservableObject
     public string MemoryText => $"{Memory.UsedText} / {Memory.TotalText} ({Memory.UsedPercent:N0}%)";
     public bool IsAdministrator => CctkService.IsAdministrator();
 
-    public void Start()
+    public void Start(bool allowStartupElevation)
     {
         if (IsDellChargeModeAvailable)
         {
-            _ = RefreshDellChargeAsync();
-            _ = RefreshDellThermalAsync(retryOnFailure: true);
+            _ = RefreshDellChargeAsync(allowElevation: allowStartupElevation);
+            _ = RefreshDellThermalAsync(retryOnFailure: true, allowElevation: allowStartupElevation, useCachedOnFailure: !allowStartupElevation);
         }
 
         _ = RefreshAsync();
@@ -1000,7 +1005,9 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public async Task RefreshDellChargeAsync()
+    public Task RefreshDellChargeAsync() => RefreshDellChargeAsync(allowElevation: true);
+
+    private async Task RefreshDellChargeAsync(bool allowElevation)
     {
         if (!IsDellChargeModeAvailable)
         {
@@ -1009,14 +1016,16 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        CommandResult result = await _cctkService.ShowCurrentAsync(allowElevation: true);
+        CommandResult result = await _cctkService.ShowCurrentAsync(allowElevation);
         DellChargeSetting = result.Success ? CleanCctkOutput(result.StandardOutput) : "Unavailable";
-        StatusMessage = result.Message;
+        StatusMessage = IsAdministratorRequired(result) && !allowElevation
+            ? "Dell charge readback requires administrator approval."
+            : result.Message;
     }
 
-    public Task RefreshDellThermalAsync() => RefreshDellThermalAsync(retryOnFailure: false);
+    public Task RefreshDellThermalAsync() => RefreshDellThermalAsync(retryOnFailure: false, allowElevation: true, useCachedOnFailure: false);
 
-    private async Task RefreshDellThermalAsync(bool retryOnFailure)
+    private async Task RefreshDellThermalAsync(bool retryOnFailure, bool allowElevation, bool useCachedOnFailure)
     {
         if (!IsDellChargeModeAvailable || _settingsService.Current.DellThermalControlMode == DellThermalControlMode.Off)
         {
@@ -1024,17 +1033,26 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        CommandResult result = await _cctkService.ShowThermalManagementAsync(allowElevation: true);
+        CommandResult result = await _cctkService.ShowThermalManagementAsync(allowElevation);
         if (result.Success)
         {
-            DellThermalSetting = CleanCctkOutput(result.StandardOutput);
+            SetDellThermalSetting(CleanCctkOutput(result.StandardOutput), cache: true);
             StatusMessage = result.Message;
+            return;
+        }
+
+        if (IsAdministratorRequired(result) && !allowElevation)
+        {
+            ApplyDellThermalReadFailure(result, allowElevation, useCachedOnFailure);
+            StatusMessage = useCachedOnFailure && !string.IsNullOrWhiteSpace(_settingsService.Current.LastDellThermalSetting)
+                ? "Dell thermal readback requires administrator approval. Showing last known value."
+                : "Dell thermal readback requires administrator approval.";
             return;
         }
 
         if (!retryOnFailure)
         {
-            DellThermalSetting = "Unavailable";
+            ApplyDellThermalReadFailure(result, allowElevation, useCachedOnFailure);
             StatusMessage = result.Message;
             return;
         }
@@ -1050,10 +1068,10 @@ public sealed class MainViewModel : ObservableObject
                 return;
             }
 
-            result = await _cctkService.ShowThermalManagementAsync(allowElevation: true);
+            result = await _cctkService.ShowThermalManagementAsync(allowElevation);
             if (result.Success)
             {
-                DellThermalSetting = CleanCctkOutput(result.StandardOutput);
+                SetDellThermalSetting(CleanCctkOutput(result.StandardOutput), cache: true);
                 StatusMessage = result.Message;
                 return;
             }
@@ -1061,11 +1079,7 @@ public sealed class MainViewModel : ObservableObject
             StatusMessage = $"{result.Message} Retrying Dell thermal read...";
         }
 
-        if (IsUnknownOrUnavailable(DellThermalSetting))
-        {
-            DellThermalSetting = "Unavailable";
-        }
-
+        ApplyDellThermalReadFailure(result, allowElevation, useCachedOnFailure);
         StatusMessage = result.Message;
     }
 
@@ -1322,11 +1336,11 @@ public sealed class MainViewModel : ObservableObject
 
         if (result.Success)
         {
-            DellThermalSetting = $"ThermalManagement={ToDellThermalDisplayName(profile)}";
+            SetDellThermalSetting($"ThermalManagement={ToDellThermalDisplayName(profile)}", cache: true);
             CommandResult refresh = await _cctkService.ShowThermalManagementAsync(allowElevation: true);
             if (refresh.Success)
             {
-                DellThermalSetting = CleanCctkOutput(refresh.StandardOutput);
+                SetDellThermalSetting(CleanCctkOutput(refresh.StandardOutput), cache: true);
             }
         }
     }
@@ -1350,7 +1364,7 @@ public sealed class MainViewModel : ObservableObject
         CommandResult result = await _cctkService.ApplyThermalProfileAsync(profile);
         if (result.Success)
         {
-            DellThermalSetting = $"ThermalManagement={ToDellThermalDisplayName(profile)}";
+            SetDellThermalSetting($"ThermalManagement={ToDellThermalDisplayName(profile)}", cache: true);
             StatusMessage = $"{StatusMessage} Dell thermal: {ToDellThermalDisplayName(profile)}.";
         }
         else
@@ -1837,9 +1851,39 @@ public sealed class MainViewModel : ObservableObject
         return string.IsNullOrWhiteSpace(cleaned) ? "No output from cctk.exe" : cleaned;
     }
 
+    private void SetDellThermalSetting(string value, bool cache)
+    {
+        DellThermalSetting = value;
+        if (!cache || IsUnknownOrUnavailable(value) || value.Equals("Admin required", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _settingsService.Current.LastDellThermalSetting = value;
+        _settingsService.Save(_settingsService.Current);
+    }
+
+    private void ApplyDellThermalReadFailure(CommandResult result, bool allowElevation, bool useCachedOnFailure)
+    {
+        if (useCachedOnFailure && !string.IsNullOrWhiteSpace(_settingsService.Current.LastDellThermalSetting))
+        {
+            DellThermalSetting = _settingsService.Current.LastDellThermalSetting;
+            return;
+        }
+
+        DellThermalSetting = IsAdministratorRequired(result) && !allowElevation
+            ? "Admin required"
+            : "Unavailable";
+    }
+
     private static bool IsUnknownOrUnavailable(string value) =>
         value.Equals("Unknown", StringComparison.OrdinalIgnoreCase) ||
         value.Equals("Unavailable", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsAdministratorRequired(CommandResult result) =>
+        result.ExitCode == 95 ||
+        result.Message.Contains("admin/root", StringComparison.OrdinalIgnoreCase) ||
+        result.Message.Contains("administrator", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatGraphSummary(IEnumerable<double?> values, string format, string unit)
     {

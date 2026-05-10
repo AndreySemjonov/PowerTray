@@ -7,8 +7,14 @@ namespace PowerTray;
 
 public partial class App : System.Windows.Application
 {
+    private const string SingleInstanceMutexName = @"Local\PowerTray.SingleInstance";
+    private const string ShowDashboardEventName = @"Local\PowerTray.ShowDashboard";
+
     private TrayIconManager? _trayIconManager;
     private MainViewModel? _mainViewModel;
+    private Mutex? _singleInstanceMutex;
+    private EventWaitHandle? _showDashboardEvent;
+    private RegisteredWaitHandle? _showDashboardWaitHandle;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -16,6 +22,20 @@ public partial class App : System.Windows.Application
         {
             int exitCode = await CctkService.RunElevatedCommandChildAsync(e.Args);
             Shutdown(exitCode);
+            return;
+        }
+
+        bool forceMinimized = e.Args.Contains("--minimized", StringComparer.OrdinalIgnoreCase);
+        if (!TryAcquireSingleInstance())
+        {
+            if (!forceMinimized)
+            {
+                SignalExistingInstance();
+            }
+
+            _singleInstanceMutex?.Dispose();
+            _singleInstanceMutex = null;
+            Shutdown();
             return;
         }
 
@@ -44,9 +64,11 @@ public partial class App : System.Windows.Application
         });
 
         _trayIconManager.Show();
-        _mainViewModel.Start();
+        RegisterSingleInstanceSignal();
 
-        bool forceMinimized = e.Args.Contains("--minimized", StringComparer.OrdinalIgnoreCase);
+        bool isBackgroundLaunch = forceMinimized || settingsService.Current.StartMinimized;
+        _mainViewModel.Start(allowStartupElevation: !isBackgroundLaunch);
+
         if (!settingsService.Current.StartMinimized && !forceMinimized)
         {
             _trayIconManager.ShowDashboard();
@@ -55,8 +77,45 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _showDashboardWaitHandle?.Unregister(null);
+        _showDashboardEvent?.Dispose();
         _trayIconManager?.Dispose();
+        _singleInstanceMutex?.ReleaseMutex();
+        _singleInstanceMutex?.Dispose();
         base.OnExit(e);
+    }
+
+    private bool TryAcquireSingleInstance()
+    {
+        _singleInstanceMutex = new Mutex(initiallyOwned: true, SingleInstanceMutexName, out bool createdNew);
+        return createdNew;
+    }
+
+    private void RegisterSingleInstanceSignal()
+    {
+        _showDashboardEvent = new EventWaitHandle(initialState: false, EventResetMode.AutoReset, ShowDashboardEventName);
+        _showDashboardWaitHandle = ThreadPool.RegisterWaitForSingleObject(
+            _showDashboardEvent,
+            (_, _) => Dispatcher.BeginInvoke(() => _trayIconManager?.ShowDashboard()),
+            state: null,
+            millisecondsTimeOutInterval: -1,
+            executeOnlyOnce: false);
+    }
+
+    private static void SignalExistingInstance()
+    {
+        try
+        {
+            using EventWaitHandle showDashboardEvent = EventWaitHandle.OpenExisting(ShowDashboardEventName);
+            showDashboardEvent.Set();
+        }
+        catch (WaitHandleCannotBeOpenedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to signal existing PowerTray instance.");
+        }
     }
 
     private static void RefreshStartupRegistration(StartupService startupService)
