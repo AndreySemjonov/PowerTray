@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using PowerTray.ViewModels;
 
 namespace PowerTray.Views;
@@ -20,6 +21,7 @@ public partial class DashboardWindow : Window
         SizeChanged += OnDashboardSizeChanged;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         ApplyDashboardWindowHeight();
+        UpdateDashboardClip();
         _viewModel.IsDashboardVisible = IsVisible;
     }
 
@@ -61,7 +63,20 @@ public partial class DashboardWindow : Window
 
     private void OnDashboardSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        UpdateDashboardClip();
         RepositionAfterHeightChange(e.PreviousSize.Height);
+    }
+
+    private void UpdateDashboardClip()
+    {
+        if (ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            return;
+        }
+
+        var bounds = new Rect(0, 0, ActualWidth, ActualHeight);
+        DashboardRoot.Clip = new RectangleGeometry(bounds, 12, 12);
+        DashboardContent.Clip = new RectangleGeometry(bounds, 12, 12);
     }
 
     private void RepositionAfterHeightChange(double previousHeight)

@@ -17,12 +17,13 @@
         Topmost="{Binding IsDashboardTopmost}"
         Background="Transparent"
         Foreground="{DynamicResource TextBrush}">
-    <Border Background="{DynamicResource WindowBg}"
+    <Border x:Name="DashboardRoot"
+            Background="{DynamicResource WindowBg}"
             BorderBrush="{DynamicResource PanelBorder}"
             BorderThickness="1"
             CornerRadius="12"
             SnapsToDevicePixels="True">
-        <Grid Background="Transparent">
+        <Grid x:Name="DashboardContent" Background="Transparent">
             <Grid.RowDefinitions>
                 <RowDefinition Height="46" />
                 <RowDefinition Height="Auto" />
