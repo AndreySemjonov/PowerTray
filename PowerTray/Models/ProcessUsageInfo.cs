@@ -22,6 +22,8 @@ public sealed class ProcessUsageInfo
     public int ProcessId { get; init; }
     public string Name { get; init; } = string.Empty;
     public double CpuPercent { get; init; }
+    public double GpuPercent { get; init; }
+    public string GpuEngine { get; init; } = string.Empty;
     public long WorkingSetBytes { get; init; }
     public TimeSpan RunTime { get; init; }
     public double EstimatedEnergyImpact { get; init; }
@@ -30,6 +32,10 @@ public sealed class ProcessUsageInfo
 
     public string MemoryText => $"{WorkingSetBytes / 1024d / 1024d:N0} MB";
     public string CpuText => $"{CpuPercent:N1}%";
+    public string GpuText => GpuPercent >= 0.05 ? $"{GpuPercent:N1}%" : "0%";
+    public string GpuDetailText => string.IsNullOrWhiteSpace(GpuEngine)
+        ? GpuText
+        : $"{GpuText} · {GpuEngine}";
     public string EnergyText => $"{EstimatedEnergyPercent:N1}%";
     public bool IsSystemProcess => SystemProcessNames.Contains(Name);
     public string ResourceImpactBadgeText => IsSystemProcess ? "System" : "CPU";
@@ -48,6 +54,7 @@ public sealed class ProcessUsageInfo
                 Name,
                 $"Type: {ResourceImpactBadgeText}",
                 $"Current CPU: {CpuText}",
+                $"Current GPU: {GpuDetailText}",
                 $"Memory: {MemoryText}",
                 $"Relative score: {ResourceImpactText}",
                 $"Estimated share: {EstimatedDrainShareText}",

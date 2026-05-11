@@ -10,4 +10,5 @@ public sealed class SensorSample
     public double? BatteryPowerWatts { get; init; }
     public double? FanRpm { get; init; }
     public string? TopCpuProcessName { get; init; }
+    public string? TopGpuProcessName { get; init; }
 }

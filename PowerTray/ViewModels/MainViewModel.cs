@@ -110,6 +110,7 @@ public sealed class MainViewModel : ObservableObject
 
         TopCpuProcesses = new ObservableCollection<ProcessUsageInfo>();
         TopMemoryProcesses = new ObservableCollection<ProcessUsageInfo>();
+        TopGpuProcesses = new ObservableCollection<ProcessUsageInfo>();
         EnergyImpactProcesses = new ObservableCollection<ProcessUsageInfo>();
         CpuDriverProcesses = new ObservableCollection<CpuDriverInfo>();
         BatteryDrainEvents = new ObservableCollection<BatteryDrainEventInfo>();
@@ -636,6 +637,7 @@ public sealed class MainViewModel : ObservableObject
 
     public ObservableCollection<ProcessUsageInfo> TopCpuProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> TopMemoryProcesses { get; }
+    public ObservableCollection<ProcessUsageInfo> TopGpuProcesses { get; }
     public ObservableCollection<ProcessUsageInfo> EnergyImpactProcesses { get; }
     public ObservableCollection<CpuDriverInfo> CpuDriverProcesses { get; }
     public ObservableCollection<BatteryDrainEventInfo> BatteryDrainEvents { get; }
@@ -789,6 +791,7 @@ public sealed class MainViewModel : ObservableObject
         : SelectedBatteryUsageDate.ToString("MMM d");
     public bool CanShowNextBatteryUsageDay => SelectedBatteryUsageDate < DateTime.Today;
     public string TopAppUsageEmptyText => EnergyImpactProcesses.Count == 0 ? "No resource impact data yet" : string.Empty;
+    public string TopGpuUsageEmptyText => TopGpuProcesses.Count == 0 ? "No per-process GPU usage detected." : string.Empty;
     public string CpuDriverEmptyText => CpuDriverProcesses.Count == 0 ? "Collecting CPU driver history..." : string.Empty;
     public string WindowsBatteryUsageEmptyText => WindowsBatteryUsageProcesses.Count == 0 ? WindowsBatteryUsageStatusText : string.Empty;
     public string SelectedWindowsBatteryUsageEmptyText => SelectedWindowsBatteryUsageProcesses.Count == 0 ? SelectedBatteryUsageImpactStatusText : string.Empty;
@@ -917,6 +920,12 @@ public sealed class MainViewModel : ObservableObject
     public string SecondaryCpuDriverText => CpuDriverProcesses.ElementAtOrDefault(1)?.Name ?? "--";
     public string PrimaryCpuDriverToolTip => CpuDriverProcesses.ElementAtOrDefault(0)?.ToolTipText ?? "Collecting CPU driver history...";
     public string SecondaryCpuDriverToolTip => CpuDriverProcesses.ElementAtOrDefault(1)?.ToolTipText ?? "Collecting CPU driver history...";
+    public string PrimaryGpuProcessText => TopGpuProcesses.FirstOrDefault() is { } process
+        ? $"{process.Name} {process.GpuText}"
+        : "--";
+    public string PrimaryGpuProcessToolTip => TopGpuProcesses.FirstOrDefault() is { } process
+        ? $"{process.Name}{Environment.NewLine}GPU: {process.GpuDetailText}{Environment.NewLine}CPU: {process.CpuText}{Environment.NewLine}Memory: {process.MemoryText}"
+        : "No per-process GPU usage detected.";
     public string MemoryText => $"{Memory.UsedText} / {Memory.TotalText} ({Memory.UsedPercent:N0}%)";
     public bool IsAdministrator => CctkService.IsAdministrator();
 
@@ -1512,6 +1521,7 @@ public sealed class MainViewModel : ObservableObject
                     (double overallCpu,
                         IReadOnlyList<ProcessUsageInfo> topCpu,
                         IReadOnlyList<ProcessUsageInfo> topMemory,
+                        IReadOnlyList<ProcessUsageInfo> topGpu,
                         IReadOnlyList<ProcessUsageInfo> energyImpact,
                         string energyImpactTitle,
                         string energyImpactColumnHeader) = _processStatsService.Sample(battery);
@@ -1519,6 +1529,7 @@ public sealed class MainViewModel : ObservableObject
                         overallCpu,
                         topCpu,
                         topMemory,
+                        topGpu,
                         energyImpact,
                         energyImpactTitle,
                         energyImpactColumnHeader,
@@ -1571,14 +1582,18 @@ public sealed class MainViewModel : ObservableObject
                 ReplaceIfChanged(CpuDriverProcesses, BuildCpuDriverList(snapshot.Timestamp), AreCpuDriverRowsEquivalent);
                 ReplaceIfChanged(TopCpuProcesses, processStats.TopCpu, AreProcessRowsEquivalent);
                 ReplaceIfChanged(TopMemoryProcesses, processStats.TopMemory, AreProcessRowsEquivalent);
+                ReplaceIfChanged(TopGpuProcesses, processStats.TopGpu, AreProcessRowsEquivalent);
                 ReplaceIfChanged(EnergyImpactProcesses, processStats.EnergyImpact, AreProcessRowsEquivalent);
                 OnPropertyChanged(nameof(TopAppUsageEmptyText));
+                OnPropertyChanged(nameof(TopGpuUsageEmptyText));
                 OnPropertyChanged(nameof(CpuDriverEmptyText));
                 OnPropertyChanged(nameof(PrimaryCpuDriverText));
                 OnPropertyChanged(nameof(SecondaryCpuDriverText));
                 OnPropertyChanged(nameof(PrimaryCpuDriverToolTip));
                 OnPropertyChanged(nameof(SecondaryCpuDriverToolTip));
                 OnPropertyChanged(nameof(TopCpuProcessText));
+                OnPropertyChanged(nameof(PrimaryGpuProcessText));
+                OnPropertyChanged(nameof(PrimaryGpuProcessToolTip));
             }
 
             CpuUsagePercent = sensors.CpuUsagePercent ?? snapshot.ProcessStats?.OverallCpu ?? CpuUsagePercent;
@@ -1611,7 +1626,8 @@ public sealed class MainViewModel : ObservableObject
                 CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,
                 BatteryPowerWatts = Battery.ChargeRateWatts,
                 FanRpm = sensors.FanRpm.Values.FirstOrDefault(),
-                TopCpuProcessName = snapshot.ProcessStats?.TopCpu.FirstOrDefault()?.Name ?? TopCpuProcesses.FirstOrDefault()?.Name
+                TopCpuProcessName = snapshot.ProcessStats?.TopCpu.FirstOrDefault()?.Name ?? TopCpuProcesses.FirstOrDefault()?.Name,
+                TopGpuProcessName = snapshot.ProcessStats?.TopGpu.FirstOrDefault()?.Name ?? TopGpuProcesses.FirstOrDefault()?.Name
             }, dashboardVisible);
 
             if (dashboardVisible && SelectedSectionIndex == 1)
@@ -1677,7 +1693,7 @@ public sealed class MainViewModel : ObservableObject
             CpuUsagePeaks = cpuPeaks;
         }
 
-        IReadOnlyList<UsagePeakInfo> gpuPeaks = BuildUsagePeaks(_samples, s => s.GpuUsagePercent, _ => null, includeProcessName: false);
+        IReadOnlyList<UsagePeakInfo> gpuPeaks = BuildUsagePeaks(_samples, s => s.GpuUsagePercent, s => s.TopGpuProcessName, includeProcessName: true);
         if (!AreUsagePeakListsEquivalent(GpuUsagePeaks, gpuPeaks))
         {
             GpuUsagePeaks = gpuPeaks;
@@ -1905,6 +1921,8 @@ public sealed class MainViewModel : ObservableObject
         left.ProcessId == right.ProcessId
         && left.Name.Equals(right.Name, StringComparison.Ordinal)
         && Math.Round(left.CpuPercent, 1) == Math.Round(right.CpuPercent, 1)
+        && Math.Round(left.GpuPercent, 1) == Math.Round(right.GpuPercent, 1)
+        && string.Equals(left.GpuEngine, right.GpuEngine, StringComparison.Ordinal)
         && left.WorkingSetBytes / (1024 * 1024) == right.WorkingSetBytes / (1024 * 1024)
         && Math.Round(left.EstimatedEnergyImpactBarPercent, 0) == Math.Round(right.EstimatedEnergyImpactBarPercent, 0)
         && Math.Round(left.EstimatedEnergyPercent, 1) == Math.Round(right.EstimatedEnergyPercent, 1);
@@ -2690,6 +2708,7 @@ public sealed class MainViewModel : ObservableObject
         double OverallCpu,
         IReadOnlyList<ProcessUsageInfo> TopCpu,
         IReadOnlyList<ProcessUsageInfo> TopMemory,
+        IReadOnlyList<ProcessUsageInfo> TopGpu,
         IReadOnlyList<ProcessUsageInfo> EnergyImpact,
         string EnergyImpactTitle,
         string EnergyImpactColumnHeader,

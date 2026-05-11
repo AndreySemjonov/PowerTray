@@ -9,6 +9,7 @@ namespace PowerTray.Services;
 public sealed class ProcessStatsService
 {
     private const double MaxProcessAttributedDrainShare = 0.85;
+    private const string GpuEngineCategoryName = "GPU Engine";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private static readonly Dictionary<string, string> KnownProcessNames = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -38,23 +39,26 @@ public sealed class ProcessStatsService
     };
 
     private readonly Dictionary<int, ProcessCpuSnapshot> _previousCpu = new();
+    private readonly Dictionary<string, PerformanceCounter> _gpuCounters = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _friendlyNameCache = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset _previousSample = DateTimeOffset.Now;
     private DateTimeOffset _lastEnergySave = DateTimeOffset.MinValue;
     private EnergyHistoryState _energyState = new();
     private bool _energyStateLoaded;
+    private bool _gpuCountersUnavailableLogged;
     private bool? _lastPluggedIn;
     private double _lastOverallCpu;
 
     private string EnergyHistoryPath => Path.Combine(LogService.AppDataRoot, "energy-history.json");
 
-    public (double OverallCpuPercent, IReadOnlyList<ProcessUsageInfo> TopCpu, IReadOnlyList<ProcessUsageInfo> TopMemory, IReadOnlyList<ProcessUsageInfo> EnergyImpact, string EnergyImpactTitle, string EnergyImpactColumnHeader) Sample(BatteryStatus battery)
+    public (double OverallCpuPercent, IReadOnlyList<ProcessUsageInfo> TopCpu, IReadOnlyList<ProcessUsageInfo> TopMemory, IReadOnlyList<ProcessUsageInfo> TopGpu, IReadOnlyList<ProcessUsageInfo> EnergyImpact, string EnergyImpactTitle, string EnergyImpactColumnHeader) Sample(BatteryStatus battery)
     {
         EnsureEnergyStateLoaded();
         Process[] processes = Process.GetProcesses();
         DateTimeOffset now = DateTimeOffset.Now;
         double elapsedSeconds = Math.Max(0.1, (now - _previousSample).TotalSeconds);
         int processorCount = Math.Max(1, Environment.ProcessorCount);
+        Dictionary<int, GpuProcessUsage> gpuUsageByPid = SampleGpuUsageByPid();
         var currentIds = new HashSet<int>();
         var usage = new List<ProcessUsageInfo>();
         double totalCpu = 0;
@@ -73,12 +77,15 @@ public sealed class ProcessStatsService
                 cpuPercent = Math.Clamp(cpuPercent, 0, 100);
                 totalCpu += cpuPercent;
                 TimeSpan runTime = process.StartTime <= DateTime.Now ? DateTime.Now - process.StartTime : TimeSpan.Zero;
+                gpuUsageByPid.TryGetValue(process.Id, out GpuProcessUsage gpuUsage);
 
                 usage.Add(new ProcessUsageInfo
                 {
                     ProcessId = process.Id,
                     Name = GetFriendlyProcessName(process),
                     CpuPercent = cpuPercent,
+                    GpuPercent = gpuUsage.Percent,
+                    GpuEngine = gpuUsage.Engine ?? string.Empty,
                     WorkingSetBytes = process.WorkingSet64,
                     RunTime = runTime,
                     EstimatedEnergyImpact = 0
@@ -107,9 +114,123 @@ public sealed class ProcessStatsService
 
         IReadOnlyList<ProcessUsageInfo> topCpu = usage.OrderByDescending(p => p.CpuPercent).Take(10).ToArray();
         IReadOnlyList<ProcessUsageInfo> topMemory = usage.OrderByDescending(p => p.WorkingSetBytes).Take(5).ToArray();
+        IReadOnlyList<ProcessUsageInfo> topGpu = usage
+            .Where(p => p.GpuPercent >= 0.05)
+            .OrderByDescending(p => p.GpuPercent)
+            .Take(10)
+            .ToArray();
         IReadOnlyList<ProcessUsageInfo> energy = BuildEnergyImpactList(usage).Take(5).ToArray();
-        return (_lastOverallCpu, topCpu, topMemory, energy, BuildEnergyImpactTitle(now), "Score");
+        return (_lastOverallCpu, topCpu, topMemory, topGpu, energy, BuildEnergyImpactTitle(now), "Score");
     }
+
+    private Dictionary<int, GpuProcessUsage> SampleGpuUsageByPid()
+    {
+        var usageByPid = new Dictionary<int, GpuProcessUsage>();
+        try
+        {
+            if (!PerformanceCounterCategory.Exists(GpuEngineCategoryName))
+            {
+                LogGpuCountersUnavailable("Windows GPU Engine performance counters are not available.");
+                return usageByPid;
+            }
+
+            var category = new PerformanceCounterCategory(GpuEngineCategoryName);
+            string[] instances = category.GetInstanceNames();
+            var liveInstances = new HashSet<string>(instances, StringComparer.OrdinalIgnoreCase);
+
+            foreach (string staleInstance in _gpuCounters.Keys.Where(instance => !liveInstances.Contains(instance)).ToArray())
+            {
+                _gpuCounters[staleInstance].Dispose();
+                _gpuCounters.Remove(staleInstance);
+            }
+
+            foreach (string instance in instances)
+            {
+                if (!TryParseGpuEngineInstance(instance, out int processId, out string engine))
+                {
+                    continue;
+                }
+
+                if (!_gpuCounters.TryGetValue(instance, out PerformanceCounter? counter))
+                {
+                    counter = new PerformanceCounter(GpuEngineCategoryName, "Utilization Percentage", instance, readOnly: true);
+                    _gpuCounters[instance] = counter;
+                }
+
+                double percent = Math.Clamp(counter.NextValue(), 0, 100);
+                if (percent < 0.01)
+                {
+                    continue;
+                }
+
+                usageByPid.TryGetValue(processId, out GpuProcessUsage current);
+                string selectedEngine = percent > current.EnginePercent ? engine : current.Engine;
+                double selectedEnginePercent = Math.Max(current.EnginePercent, percent);
+                usageByPid[processId] = new GpuProcessUsage(
+                    Math.Clamp(current.Percent + percent, 0, 100),
+                    selectedEngine,
+                    selectedEnginePercent);
+            }
+        }
+        catch (Exception ex)
+        {
+            bool shouldLogDetails = !_gpuCountersUnavailableLogged;
+            LogGpuCountersUnavailable($"Failed to sample per-process GPU usage: {ex.Message}");
+            if (shouldLogDetails)
+            {
+                LogService.FeatureError(LogFeature.CpuGpuUsage, ex, "Failed to sample per-process GPU usage.");
+            }
+        }
+
+        return usageByPid;
+    }
+
+    private void LogGpuCountersUnavailable(string message)
+    {
+        if (_gpuCountersUnavailableLogged)
+        {
+            return;
+        }
+
+        _gpuCountersUnavailableLogged = true;
+        LogService.Info(message);
+    }
+
+    private static bool TryParseGpuEngineInstance(string instance, out int processId, out string engine)
+    {
+        processId = 0;
+        engine = string.Empty;
+
+        string[] parts = instance.Split('_', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < parts.Length - 1; i++)
+        {
+            if (parts[i].Equals("pid", StringComparison.OrdinalIgnoreCase) &&
+                int.TryParse(parts[i + 1], out processId))
+            {
+                break;
+            }
+        }
+
+        int engineTypeIndex = Array.FindIndex(parts, part => part.Equals("engtype", StringComparison.OrdinalIgnoreCase));
+        if (engineTypeIndex >= 0 && engineTypeIndex + 1 < parts.Length)
+        {
+            engine = NormalizeGpuEngine(parts[engineTypeIndex + 1]);
+        }
+
+        return processId > 0;
+    }
+
+    private static string NormalizeGpuEngine(string engine) => engine switch
+    {
+        "3D" => "3D",
+        "Copy" => "Copy",
+        "Compute_0" or "Compute" => "Compute",
+        "Cuda" => "CUDA",
+        "VideoDecode" or "Video Decode" => "Video Decode",
+        "VideoEncode" or "Video Encode" => "Video Encode",
+        "VideoProcessing" or "Video Processing" => "Video Processing",
+        _ => engine.Replace('_', ' ')
+    };
 
     public SystemMemoryInfo GetMemoryInfo()
     {
@@ -202,6 +323,8 @@ public sealed class ProcessStatsService
             Name = item.Name,
             CpuPercent = item.Current?.CpuPercent ?? 0,
             WorkingSetBytes = item.Current?.WorkingSetBytes ?? 0,
+            GpuPercent = item.Current?.GpuPercent ?? 0,
+            GpuEngine = item.Current?.GpuEngine ?? string.Empty,
             RunTime = item.Current?.RunTime ?? TimeSpan.Zero,
             EstimatedEnergyImpact = item.Score,
             EstimatedEnergyImpactBarPercent = Math.Clamp(item.Score / maxScore * 100d, 0, 100),
@@ -383,6 +506,8 @@ public sealed class ProcessStatsService
     }
 
     private readonly record struct ProcessCpuSnapshot(TimeSpan TotalProcessorTime);
+
+    private readonly record struct GpuProcessUsage(double Percent, string Engine, double EnginePercent);
 
     public sealed class EnergyHistoryState
     {
