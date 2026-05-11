@@ -106,7 +106,7 @@ public sealed class CctkService
             : elevatedResult;
     }
 
-    public async Task<CommandResult> ApplyThermalProfileAsync(DellThermalProfile profile)
+    public async Task<CommandResult> ApplyThermalProfileAsync(DellThermalProfile profile, bool allowElevation = true)
     {
         if (!IsAdministrator())
         {
@@ -115,6 +115,16 @@ public sealed class CctkService
             {
                 return helperResult;
             }
+        }
+
+        if (!allowElevation)
+        {
+            return new CommandResult
+            {
+                Success = false,
+                ExitCode = 95,
+                Message = "Dell thermal profile requires the PowerTray helper service or administrator approval."
+            };
         }
 
         string argument = $"--thermalmanagement={ToCctkThermalValue(profile)}";
