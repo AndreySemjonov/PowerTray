@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="PowerTray Settings"
         Width="820"
-        Height="820"
+        Height="850"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         WindowStyle="None"
@@ -68,7 +68,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="8" />
-                        <RowDefinition Height="270" />
+                        <RowDefinition Height="300" />
                         <RowDefinition Height="8" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
@@ -169,6 +169,10 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="8" />
                                         <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="10" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="8" />
+                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Text="Efficiency"
@@ -201,6 +205,28 @@
                                               DisplayMemberPath="DisplayName"
                                               SelectedValuePath="Value"
                                               SelectedValue="{Binding PerformanceThermalProfile}" />
+
+                                    <TextBlock Grid.Row="6"
+                                               Text="Plugged in"
+                                               Foreground="{DynamicResource MutedTextBrush}"
+                                               VerticalAlignment="Center" />
+                                    <ComboBox Grid.Row="6"
+                                              Grid.Column="1"
+                                              ItemsSource="{Binding DellThermalProfiles}"
+                                              DisplayMemberPath="DisplayName"
+                                              SelectedValuePath="Value"
+                                              SelectedValue="{Binding ManualPluggedInThermalProfile}" />
+
+                                    <TextBlock Grid.Row="8"
+                                               Text="On battery"
+                                               Foreground="{DynamicResource MutedTextBrush}"
+                                               VerticalAlignment="Center" />
+                                    <ComboBox Grid.Row="8"
+                                              Grid.Column="1"
+                                              ItemsSource="{Binding DellThermalProfiles}"
+                                              DisplayMemberPath="DisplayName"
+                                              SelectedValuePath="Value"
+                                              SelectedValue="{Binding ManualBatteryThermalProfile}" />
                                 </Grid>
                             </Grid>
                         </Border>

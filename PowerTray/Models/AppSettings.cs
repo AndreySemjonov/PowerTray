@@ -19,6 +19,8 @@ public sealed class AppSettings
     public DellThermalProfile PowerEfficiencyThermalProfile { get; set; } = DellThermalProfile.Quiet;
     public DellThermalProfile BalancedThermalProfile { get; set; } = DellThermalProfile.Optimized;
     public DellThermalProfile PerformanceThermalProfile { get; set; } = DellThermalProfile.UltraPerformance;
+    public DellThermalProfile ManualPluggedInThermalProfile { get; set; } = DellThermalProfile.UltraPerformance;
+    public DellThermalProfile ManualBatteryThermalProfile { get; set; } = DellThermalProfile.Quiet;
     public bool UseBiosSetupPassword { get; set; }
     public string EncryptedBiosSetupPassword { get; set; } = string.Empty;
     public bool ShowBatteryWattsTile { get; set; } = true;

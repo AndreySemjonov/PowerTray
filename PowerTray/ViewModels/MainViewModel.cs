@@ -998,7 +998,14 @@ public sealed class MainViewModel : ObservableObject
         if (IsDellChargeModeAvailable)
         {
             _ = RefreshDellChargeAsync();
-            _ = RefreshDellThermalAsync();
+            if (_settingsService.Current.DellThermalControlMode == DellThermalControlMode.Off)
+            {
+                DellThermalSetting = "Unavailable";
+            }
+            else
+            {
+                _ = ApplyDellThermalProfileForPowerSourceAsync(Battery.IsPluggedIn, CurrentWindowsPowerMode, allowElevation: false);
+            }
         }
         else
         {
@@ -1334,6 +1341,7 @@ public sealed class MainViewModel : ObservableObject
 
         if (result.Success)
         {
+            SaveManualDellThermalProfileForCurrentPowerSource(profile);
             SetDellThermalSetting($"ThermalManagement={ToDellThermalDisplayName(profile)}", cache: true);
             CommandResult refresh = await _cctkService.ShowThermalManagementAsync(allowElevation: true);
             if (refresh.Success)
@@ -1351,13 +1359,7 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        DellThermalProfile profile = mode switch
-        {
-            WindowsPowerMode.BestPowerEfficiency => settings.PowerEfficiencyThermalProfile,
-            WindowsPowerMode.Balanced => settings.BalancedThermalProfile,
-            WindowsPowerMode.BestPerformance => settings.PerformanceThermalProfile,
-            _ => settings.BalancedThermalProfile
-        };
+        DellThermalProfile profile = GetDellThermalProfileForWindowsPowerMode(settings, mode);
 
         CommandResult result = await _cctkService.ApplyThermalProfileAsync(profile, allowElevation);
         if (result.Success)
@@ -1375,16 +1377,18 @@ public sealed class MainViewModel : ObservableObject
     {
         bool? previousPluggedIn = _lastObservedPowerSourcePluggedIn;
         _lastObservedPowerSourcePluggedIn = pluggedIn;
+        bool shouldApplyInitialManualProfile = previousPluggedIn is null &&
+            _settingsService.Current.DellThermalControlMode == DellThermalControlMode.Manual;
 
-        if (previousPluggedIn is null || previousPluggedIn == pluggedIn || mode is null)
+        if (!shouldApplyInitialManualProfile && (previousPluggedIn is null || previousPluggedIn == pluggedIn))
         {
             return;
         }
 
-        _ = SyncDellThermalForPowerSourceChangeAsync(pluggedIn, mode.Value);
+        _ = SyncDellThermalForPowerSourceChangeAsync(pluggedIn, mode);
     }
 
-    private async Task SyncDellThermalForPowerSourceChangeAsync(bool pluggedIn, WindowsPowerMode mode)
+    private async Task SyncDellThermalForPowerSourceChangeAsync(bool pluggedIn, WindowsPowerMode? mode)
     {
         if (_isSyncingDellThermalForPowerSource)
         {
@@ -1396,7 +1400,7 @@ public sealed class MainViewModel : ObservableObject
         {
             string source = pluggedIn ? "plugged in" : "on battery";
             StatusMessage = $"Power source changed to {source}. Syncing Dell thermal profile...";
-            await SyncDellThermalProfileIfNeededAsync(mode, allowElevation: false);
+            await ApplyDellThermalProfileForPowerSourceAsync(pluggedIn, mode, allowElevation: false);
         }
         catch (Exception ex)
         {
@@ -1408,6 +1412,70 @@ public sealed class MainViewModel : ObservableObject
             _isSyncingDellThermalForPowerSource = false;
         }
     }
+
+    private async Task ApplyDellThermalProfileForPowerSourceAsync(bool pluggedIn, WindowsPowerMode? mode, bool allowElevation)
+    {
+        AppSettings settings = _settingsService.Current;
+        if (!IsDellChargeModeAvailable || settings.DellThermalControlMode == DellThermalControlMode.Off)
+        {
+            return;
+        }
+
+        DellThermalProfile? profile = settings.DellThermalControlMode switch
+        {
+            DellThermalControlMode.Manual => pluggedIn
+                ? settings.ManualPluggedInThermalProfile
+                : settings.ManualBatteryThermalProfile,
+            DellThermalControlMode.SyncWithWindowsPowerPlan when mode is { } windowsMode =>
+                GetDellThermalProfileForWindowsPowerMode(settings, windowsMode),
+            _ => null
+        };
+
+        if (profile is not { } targetProfile)
+        {
+            return;
+        }
+
+        CommandResult result = await _cctkService.ApplyThermalProfileAsync(targetProfile, allowElevation);
+        string profileName = ToDellThermalDisplayName(targetProfile);
+        if (result.Success)
+        {
+            SetDellThermalSetting($"ThermalManagement={profileName}", cache: true);
+            StatusMessage = $"{StatusMessage} Dell thermal: {profileName}.";
+        }
+        else
+        {
+            StatusMessage = $"{StatusMessage} Dell thermal sync failed: {result.Message}";
+        }
+    }
+
+    private void SaveManualDellThermalProfileForCurrentPowerSource(DellThermalProfile profile)
+    {
+        AppSettings settings = _settingsService.Current;
+        if (settings.DellThermalControlMode != DellThermalControlMode.Manual)
+        {
+            return;
+        }
+
+        if (Battery.IsPluggedIn)
+        {
+            settings.ManualPluggedInThermalProfile = profile;
+        }
+        else
+        {
+            settings.ManualBatteryThermalProfile = profile;
+        }
+
+        _settingsService.Save(settings);
+    }
+
+    private static DellThermalProfile GetDellThermalProfileForWindowsPowerMode(AppSettings settings, WindowsPowerMode mode) => mode switch
+    {
+        WindowsPowerMode.BestPowerEfficiency => settings.PowerEfficiencyThermalProfile,
+        WindowsPowerMode.Balanced => settings.BalancedThermalProfile,
+        WindowsPowerMode.BestPerformance => settings.PerformanceThermalProfile,
+        _ => settings.BalancedThermalProfile
+    };
 
     private async Task RefreshAsync()
     {

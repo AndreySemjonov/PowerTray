@@ -26,6 +26,8 @@ public sealed class SettingsViewModel : ObservableObject
     private DellThermalProfile _powerEfficiencyThermalProfile;
     private DellThermalProfile _balancedThermalProfile;
     private DellThermalProfile _performanceThermalProfile;
+    private DellThermalProfile _manualPluggedInThermalProfile;
+    private DellThermalProfile _manualBatteryThermalProfile;
     private bool _useBiosSetupPassword;
     private string _biosSetupPassword = string.Empty;
     private bool _hasSavedBiosSetupPassword;
@@ -57,6 +59,8 @@ public sealed class SettingsViewModel : ObservableObject
         _powerEfficiencyThermalProfile = settings.PowerEfficiencyThermalProfile;
         _balancedThermalProfile = settings.BalancedThermalProfile;
         _performanceThermalProfile = settings.PerformanceThermalProfile;
+        _manualPluggedInThermalProfile = settings.ManualPluggedInThermalProfile;
+        _manualBatteryThermalProfile = settings.ManualBatteryThermalProfile;
         _useBiosSetupPassword = settings.UseBiosSetupPassword;
         _hasSavedBiosSetupPassword = !string.IsNullOrWhiteSpace(settings.EncryptedBiosSetupPassword);
         _showBatteryWattsTile = settings.ShowBatteryWattsTile;
@@ -193,6 +197,18 @@ public sealed class SettingsViewModel : ObservableObject
     {
         get => _performanceThermalProfile;
         set => SetProperty(ref _performanceThermalProfile, value);
+    }
+
+    public DellThermalProfile ManualPluggedInThermalProfile
+    {
+        get => _manualPluggedInThermalProfile;
+        set => SetProperty(ref _manualPluggedInThermalProfile, value);
+    }
+
+    public DellThermalProfile ManualBatteryThermalProfile
+    {
+        get => _manualBatteryThermalProfile;
+        set => SetProperty(ref _manualBatteryThermalProfile, value);
     }
 
     public bool UseBiosSetupPassword
@@ -341,6 +357,8 @@ public sealed class SettingsViewModel : ObservableObject
             PowerEfficiencyThermalProfile = PowerEfficiencyThermalProfile,
             BalancedThermalProfile = BalancedThermalProfile,
             PerformanceThermalProfile = PerformanceThermalProfile,
+            ManualPluggedInThermalProfile = ManualPluggedInThermalProfile,
+            ManualBatteryThermalProfile = ManualBatteryThermalProfile,
             UseBiosSetupPassword = UseBiosSetupPassword,
             EncryptedBiosSetupPassword = encryptedBiosSetupPassword,
             ShowBatteryWattsTile = ShowBatteryWattsTile,
