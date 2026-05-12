@@ -1,0 +1,124 @@
+<Window x:Class="PowerTray.Views.DimmerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PowerTray Dimmer"
+        Width="420"
+        Height="320"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Topmost="True"
+        Background="Transparent"
+        Foreground="{DynamicResource TextBrush}">
+    <Border Background="{DynamicResource WindowBg}"
+            BorderBrush="{DynamicResource PanelBorder}"
+            BorderThickness="1"
+            CornerRadius="11"
+            SnapsToDevicePixels="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="42" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Background="{DynamicResource TopBarBg}"
+                    BorderBrush="{DynamicResource PanelBorder}"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="10,10,0,0"
+                    MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <DockPanel LastChildFill="False">
+                    <TextBlock Text="Screen Dimmer"
+                               DockPanel.Dock="Left"
+                               VerticalAlignment="Center"
+                               Margin="16,0,0,0"
+                               FontSize="14"
+                               FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                        <Button Content="-"
+                                Style="{StaticResource TitleBarButtonStyle}"
+                                Click="MinimizeButton_Click" />
+                        <Button Content="X"
+                                Style="{StaticResource TitleCloseButtonStyle}"
+                                Click="CloseButton_Click" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Row="1" Margin="12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="10" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel>
+                    <TextBlock Text="Dimmer"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding StatusText}"
+                               Foreground="{DynamicResource MutedTextBrush}"
+                               FontSize="11"
+                               Margin="0,1,0,0" />
+                </StackPanel>
+
+                <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="12">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="64" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Overlay dim level"
+                                       Foreground="{DynamicResource MutedTextBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding DimLevelText}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <Slider Grid.Row="1"
+                                Minimum="0"
+                                Maximum="90"
+                                TickFrequency="5"
+                                IsSnapToTickEnabled="True"
+                                Value="{Binding DimLevel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                Margin="0,12,0,0" />
+
+                        <UniformGrid Grid.Row="2" Columns="4" Margin="0,14,0,0">
+                            <Button Content="Off" Command="{Binding SetPresetCommand}" CommandParameter="Off" Margin="0,0,6,0" />
+                            <Button Content="Low" Command="{Binding SetPresetCommand}" CommandParameter="Low" Margin="0,0,6,0" />
+                            <Button Content="Night" Command="{Binding SetPresetCommand}" CommandParameter="Night" Margin="0,0,6,0" />
+                            <Button Content="Dark" Command="{Binding SetPresetCommand}" CommandParameter="Dark" />
+                        </UniformGrid>
+
+                        <CheckBox Grid.Row="3"
+                                  Content="Extend brightness keys below hardware minimum"
+                                  IsChecked="{Binding ExtendBrightnessKeys}"
+                                  Margin="0,16,0,0" />
+                    </Grid>
+                </Border>
+
+                <TextBlock Grid.Row="3"
+                           Text="Turn this feature on from Settings first. The overlay is click-through. Brightness keys depend on laptop firmware; Ctrl+F7/F8 and Ctrl+Alt+Down/Up are available when key extension is enabled."
+                           Foreground="{DynamicResource MutedTextBrush}"
+                           FontSize="10"
+                           TextWrapping="Wrap"
+                           Margin="0,8,0,0" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

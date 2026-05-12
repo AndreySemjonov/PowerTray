@@ -18,17 +18,21 @@ public sealed class TrayIconManager : IDisposable
 
     private readonly MainViewModel _viewModel;
     private readonly Func<SettingsWindow> _settingsWindowFactory;
+    private readonly Func<DimmerWindow> _dimmerWindowFactory;
     private readonly NotifyIcon _notifyIcon;
     private readonly Icon _appIcon;
     private DashboardWindow? _dashboardWindow;
     private SettingsWindow? _settingsWindow;
+    private DimmerWindow? _dimmerWindow;
     private bool _disposed;
 
-    public TrayIconManager(MainViewModel viewModel, Func<SettingsWindow> settingsWindowFactory)
+    public TrayIconManager(MainViewModel viewModel, Func<SettingsWindow> settingsWindowFactory, Func<DimmerWindow> dimmerWindowFactory)
     {
         _viewModel = viewModel;
         _settingsWindowFactory = settingsWindowFactory;
+        _dimmerWindowFactory = dimmerWindowFactory;
         _viewModel.OpenSettingsRequested += (_, _) => ShowSettings();
+        _viewModel.OpenDimmerRequested += (_, _) => ShowDimmer();
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
         _appIcon = LoadTrayIcon();
         _notifyIcon = CreateNotifyIcon();
@@ -91,6 +95,37 @@ public sealed class TrayIconManager : IDisposable
         });
     }
 
+    public void ShowDimmer()
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (!_viewModel.IsScreenDimmerEnabled)
+            {
+                ShowSettings();
+                return;
+            }
+
+            if (_dimmerWindow is { IsVisible: true })
+            {
+                _dimmerWindow.Activate();
+                return;
+            }
+
+            var window = _dimmerWindowFactory();
+            _dimmerWindow = window;
+            window.Owner = _dashboardWindow;
+            window.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_dimmerWindow, window))
+                {
+                    _dimmerWindow = null;
+                }
+            };
+            window.Show();
+            window.Activate();
+        });
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -123,6 +158,7 @@ public sealed class TrayIconManager : IDisposable
         contextMenu.Items.Add(powerModeMenu);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add("Show Current Dell Charge Setting", null, async (_, _) => await _viewModel.RefreshDellChargeAsync());
+        contextMenu.Items.Add("Screen Dimmer", null, (_, _) => ShowDimmer());
         contextMenu.Items.Add("Settings", null, (_, _) => ShowSettings());
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add("Exit", null, (_, _) => ExitApplication());

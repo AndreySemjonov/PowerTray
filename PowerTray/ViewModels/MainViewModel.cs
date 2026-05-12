@@ -37,6 +37,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly WindowsPowerModeService _windowsPowerModeService;
     private readonly BatteryUsageService _batteryUsageService;
     private readonly IWindowsBatteryUsageService _windowsBatteryUsageService;
+    private readonly ScreenDimmerService _screenDimmerService;
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
     private readonly List<CpuDriverSample> _cpuDriverSamples = [];
@@ -97,7 +98,7 @@ public sealed class MainViewModel : ObservableObject
     private BatteryUsageSnapshot _batteryUsage = new();
     private DateTime _selectedBatteryUsageDate = DateTime.Today;
 
-    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService, IWindowsBatteryUsageService windowsBatteryUsageService)
+    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService, IWindowsBatteryUsageService windowsBatteryUsageService, ScreenDimmerService screenDimmerService)
     {
         _settingsService = settingsService;
         _cctkService = cctkService;
@@ -107,6 +108,8 @@ public sealed class MainViewModel : ObservableObject
         _windowsPowerModeService = windowsPowerModeService;
         _batteryUsageService = batteryUsageService;
         _windowsBatteryUsageService = windowsBatteryUsageService;
+        _screenDimmerService = screenDimmerService;
+        _screenDimmerService.StateChanged += (_, _) => NotifyScreenDimmerChanged();
 
         TopCpuProcesses = new ObservableCollection<ProcessUsageInfo>();
         TopMemoryProcesses = new ObservableCollection<ProcessUsageInfo>();
@@ -128,6 +131,7 @@ public sealed class MainViewModel : ObservableObject
         ApplyWindowsPowerModeCommand = new RelayCommand(async parameter => await ApplyWindowsPowerModeAsync(parameter));
         ApplyDellThermalProfileCommand = new RelayCommand(async parameter => await ApplyDellThermalProfileAsync(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
+        OpenDimmerCommand = new RelayCommand(() => OpenDimmerRequested?.Invoke(this, EventArgs.Empty));
         SetDashboardWindowBehaviorCommand = new RelayCommand(SetDashboardWindowBehavior);
         ShowBatteryWattsDetailsCommand = new RelayCommand(ShowBatteryWattsDetails);
         HideBatteryWattsDetailsCommand = new RelayCommand(() => IsBatteryWattsDetailsVisible = false);
@@ -144,6 +148,7 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public event EventHandler? OpenSettingsRequested;
+    public event EventHandler? OpenDimmerRequested;
 
     public bool IsUsageDetailsVisible
     {
@@ -650,6 +655,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ApplyWindowsPowerModeCommand { get; }
     public ICommand ApplyDellThermalProfileCommand { get; }
     public ICommand OpenSettingsCommand { get; }
+    public ICommand OpenDimmerCommand { get; }
     public ICommand SetDashboardWindowBehaviorCommand { get; }
     public ICommand ShowUsageDetailsCommand { get; }
     public ICommand HideUsageDetailsCommand { get; }
@@ -727,6 +733,11 @@ public sealed class MainViewModel : ObservableObject
     public bool ShowBatteryWattsTile => _settingsService.Current.ShowBatteryWattsTile;
     public bool ShowCpuGpuUsageTile => _settingsService.Current.ShowCpuGpuUsageTile;
     public bool ShowBatteryUsageSection => _settingsService.Current.ShowBatteryUsageSection;
+    public bool IsScreenDimmerEnabled => _settingsService.Current.EnableScreenDimmer;
+    public Visibility ScreenDimmerButtonVisibility => IsScreenDimmerEnabled ? Visibility.Visible : Visibility.Collapsed;
+    public string ScreenDimmerButtonToolTip => _screenDimmerService.IsDimming
+        ? $"Screen dimmer {_screenDimmerService.DimLevel:N0}%"
+        : "Screen dimmer";
     public bool IsDashboardGraphRowVisible => ShowBatteryWattsTile || ShowCpuGpuUsageTile;
     public bool IsAnyDashboardDetailVisible => IsUsageDetailsVisible || IsBatteryWattsDetailsVisible || IsBatteryUsageDetailsVisible;
     public Visibility BatteryWattsTileVisibility => ShowBatteryWattsTile ? Visibility.Visible : Visibility.Collapsed;
@@ -991,6 +1002,8 @@ public sealed class MainViewModel : ObservableObject
         ConfigureTimer();
         StatusMessage = "Settings saved.";
         NotifyDashboardWindowBehaviorChanged();
+        _screenDimmerService.ApplySettings();
+        NotifyScreenDimmerChanged();
         OnPropertyChanged(nameof(IsDellChargeModeAvailable));
         NotifyDellThermalSettingsChanged();
         NotifyDashboardSectionVisibilityChanged();
@@ -2512,6 +2525,13 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsAnyDashboardDetailVisible));
         OnPropertyChanged(nameof(DashboardLowerSectionRowHeight));
         OnPropertyChanged(nameof(DashboardWindowHeight));
+    }
+
+    private void NotifyScreenDimmerChanged()
+    {
+        OnPropertyChanged(nameof(IsScreenDimmerEnabled));
+        OnPropertyChanged(nameof(ScreenDimmerButtonVisibility));
+        OnPropertyChanged(nameof(ScreenDimmerButtonToolTip));
     }
 
     private void NotifyTopCardsChanged()

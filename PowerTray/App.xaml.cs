@@ -12,6 +12,7 @@ public partial class App : System.Windows.Application
 
     private TrayIconManager? _trayIconManager;
     private MainViewModel? _mainViewModel;
+    private ScreenDimmerService? _screenDimmerService;
     private Mutex? _singleInstanceMutex;
     private EventWaitHandle? _showDashboardEvent;
     private RegisteredWaitHandle? _showDashboardWaitHandle;
@@ -54,8 +55,10 @@ public partial class App : System.Windows.Application
         var windowsPowerModeService = new WindowsPowerModeService();
         var batteryUsageService = new BatteryUsageService();
         var windowsBatteryUsageService = new ElevatedWindowsBatteryUsageService();
+        _screenDimmerService = new ScreenDimmerService(settingsService);
+        _screenDimmerService.ApplySettings();
 
-        _mainViewModel = new MainViewModel(settingsService, cctkService, batteryService, sensorService, processStatsService, windowsPowerModeService, batteryUsageService, windowsBatteryUsageService);
+        _mainViewModel = new MainViewModel(settingsService, cctkService, batteryService, sensorService, processStatsService, windowsPowerModeService, batteryUsageService, windowsBatteryUsageService, _screenDimmerService);
         _trayIconManager = new TrayIconManager(_mainViewModel, () =>
         {
             var settingsViewModel = new SettingsViewModel(settingsService, startupService);
@@ -63,10 +66,11 @@ public partial class App : System.Windows.Application
             settingsViewModel.Saved += (_, _) =>
             {
                 ThemeService.Apply(settingsService.Current.Theme);
+                _screenDimmerService.ApplySettings();
                 _mainViewModel.ReloadSettings();
             };
             return window;
-        });
+        }, () => new DimmerWindow(new DimmerViewModel(_screenDimmerService)));
 
         _trayIconManager.Show();
         RegisterSingleInstanceSignal();
@@ -85,6 +89,7 @@ public partial class App : System.Windows.Application
         _showDashboardWaitHandle?.Unregister(null);
         _showDashboardEvent?.Dispose();
         _trayIconManager?.Dispose();
+        _screenDimmerService?.Dispose();
         _singleInstanceMutex?.ReleaseMutex();
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);

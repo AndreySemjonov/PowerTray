@@ -35,6 +35,8 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _showCpuGpuUsageTile;
     private bool _showBatteryUsageSection;
     private AppTheme _theme;
+    private bool _enableScreenDimmer;
+    private bool _extendBrightnessKeysWithDimmer;
     private string _status = string.Empty;
 
     public SettingsViewModel(SettingsService settingsService, StartupService startupService)
@@ -67,6 +69,8 @@ public sealed class SettingsViewModel : ObservableObject
         _showCpuGpuUsageTile = settings.ShowCpuGpuUsageTile;
         _showBatteryUsageSection = settings.ShowBatteryUsageSection;
         _theme = settings.Theme;
+        _enableScreenDimmer = settings.EnableScreenDimmer;
+        _extendBrightnessKeysWithDimmer = settings.ExtendBrightnessKeysWithDimmer;
 
         BrowseCommand = new RelayCommand(Browse);
         BrowseHwinfoRecoveryScriptCommand = new RelayCommand(BrowseHwinfoRecoveryScript);
@@ -271,6 +275,26 @@ public sealed class SettingsViewModel : ObservableObject
         set => SetProperty(ref _theme, value);
     }
 
+    public bool EnableScreenDimmer
+    {
+        get => _enableScreenDimmer;
+        set
+        {
+            if (SetProperty(ref _enableScreenDimmer, value))
+            {
+                OnPropertyChanged(nameof(CanExtendBrightnessKeysWithDimmer));
+            }
+        }
+    }
+
+    public bool ExtendBrightnessKeysWithDimmer
+    {
+        get => _extendBrightnessKeysWithDimmer;
+        set => SetProperty(ref _extendBrightnessKeysWithDimmer, value);
+    }
+
+    public bool CanExtendBrightnessKeysWithDimmer => EnableScreenDimmer;
+
     public string Status
     {
         get => _status;
@@ -366,7 +390,10 @@ public sealed class SettingsViewModel : ObservableObject
             ShowBatteryUsageSection = ShowBatteryUsageSection,
             DashboardWindowBehavior = _settingsService.Current.DashboardWindowBehavior,
             Theme = Theme,
-            LastDellThermalSetting = _settingsService.Current.LastDellThermalSetting
+            LastDellThermalSetting = _settingsService.Current.LastDellThermalSetting,
+            EnableScreenDimmer = EnableScreenDimmer,
+            ScreenDimmerLevel = _settingsService.Current.ScreenDimmerLevel,
+            ExtendBrightnessKeysWithDimmer = EnableScreenDimmer && ExtendBrightnessKeysWithDimmer
         };
 
         _settingsService.Save(settings);

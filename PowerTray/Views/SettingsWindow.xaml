@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="PowerTray Settings"
         Width="820"
-        Height="850"
+        Height="870"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         WindowStyle="None"
@@ -58,7 +58,7 @@
                                Foreground="{DynamicResource AccentBrush}"
                                FontSize="18"
                                FontWeight="SemiBold" />
-                    <TextBlock Text="Startup, sensors, battery presets, and appearance"
+                    <TextBlock Text="Startup, sensors, dimmer, battery presets, and appearance"
                                Foreground="{DynamicResource MutedTextBrush}"
                                FontSize="11"
                                Margin="0,1,0,0" />
@@ -347,6 +347,8 @@
                                 <CheckBox Content="Show Battery Watts tile" IsChecked="{Binding ShowBatteryWattsTile}" />
                                 <CheckBox Content="Show CPU / GPU Usage tile" IsChecked="{Binding ShowCpuGpuUsageTile}" />
                                 <CheckBox Content="Show Battery Usage / Impact (24h)" IsChecked="{Binding ShowBatteryUsageSection}" />
+                                <CheckBox Content="Enable screen dimmer" IsChecked="{Binding EnableScreenDimmer}" />
+                                <CheckBox Content="Extend brightness keys below minimum" IsChecked="{Binding ExtendBrightnessKeysWithDimmer}" IsEnabled="{Binding CanExtendBrightnessKeysWithDimmer}" />
                                 <Grid Margin="0,6,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />

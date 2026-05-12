@@ -58,6 +58,7 @@
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>
+                        <Button Content="&#xE706;" FontFamily="Segoe MDL2 Assets" Command="{Binding OpenDimmerCommand}" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="{Binding ScreenDimmerButtonToolTip}" Visibility="{Binding ScreenDimmerButtonVisibility}" />
                         <Button Content="&#xE713;" FontFamily="Segoe MDL2 Assets" Command="{Binding OpenSettingsCommand}" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="Settings" />
                         <Button Content="−" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" Click="MinimizeButton_Click" />
                         <Button Content="□" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" IsEnabled="False" Opacity="0.55" />
