@@ -223,7 +223,9 @@ if (Test-Path $publishRoot) {
     Remove-Item -LiteralPath $publishRoot -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force $appPublish, $servicePublish | Out-Null
+New-Item -ItemType Directory -Force $publishRoot | Out-Null
+New-Item -ItemType Directory -Force $appPublish | Out-Null
+New-Item -ItemType Directory -Force $servicePublish | Out-Null
 
 dotnet publish (Join-Path $repoRoot "PowerTray\PowerTray.csproj") `
     -c Release `
