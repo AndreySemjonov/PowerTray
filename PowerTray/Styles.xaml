@@ -181,6 +181,16 @@
         </Setter>
     </Style>
 
+    <Style x:Key="CompactNumberTextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Width" Value="56" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <Style TargetType="PasswordBox">
         <Setter Property="Background" Value="{DynamicResource InputBg}" />
         <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />

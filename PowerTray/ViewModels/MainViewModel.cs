@@ -132,6 +132,7 @@ public sealed class MainViewModel : ObservableObject
         ApplyDellThermalProfileCommand = new RelayCommand(async parameter => await ApplyDellThermalProfileAsync(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
         OpenDimmerCommand = new RelayCommand(() => OpenDimmerRequested?.Invoke(this, EventArgs.Empty));
+        ToggleWindowsThemeCommand = new RelayCommand(ToggleWindowsTheme);
         SetDashboardWindowBehaviorCommand = new RelayCommand(SetDashboardWindowBehavior);
         ShowBatteryWattsDetailsCommand = new RelayCommand(ShowBatteryWattsDetails);
         HideBatteryWattsDetailsCommand = new RelayCommand(() => IsBatteryWattsDetailsVisible = false);
@@ -656,6 +657,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ApplyDellThermalProfileCommand { get; }
     public ICommand OpenSettingsCommand { get; }
     public ICommand OpenDimmerCommand { get; }
+    public ICommand ToggleWindowsThemeCommand { get; }
     public ICommand SetDashboardWindowBehaviorCommand { get; }
     public ICommand ShowUsageDetailsCommand { get; }
     public ICommand HideUsageDetailsCommand { get; }
@@ -738,6 +740,12 @@ public sealed class MainViewModel : ObservableObject
     public string ScreenDimmerButtonToolTip => _screenDimmerService.IsDimming
         ? $"Screen dimmer {_screenDimmerService.DimLevel:N0}%"
         : "Screen dimmer";
+    public bool ShowWindowsThemeToggle => _settingsService.Current.ShowWindowsThemeToggle;
+    public Visibility WindowsThemeToggleVisibility => ShowWindowsThemeToggle ? Visibility.Visible : Visibility.Collapsed;
+    public string WindowsThemeToggleIcon => WindowsThemeService.IsLightMode() ? "\u2600" : "\u25D0";
+    public string WindowsThemeToggleToolTip => WindowsThemeService.IsLightMode()
+        ? "Switch Windows to dark mode"
+        : "Switch Windows to light mode";
     public bool IsDashboardGraphRowVisible => ShowBatteryWattsTile || ShowCpuGpuUsageTile;
     public bool IsAnyDashboardDetailVisible => IsUsageDetailsVisible || IsBatteryWattsDetailsVisible || IsBatteryUsageDetailsVisible;
     public Visibility BatteryWattsTileVisibility => ShowBatteryWattsTile ? Visibility.Visible : Visibility.Collapsed;
@@ -1004,6 +1012,7 @@ public sealed class MainViewModel : ObservableObject
         NotifyDashboardWindowBehaviorChanged();
         _screenDimmerService.ApplySettings();
         NotifyScreenDimmerChanged();
+        NotifyWindowsThemeToggleChanged();
         OnPropertyChanged(nameof(IsDellChargeModeAvailable));
         NotifyDellThermalSettingsChanged();
         NotifyDashboardSectionVisibilityChanged();
@@ -2532,6 +2541,24 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsScreenDimmerEnabled));
         OnPropertyChanged(nameof(ScreenDimmerButtonVisibility));
         OnPropertyChanged(nameof(ScreenDimmerButtonToolTip));
+    }
+
+    private void ToggleWindowsTheme()
+    {
+        WindowsThemeService.ToggleLightDarkMode();
+        ThemeService.Apply(_settingsService.Current.Theme);
+        NotifyWindowsThemeToggleChanged();
+        StatusMessage = WindowsThemeService.IsLightMode()
+            ? "Windows theme set to light mode."
+            : "Windows theme set to dark mode.";
+    }
+
+    private void NotifyWindowsThemeToggleChanged()
+    {
+        OnPropertyChanged(nameof(ShowWindowsThemeToggle));
+        OnPropertyChanged(nameof(WindowsThemeToggleVisibility));
+        OnPropertyChanged(nameof(WindowsThemeToggleIcon));
+        OnPropertyChanged(nameof(WindowsThemeToggleToolTip));
     }
 
     private void NotifyTopCardsChanged()

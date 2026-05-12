@@ -28,6 +28,7 @@ public sealed class AppSettings
     public bool ShowBatteryUsageSection { get; set; } = true;
     public DashboardWindowBehavior DashboardWindowBehavior { get; set; } = DashboardWindowBehavior.AutoHide;
     public AppTheme Theme { get; set; } = AppTheme.FollowSystem;
+    public bool ShowWindowsThemeToggle { get; set; } = true;
     public string LastDellThermalSetting { get; set; } = string.Empty;
     public bool EnableScreenDimmer { get; set; }
     public double ScreenDimmerLevel { get; set; }

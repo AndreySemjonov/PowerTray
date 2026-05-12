@@ -35,6 +35,7 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _showCpuGpuUsageTile;
     private bool _showBatteryUsageSection;
     private AppTheme _theme;
+    private bool _showWindowsThemeToggle;
     private bool _enableScreenDimmer;
     private bool _extendBrightnessKeysWithDimmer;
     private string _status = string.Empty;
@@ -69,6 +70,7 @@ public sealed class SettingsViewModel : ObservableObject
         _showCpuGpuUsageTile = settings.ShowCpuGpuUsageTile;
         _showBatteryUsageSection = settings.ShowBatteryUsageSection;
         _theme = settings.Theme;
+        _showWindowsThemeToggle = settings.ShowWindowsThemeToggle;
         _enableScreenDimmer = settings.EnableScreenDimmer;
         _extendBrightnessKeysWithDimmer = settings.ExtendBrightnessKeysWithDimmer;
 
@@ -275,6 +277,12 @@ public sealed class SettingsViewModel : ObservableObject
         set => SetProperty(ref _theme, value);
     }
 
+    public bool ShowWindowsThemeToggle
+    {
+        get => _showWindowsThemeToggle;
+        set => SetProperty(ref _showWindowsThemeToggle, value);
+    }
+
     public bool EnableScreenDimmer
     {
         get => _enableScreenDimmer;
@@ -390,6 +398,7 @@ public sealed class SettingsViewModel : ObservableObject
             ShowBatteryUsageSection = ShowBatteryUsageSection,
             DashboardWindowBehavior = _settingsService.Current.DashboardWindowBehavior,
             Theme = Theme,
+            ShowWindowsThemeToggle = ShowWindowsThemeToggle,
             LastDellThermalSetting = _settingsService.Current.LastDellThermalSetting,
             EnableScreenDimmer = EnableScreenDimmer,
             ScreenDimmerLevel = _settingsService.Current.ScreenDimmerLevel,

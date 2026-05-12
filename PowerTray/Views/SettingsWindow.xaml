@@ -276,77 +276,75 @@
                                 <ColumnDefinition Width="18" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
 
-                            <TextBlock Text="Behavior"
-                                       Foreground="{DynamicResource AccentBrush}"
-                                       FontSize="14"
-                                       FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="2"
-                                       Text="Appearance"
-                                       Foreground="{DynamicResource AccentBrush}"
-                                       FontSize="14"
-                                       FontWeight="SemiBold" />
+                            <StackPanel>
+                                <TextBlock Text="Behavior"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold" />
 
-                            <Grid Grid.Row="1" Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="96" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Sample interval seconds"
-                                           Foreground="{DynamicResource MutedTextBrush}"
-                                           VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1"
-                                         Text="{Binding SensorSampleIntervalSeconds, UpdateSourceTrigger=PropertyChanged}" />
-                            </Grid>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="64" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Sample interval seconds"
+                                               Foreground="{DynamicResource MutedTextBrush}"
+                                               VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1"
+                                             Style="{StaticResource CompactNumberTextBoxStyle}"
+                                             Text="{Binding SensorSampleIntervalSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                                </Grid>
 
-                            <Grid Grid.Row="2" Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="58" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="58" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Health preset start / stop"
-                                           Foreground="{DynamicResource MutedTextBrush}"
-                                           VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding HealthStart}" />
-                                <TextBlock Grid.Column="2"
-                                           Text="-"
-                                           Foreground="{DynamicResource MutedTextBrush}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center" />
-                                <TextBox Grid.Column="3" Text="{Binding HealthStop}" />
-                            </Grid>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="58" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="58" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Health preset start / stop"
+                                               Foreground="{DynamicResource MutedTextBrush}"
+                                               VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Style="{StaticResource CompactNumberTextBoxStyle}" Text="{Binding HealthStart}" />
+                                    <TextBlock Grid.Column="2"
+                                               Text="-"
+                                               Foreground="{DynamicResource MutedTextBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="3" Style="{StaticResource CompactNumberTextBoxStyle}" Text="{Binding HealthStop}" />
+                                </Grid>
 
-                            <Grid Grid.Row="3" Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="58" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="58" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Balanced preset start / stop"
-                                           Foreground="{DynamicResource MutedTextBrush}"
-                                           VerticalAlignment="Center" />
-                                <TextBox Grid.Column="1" Text="{Binding BalancedStart}" />
-                                <TextBlock Grid.Column="2"
-                                           Text="-"
-                                           Foreground="{DynamicResource MutedTextBrush}"
-                                           HorizontalAlignment="Center"
-                                           VerticalAlignment="Center" />
-                                <TextBox Grid.Column="3" Text="{Binding BalancedStop}" />
-                            </Grid>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="58" />
+                                        <ColumnDefinition Width="18" />
+                                        <ColumnDefinition Width="58" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Balanced preset start / stop"
+                                               Foreground="{DynamicResource MutedTextBrush}"
+                                               VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1" Style="{StaticResource CompactNumberTextBoxStyle}" Text="{Binding BalancedStart}" />
+                                    <TextBlock Grid.Column="2"
+                                               Text="-"
+                                               Foreground="{DynamicResource MutedTextBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="3" Style="{StaticResource CompactNumberTextBoxStyle}" Text="{Binding BalancedStop}" />
+                                </Grid>
+                            </StackPanel>
 
-                            <StackPanel Grid.Row="1" Grid.RowSpan="3" Grid.Column="2" Margin="0,8,0,0">
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Appearance"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           FontSize="14"
+                                           FontWeight="SemiBold" />
+                                <StackPanel Margin="0,8,0,0">
                                 <CheckBox Content="Show Battery Watts tile" IsChecked="{Binding ShowBatteryWattsTile}" />
                                 <CheckBox Content="Show CPU / GPU Usage tile" IsChecked="{Binding ShowCpuGpuUsageTile}" />
                                 <CheckBox Content="Show Battery Usage / Impact (24h)" IsChecked="{Binding ShowBatteryUsageSection}" />
+                                <CheckBox Content="Show Windows light/dark toggle" IsChecked="{Binding ShowWindowsThemeToggle}" />
                                 <CheckBox Content="Enable screen dimmer" IsChecked="{Binding EnableScreenDimmer}" />
                                 <CheckBox Content="Extend brightness keys below minimum" IsChecked="{Binding ExtendBrightnessKeysWithDimmer}" IsEnabled="{Binding CanExtendBrightnessKeysWithDimmer}" />
                                 <Grid Margin="0,6,0,0">
@@ -363,6 +361,7 @@
                                               SelectedValuePath="Value"
                                               SelectedValue="{Binding Theme}" />
                                 </Grid>
+                                </StackPanel>
                             </StackPanel>
                         </Grid>
                     </Border>
