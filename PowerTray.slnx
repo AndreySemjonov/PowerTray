@@ -1,4 +1,4 @@
 <Solution>
-  <Project Path="PowerTray/PowerTray.csproj" />
   <Project Path="PowerTray.Service/PowerTray.Service.csproj" />
+  <Project Path="PowerTray/PowerTray.csproj" />
 </Solution>
