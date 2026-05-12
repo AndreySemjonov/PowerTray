@@ -156,6 +156,6 @@ PowerTray is licensed under the GNU General Public License v3.0. See [LICENSE](L
 
 PowerTray is a personal project shared for free. If it saves you time and you want to support continued development, donations are welcome but completely optional.
 
-Donation link: ko-fi.com/andreys
+Donation link: [ko-fi.com/andreys](https://ko-fi.com/andreys)
 
 Testing on other Dell laptops, opening issues, sharing feedback, and suggesting useful features also helps a lot.
