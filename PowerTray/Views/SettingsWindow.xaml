@@ -344,7 +344,6 @@
                                 <CheckBox Content="Show Battery Watts tile" IsChecked="{Binding ShowBatteryWattsTile}" />
                                 <CheckBox Content="Show CPU / GPU Usage tile" IsChecked="{Binding ShowCpuGpuUsageTile}" />
                                 <CheckBox Content="Show Battery Usage / Impact (24h)" IsChecked="{Binding ShowBatteryUsageSection}" />
-                                <CheckBox Content="Show Windows light/dark toggle" IsChecked="{Binding ShowWindowsThemeToggle}" />
                                 <CheckBox Content="Enable screen dimmer" IsChecked="{Binding EnableScreenDimmer}" />
                                 <CheckBox Content="Extend brightness keys below minimum" IsChecked="{Binding ExtendBrightnessKeysWithDimmer}" IsEnabled="{Binding CanExtendBrightnessKeysWithDimmer}" />
                                 <Grid Margin="0,6,0,0">

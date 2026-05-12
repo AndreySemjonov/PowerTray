@@ -38,6 +38,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly BatteryUsageService _batteryUsageService;
     private readonly IWindowsBatteryUsageService _windowsBatteryUsageService;
     private readonly ScreenDimmerService _screenDimmerService;
+    private readonly WindowsThemeAutomationService _windowsThemeAutomationService;
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
     private readonly List<CpuDriverSample> _cpuDriverSamples = [];
@@ -98,7 +99,7 @@ public sealed class MainViewModel : ObservableObject
     private BatteryUsageSnapshot _batteryUsage = new();
     private DateTime _selectedBatteryUsageDate = DateTime.Today;
 
-    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService, IWindowsBatteryUsageService windowsBatteryUsageService, ScreenDimmerService screenDimmerService)
+    public MainViewModel(SettingsService settingsService, CctkService cctkService, BatteryService batteryService, SensorService sensorService, ProcessStatsService processStatsService, WindowsPowerModeService windowsPowerModeService, BatteryUsageService batteryUsageService, IWindowsBatteryUsageService windowsBatteryUsageService, ScreenDimmerService screenDimmerService, WindowsThemeAutomationService windowsThemeAutomationService)
     {
         _settingsService = settingsService;
         _cctkService = cctkService;
@@ -109,7 +110,9 @@ public sealed class MainViewModel : ObservableObject
         _batteryUsageService = batteryUsageService;
         _windowsBatteryUsageService = windowsBatteryUsageService;
         _screenDimmerService = screenDimmerService;
+        _windowsThemeAutomationService = windowsThemeAutomationService;
         _screenDimmerService.StateChanged += (_, _) => NotifyScreenDimmerChanged();
+        _windowsThemeAutomationService.StateChanged += (_, _) => NotifyWindowsThemeToggleChanged();
 
         TopCpuProcesses = new ObservableCollection<ProcessUsageInfo>();
         TopMemoryProcesses = new ObservableCollection<ProcessUsageInfo>();
@@ -132,6 +135,7 @@ public sealed class MainViewModel : ObservableObject
         ApplyDellThermalProfileCommand = new RelayCommand(async parameter => await ApplyDellThermalProfileAsync(parameter));
         OpenSettingsCommand = new RelayCommand(() => OpenSettingsRequested?.Invoke(this, EventArgs.Empty));
         OpenDimmerCommand = new RelayCommand(() => OpenDimmerRequested?.Invoke(this, EventArgs.Empty));
+        OpenWindowsThemeSettingsCommand = new RelayCommand(() => OpenWindowsThemeSettingsRequested?.Invoke(this, EventArgs.Empty));
         ToggleWindowsThemeCommand = new RelayCommand(ToggleWindowsTheme);
         SetDashboardWindowBehaviorCommand = new RelayCommand(SetDashboardWindowBehavior);
         ShowBatteryWattsDetailsCommand = new RelayCommand(ShowBatteryWattsDetails);
@@ -150,6 +154,7 @@ public sealed class MainViewModel : ObservableObject
 
     public event EventHandler? OpenSettingsRequested;
     public event EventHandler? OpenDimmerRequested;
+    public event EventHandler? OpenWindowsThemeSettingsRequested;
 
     public bool IsUsageDetailsVisible
     {
@@ -657,6 +662,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand ApplyDellThermalProfileCommand { get; }
     public ICommand OpenSettingsCommand { get; }
     public ICommand OpenDimmerCommand { get; }
+    public ICommand OpenWindowsThemeSettingsCommand { get; }
     public ICommand ToggleWindowsThemeCommand { get; }
     public ICommand SetDashboardWindowBehaviorCommand { get; }
     public ICommand ShowUsageDetailsCommand { get; }
@@ -744,8 +750,8 @@ public sealed class MainViewModel : ObservableObject
     public Visibility WindowsThemeToggleVisibility => ShowWindowsThemeToggle ? Visibility.Visible : Visibility.Collapsed;
     public string WindowsThemeToggleIcon => WindowsThemeService.IsLightMode() ? "\u2600" : "\u25D0";
     public string WindowsThemeToggleToolTip => WindowsThemeService.IsLightMode()
-        ? "Switch Windows to dark mode"
-        : "Switch Windows to light mode";
+        ? "Switch Windows to dark mode | Right-click for theme settings"
+        : "Switch Windows to light mode | Right-click for theme settings";
     public bool IsDashboardGraphRowVisible => ShowBatteryWattsTile || ShowCpuGpuUsageTile;
     public bool IsAnyDashboardDetailVisible => IsUsageDetailsVisible || IsBatteryWattsDetailsVisible || IsBatteryUsageDetailsVisible;
     public Visibility BatteryWattsTileVisibility => ShowBatteryWattsTile ? Visibility.Visible : Visibility.Collapsed;
@@ -2545,12 +2551,21 @@ public sealed class MainViewModel : ObservableObject
 
     private void ToggleWindowsTheme()
     {
-        WindowsThemeService.ToggleLightDarkMode();
+        bool nextUseLightMode = !WindowsThemeService.IsLightMode();
+        WindowsThemeService.SetLightMode(nextUseLightMode);
+        bool savedWifiRule = _settingsService.Current.WindowsThemeAutomationMode == WindowsThemeAutomationMode.WifiNetwork &&
+            _windowsThemeAutomationService.SaveCurrentWifiRule(nextUseLightMode ? WindowsThemeMode.Light : WindowsThemeMode.Dark);
+        if (!savedWifiRule)
+        {
+            _windowsThemeAutomationService.MarkManualOverrideUntilNetworkChanges();
+        }
+
         ThemeService.Apply(_settingsService.Current.Theme);
         NotifyWindowsThemeToggleChanged();
-        StatusMessage = WindowsThemeService.IsLightMode()
-            ? "Windows theme set to light mode."
-            : "Windows theme set to dark mode.";
+        string modeText = nextUseLightMode ? "light" : "dark";
+        StatusMessage = savedWifiRule
+            ? $"Windows theme set to {modeText} mode and saved for this Wi-Fi."
+            : $"Windows theme set to {modeText} mode.";
     }
 
     private void NotifyWindowsThemeToggleChanged()

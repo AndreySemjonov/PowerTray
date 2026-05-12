@@ -13,6 +13,7 @@ public partial class App : System.Windows.Application
     private TrayIconManager? _trayIconManager;
     private MainViewModel? _mainViewModel;
     private ScreenDimmerService? _screenDimmerService;
+    private WindowsThemeAutomationService? _windowsThemeAutomationService;
     private Mutex? _singleInstanceMutex;
     private EventWaitHandle? _showDashboardEvent;
     private RegisteredWaitHandle? _showDashboardWaitHandle;
@@ -57,8 +58,9 @@ public partial class App : System.Windows.Application
         var windowsBatteryUsageService = new ElevatedWindowsBatteryUsageService();
         _screenDimmerService = new ScreenDimmerService(settingsService);
         _screenDimmerService.ApplySettings();
+        _windowsThemeAutomationService = new WindowsThemeAutomationService(settingsService);
 
-        _mainViewModel = new MainViewModel(settingsService, cctkService, batteryService, sensorService, processStatsService, windowsPowerModeService, batteryUsageService, windowsBatteryUsageService, _screenDimmerService);
+        _mainViewModel = new MainViewModel(settingsService, cctkService, batteryService, sensorService, processStatsService, windowsPowerModeService, batteryUsageService, windowsBatteryUsageService, _screenDimmerService, _windowsThemeAutomationService);
         _trayIconManager = new TrayIconManager(_mainViewModel, () =>
         {
             var settingsViewModel = new SettingsViewModel(settingsService, startupService);
@@ -70,9 +72,20 @@ public partial class App : System.Windows.Application
                 _mainViewModel.ReloadSettings();
             };
             return window;
-        }, () => new DimmerWindow(new DimmerViewModel(_screenDimmerService)));
+        }, () => new DimmerWindow(new DimmerViewModel(_screenDimmerService)), () =>
+        {
+            var viewModel = new WindowsThemeSettingsViewModel(settingsService, _windowsThemeAutomationService!);
+            var window = new WindowsThemeSettingsWindow(viewModel);
+            viewModel.Saved += (_, _) =>
+            {
+                ThemeService.Apply(settingsService.Current.Theme);
+                _mainViewModel.ReloadSettings();
+            };
+            return window;
+        });
 
         _trayIconManager.Show();
+        _windowsThemeAutomationService.Start();
         RegisterSingleInstanceSignal();
 
         bool isBackgroundLaunch = forceMinimized || settingsService.Current.StartMinimized;
@@ -90,6 +103,7 @@ public partial class App : System.Windows.Application
         _showDashboardEvent?.Dispose();
         _trayIconManager?.Dispose();
         _screenDimmerService?.Dispose();
+        _windowsThemeAutomationService?.Dispose();
         _singleInstanceMutex?.ReleaseMutex();
         _singleInstanceMutex?.Dispose();
         base.OnExit(e);

@@ -38,6 +38,7 @@ public sealed class SettingsService
 
         Current.SensorSampleIntervalSeconds = Math.Clamp(Current.SensorSampleIntervalSeconds, 1, 60);
         Current.ScreenDimmerLevel = Math.Clamp(Current.ScreenDimmerLevel, 0, 90);
+        Current.WindowsThemeWifiRules ??= [];
         ApplyFeatureLogging(Current);
         return Current;
     }
@@ -49,6 +50,7 @@ public sealed class SettingsService
             Directory.CreateDirectory(LogService.AppDataRoot);
             settings.SensorSampleIntervalSeconds = Math.Clamp(settings.SensorSampleIntervalSeconds, 1, 60);
             settings.ScreenDimmerLevel = Math.Clamp(settings.ScreenDimmerLevel, 0, 90);
+            settings.WindowsThemeWifiRules ??= [];
             Current = settings;
             ApplyFeatureLogging(Current);
             File.WriteAllText(SettingsPath, JsonSerializer.Serialize(Current, JsonOptions));

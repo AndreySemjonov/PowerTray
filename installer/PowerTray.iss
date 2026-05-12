@@ -1,5 +1,5 @@
 #define AppName "PowerTray"
-#define AppVersion "0.7.0"
+#define AppVersion "0.8.0"
 #define Publisher "PowerTray"
 #define AppExe "PowerTray.exe"
 #define ServiceName "PowerTrayBatteryImpact"

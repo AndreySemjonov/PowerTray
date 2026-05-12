@@ -90,6 +90,57 @@
     <SolidColorBrush x:Key="ImpactBarBrush" Color="{StaticResource ImpactBarBrushColor}" />
     <SolidColorBrush x:Key="ScrollbarThumb" Color="{StaticResource ScrollbarThumbColor}" />
 
+    <Style x:Key="ThemedScrollBarStyle" TargetType="{x:Type ScrollBar}">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="MinWidth" Value="8" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                    <Grid x:Name="Root"
+                          Width="8"
+                          Background="{TemplateBinding Background}">
+                        <Track x:Name="PART_Track"
+                               IsDirectionReversed="True">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
+                                              Opacity="0"
+                                              IsTabStop="False" />
+                            </Track.DecreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="{x:Type Thumb}">
+                                            <Border Width="8"
+                                                    Background="{DynamicResource ScrollbarThumb}"
+                                                    CornerRadius="4"
+                                                    Opacity="0.85" />
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
+                                              Opacity="0"
+                                              IsTabStop="False" />
+                            </Track.IncreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter TargetName="Root" Property="Width" Value="Auto" />
+                            <Setter TargetName="Root" Property="Height" Value="8" />
+                            <Setter Property="Width" Value="Auto" />
+                            <Setter Property="Height" Value="8" />
+                            <Setter Property="MinWidth" Value="0" />
+                            <Setter Property="MinHeight" Value="8" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <LinearGradientBrush x:Key="PanelGlow" StartPoint="0,0" EndPoint="1,1">
         <GradientStop Color="#20262B" Offset="0" />
         <GradientStop Color="#1A1C1F" Offset="1" />

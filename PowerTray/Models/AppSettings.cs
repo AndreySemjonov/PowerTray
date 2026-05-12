@@ -29,6 +29,8 @@ public sealed class AppSettings
     public DashboardWindowBehavior DashboardWindowBehavior { get; set; } = DashboardWindowBehavior.AutoHide;
     public AppTheme Theme { get; set; } = AppTheme.FollowSystem;
     public bool ShowWindowsThemeToggle { get; set; } = true;
+    public WindowsThemeAutomationMode WindowsThemeAutomationMode { get; set; } = WindowsThemeAutomationMode.Off;
+    public List<WindowsThemeWifiRule> WindowsThemeWifiRules { get; set; } = [];
     public string LastDellThermalSetting { get; set; } = string.Empty;
     public bool EnableScreenDimmer { get; set; }
     public double ScreenDimmerLevel { get; set; }
@@ -40,6 +42,24 @@ public enum AppTheme
     FollowSystem,
     Light,
     Dark
+}
+
+public enum WindowsThemeAutomationMode
+{
+    Off,
+    WifiNetwork
+}
+
+public enum WindowsThemeMode
+{
+    Light,
+    Dark
+}
+
+public sealed class WindowsThemeWifiRule
+{
+    public string Ssid { get; set; } = string.Empty;
+    public WindowsThemeMode Theme { get; set; } = WindowsThemeMode.Dark;
 }
 
 public enum DellThermalControlMode
