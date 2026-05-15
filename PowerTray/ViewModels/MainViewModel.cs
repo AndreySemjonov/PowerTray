@@ -57,6 +57,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _isDashboardVisible;
     private bool _isBackgroundRecordingEnabled;
     private bool _deferredGraphRefresh;
+    private bool _clearSamplesOnNextDashboardOpen;
     private int _selectedSectionIndex;
     private TimeSpan? _averageBatteryTimeRemaining;
     private double? _averageBatteryDischargeWatts;
@@ -240,10 +241,23 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(DetailSamplingText));
             if (!value)
             {
+                if (!IsBackgroundRecordingEnabled)
+                {
+                    _clearSamplesOnNextDashboardOpen = true;
+                }
+
                 return;
             }
 
-            RefreshGraphBindingsFromSamples();
+            if (_clearSamplesOnNextDashboardOpen)
+            {
+                ClearSampleHistory();
+            }
+            else
+            {
+                RefreshGraphBindingsFromSamples();
+            }
+
             _processStatsService.ResetProcessSampling();
             _ = RefreshAsync();
             if (SelectedSectionIndex == 1 && ShowBatteryUsageSection)
@@ -273,6 +287,10 @@ public sealed class MainViewModel : ObservableObject
             {
                 _processStatsService.ResetProcessSampling();
                 _ = RefreshAsync();
+            }
+            else if (!IsDashboardVisible)
+            {
+                _clearSamplesOnNextDashboardOpen = true;
             }
         }
     }
@@ -1702,18 +1720,21 @@ public sealed class MainViewModel : ObservableObject
                     StringComparer.Ordinal.Equals);
             }
 
-            AddSample(new SensorSample
+            if (recordActivity)
             {
-                Timestamp = snapshot.Timestamp,
-                CpuUsagePercent = sensors.CpuUsagePercent ?? snapshot.ProcessStats?.OverallCpu ?? CpuUsagePercent,
-                GpuUsagePercent = sensors.GpuUsagePercent,
-                CpuTemperatureCelsius = sensors.CpuTemperatureCelsius,
-                CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,
-                BatteryPowerWatts = Battery.ChargeRateWatts,
-                FanRpm = sensors.FanRpm.Values.FirstOrDefault(),
-                TopCpuProcessName = GetFreshTopCpuProcessName(snapshot.ProcessStats),
-                TopGpuProcessName = GetFreshTopGpuProcessName(snapshot.ProcessStats)
-            }, dashboardVisible);
+                AddSample(new SensorSample
+                {
+                    Timestamp = snapshot.Timestamp,
+                    CpuUsagePercent = sensors.CpuUsagePercent ?? snapshot.ProcessStats?.OverallCpu ?? CpuUsagePercent,
+                    GpuUsagePercent = sensors.GpuUsagePercent,
+                    CpuTemperatureCelsius = sensors.CpuTemperatureCelsius,
+                    CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,
+                    BatteryPowerWatts = Battery.ChargeRateWatts,
+                    FanRpm = sensors.FanRpm.Values.FirstOrDefault(),
+                    TopCpuProcessName = GetFreshTopCpuProcessName(snapshot.ProcessStats),
+                    TopGpuProcessName = GetFreshTopGpuProcessName(snapshot.ProcessStats)
+                }, dashboardVisible);
+            }
 
             if (dashboardVisible && SelectedSectionIndex == 1)
             {
@@ -1736,6 +1757,7 @@ public sealed class MainViewModel : ObservableObject
 
     private void AddSample(SensorSample sample, bool updateVisibleGraphs)
     {
+        _clearSamplesOnNextDashboardOpen = false;
         _samples.Add(sample);
         DateTimeOffset cutoff = DateTimeOffset.Now.AddMinutes(-10);
         _samples.RemoveAll(s => s.Timestamp < cutoff);
@@ -1755,6 +1777,39 @@ public sealed class MainViewModel : ObservableObject
         }
 
         RefreshGraphBindingsFromSamples();
+    }
+
+    private void ClearSampleHistory()
+    {
+        _clearSamplesOnNextDashboardOpen = false;
+        _deferredGraphRefresh = false;
+        _samples.Clear();
+        _averageBatteryDischargeWatts = null;
+        _averageBatteryTimeRemaining = null;
+        CpuGraphValues = [];
+        GpuGraphValues = [];
+        TemperatureGraphValues = [];
+        BatteryWattsGraphValues = [];
+        BatteryDrainGraphValues = [];
+        CpuPowerGraphValues = [];
+        FanGraphValues = [];
+        CpuUsagePeaks = [];
+        GpuUsagePeaks = [];
+        BatteryDrainPeaks = [];
+        ReplaceIfChanged(BatteryDrainEvents, [], AreBatteryDrainEventsEquivalent);
+        CpuGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+        SystemUsageGraphSummary = "CPU cur -- | GPU cur -- | CPU avg -- | GPU avg --";
+        BatteryWattsGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+        CpuPowerGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+        TemperatureGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
+        NotifyTopCardsChanged();
+        OnPropertyChanged(nameof(BatteryDrainSummaryText));
+        OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
+        OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
+        OnPropertyChanged(nameof(BatteryTimeText));
+        OnPropertyChanged(nameof(BatteryDrainEventsEmptyText));
+        NotifyUsageDetailMetricsChanged();
+        NotifyBatteryWattsDetailMetricsChanged();
     }
 
     private void RefreshGraphBindingsFromSamples()
