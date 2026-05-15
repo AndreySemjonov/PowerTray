@@ -16,6 +16,7 @@ public sealed class MainViewModel : ObservableObject
     private const double DashboardGraphSectionHeight = 220;
     private const double DashboardLowerSectionHeight = 308;
     private const double DashboardFullHeight = DashboardBaseHeight + DashboardGraphSectionHeight + DashboardLowerSectionHeight;
+    private static readonly TimeSpan HiddenRefreshInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan ProcessRefreshInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan DiagnosticProcessRefreshInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan WindowsBatteryUsageRefreshInterval = TimeSpan.FromMinutes(15);
@@ -54,6 +55,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _isBatteryUsageDetailsVisible;
     private bool _isBatteryWattsDetailsVisible;
     private bool _isDashboardVisible;
+    private bool _isBackgroundRecordingEnabled;
     private bool _deferredGraphRefresh;
     private int _selectedSectionIndex;
     private TimeSpan? _averageBatteryTimeRemaining;
@@ -137,6 +139,7 @@ public sealed class MainViewModel : ObservableObject
         OpenDimmerCommand = new RelayCommand(() => OpenDimmerRequested?.Invoke(this, EventArgs.Empty));
         OpenWindowsThemeSettingsCommand = new RelayCommand(() => OpenWindowsThemeSettingsRequested?.Invoke(this, EventArgs.Empty));
         ToggleWindowsThemeCommand = new RelayCommand(ToggleWindowsTheme);
+        ToggleBackgroundRecordingCommand = new RelayCommand(ToggleBackgroundRecording);
         SetDashboardWindowBehaviorCommand = new RelayCommand(SetDashboardWindowBehavior);
         ShowBatteryWattsDetailsCommand = new RelayCommand(ShowBatteryWattsDetails);
         HideBatteryWattsDetailsCommand = new RelayCommand(() => IsBatteryWattsDetailsVisible = false);
@@ -172,6 +175,7 @@ public sealed class MainViewModel : ObservableObject
             NotifyDashboardWindowSizeChanged();
             if (value)
             {
+                _processStatsService.ResetProcessSampling();
                 _ = RefreshAsync();
             }
         }
@@ -240,10 +244,35 @@ public sealed class MainViewModel : ObservableObject
             }
 
             RefreshGraphBindingsFromSamples();
+            _processStatsService.ResetProcessSampling();
             _ = RefreshAsync();
             if (SelectedSectionIndex == 1 && ShowBatteryUsageSection)
             {
                 _ = RefreshWindowsBatteryUsageAsync(force: false);
+            }
+        }
+    }
+
+    public bool IsBackgroundRecordingEnabled
+    {
+        get => _isBackgroundRecordingEnabled;
+        private set
+        {
+            if (!SetProperty(ref _isBackgroundRecordingEnabled, value))
+            {
+                return;
+            }
+
+            ConfigureTimer();
+            OnPropertyChanged(nameof(BackgroundRecordingButtonText));
+            OnPropertyChanged(nameof(BackgroundRecordingButtonToolTip));
+            OnPropertyChanged(nameof(BackgroundRecordingStatusText));
+            OnPropertyChanged(nameof(DetailSamplingText));
+
+            if (value)
+            {
+                _processStatsService.ResetProcessSampling();
+                _ = RefreshAsync();
             }
         }
     }
@@ -664,6 +693,7 @@ public sealed class MainViewModel : ObservableObject
     public ICommand OpenDimmerCommand { get; }
     public ICommand OpenWindowsThemeSettingsCommand { get; }
     public ICommand ToggleWindowsThemeCommand { get; }
+    public ICommand ToggleBackgroundRecordingCommand { get; }
     public ICommand SetDashboardWindowBehaviorCommand { get; }
     public ICommand ShowUsageDetailsCommand { get; }
     public ICommand HideUsageDetailsCommand { get; }
@@ -951,6 +981,11 @@ public sealed class MainViewModel : ObservableObject
     public string PrimaryGpuProcessToolTip => TopGpuProcesses.FirstOrDefault() is { } process
         ? $"{process.Name}{Environment.NewLine}GPU: {process.GpuDetailText}{Environment.NewLine}CPU: {process.CpuText}{Environment.NewLine}Memory: {process.MemoryText}"
         : "No per-process GPU usage detected.";
+    public string BackgroundRecordingButtonText => IsBackgroundRecordingEnabled ? "\u25CF" : "\u25CB";
+    public string BackgroundRecordingButtonToolTip => IsBackgroundRecordingEnabled
+        ? $"Background recording on ({DetailSamplingText} sampling while hidden)"
+        : "Background recording off";
+    public string BackgroundRecordingStatusText => IsBackgroundRecordingEnabled ? "Background recording on" : "Background recording off";
     public string MemoryText => $"{Memory.UsedText} / {Memory.TotalText} ({Memory.UsedPercent:N0}%)";
     public bool IsAdministrator => CctkService.IsAdministrator();
 
@@ -1004,6 +1039,8 @@ public sealed class MainViewModel : ObservableObject
         };
     }
 
+    private void ToggleBackgroundRecording() => IsBackgroundRecordingEnabled = !IsBackgroundRecordingEnabled;
+
     private void ShowUsageDetails()
     {
         IsBatteryWattsDetailsVisible = false;
@@ -1025,6 +1062,7 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(CctkStatusText));
         OnPropertyChanged(nameof(FooterStatusText));
         OnPropertyChanged(nameof(DetailSamplingText));
+        OnPropertyChanged(nameof(BackgroundRecordingButtonToolTip));
         NotifyUsageDetailMetricsChanged();
         if (!ShowBatteryUsageSection)
         {
@@ -1147,12 +1185,24 @@ public sealed class MainViewModel : ObservableObject
     private TimeSpan GetRefreshTimerInterval() =>
         IsDetailedDiagnosticsActive
             ? DiagnosticProcessRefreshInterval
-            : TimeSpan.FromSeconds(Math.Clamp(_settingsService.Current.SensorSampleIntervalSeconds, 1, 60));
+            : IsDashboardVisible || IsBackgroundRecordingEnabled
+                ? TimeSpan.FromSeconds(Math.Clamp(_settingsService.Current.SensorSampleIntervalSeconds, 1, 60))
+                : MaxTimeSpan(
+                    HiddenRefreshInterval,
+                    TimeSpan.FromSeconds(Math.Clamp(_settingsService.Current.SensorSampleIntervalSeconds, 1, 60)));
 
     private TimeSpan GetProcessRefreshInterval() =>
         IsDetailedDiagnosticsActive ? DiagnosticProcessRefreshInterval : ProcessRefreshInterval;
 
     private bool IsDetailedDiagnosticsActive => IsDashboardVisible && (IsUsageDetailsVisible || IsBatteryWattsDetailsVisible);
+
+    private static TimeSpan MaxTimeSpan(TimeSpan left, TimeSpan right) => left >= right ? left : right;
+
+    private static string? GetFreshTopCpuProcessName(ProcessStatsSnapshot? processStats) =>
+        processStats?.TopCpu.FirstOrDefault(process => process.CpuPercent > 0.05)?.Name;
+
+    private static string? GetFreshTopGpuProcessName(ProcessStatsSnapshot? processStats) =>
+        processStats?.TopGpu.FirstOrDefault(process => process.GpuPercent >= 0.05)?.Name;
 
     private void RecordCpuDriverSamples(IReadOnlyList<ProcessUsageInfo> processes, DateTimeOffset timestamp)
     {
@@ -1527,9 +1577,10 @@ public sealed class MainViewModel : ObservableObject
             DateTime selectedDate = SelectedBatteryUsageDate;
             DateTimeOffset now = DateTimeOffset.Now;
             bool dashboardVisible = IsDashboardVisible;
+            bool recordActivity = dashboardVisible || IsBackgroundRecordingEnabled;
             bool trackBatteryUsage = ShowBatteryUsageSection;
             TimeSpan processRefreshInterval = GetProcessRefreshInterval();
-            bool shouldRefreshProcesses = dashboardVisible && (now - _lastProcessRefresh >= processRefreshInterval || TopCpuProcesses.Count == 0);
+            bool shouldRefreshProcesses = recordActivity && (now - _lastProcessRefresh >= processRefreshInterval || (dashboardVisible && TopCpuProcesses.Count == 0));
             RefreshSnapshot snapshot = await Task.Run(() =>
             {
                 Stopwatch totalWatch = Stopwatch.StartNew();
@@ -1550,6 +1601,7 @@ public sealed class MainViewModel : ObservableObject
                         IReadOnlyList<ProcessUsageInfo> topCpu,
                         IReadOnlyList<ProcessUsageInfo> topMemory,
                         IReadOnlyList<ProcessUsageInfo> topGpu,
+                        IReadOnlyList<ProcessUsageInfo> cpuDriverHistory,
                         IReadOnlyList<ProcessUsageInfo> energyImpact,
                         string energyImpactTitle,
                         string energyImpactColumnHeader) = _processStatsService.Sample(battery);
@@ -1558,6 +1610,7 @@ public sealed class MainViewModel : ObservableObject
                         topCpu,
                         topMemory,
                         topGpu,
+                        cpuDriverHistory,
                         energyImpact,
                         energyImpactTitle,
                         energyImpactColumnHeader,
@@ -1599,29 +1652,33 @@ public sealed class MainViewModel : ObservableObject
             BatteryStatus battery = snapshot.Battery;
             HwinfoStatus = sensors.Status;
 
-            if (dashboardVisible && snapshot.ProcessStats is { } processStats)
+            if (recordActivity && snapshot.ProcessStats is { } processStats)
             {
                 _lastProcessRefresh = snapshot.Timestamp;
-                Memory = processStats.Memory;
-                EnergyImpactTitle = processStats.EnergyImpactTitle;
-                EnergyImpactColumnHeader = processStats.EnergyImpactColumnHeader;
+                RecordCpuDriverSamples(processStats.CpuDriverHistory, snapshot.Timestamp);
 
-                RecordCpuDriverSamples(processStats.TopCpu, snapshot.Timestamp);
-                ReplaceIfChanged(CpuDriverProcesses, BuildCpuDriverList(snapshot.Timestamp), AreCpuDriverRowsEquivalent);
-                ReplaceIfChanged(TopCpuProcesses, processStats.TopCpu, AreProcessRowsEquivalent);
-                ReplaceIfChanged(TopMemoryProcesses, processStats.TopMemory, AreProcessRowsEquivalent);
-                ReplaceIfChanged(TopGpuProcesses, processStats.TopGpu, AreProcessRowsEquivalent);
-                ReplaceIfChanged(EnergyImpactProcesses, processStats.EnergyImpact, AreProcessRowsEquivalent);
-                OnPropertyChanged(nameof(TopAppUsageEmptyText));
-                OnPropertyChanged(nameof(TopGpuUsageEmptyText));
-                OnPropertyChanged(nameof(CpuDriverEmptyText));
-                OnPropertyChanged(nameof(PrimaryCpuDriverText));
-                OnPropertyChanged(nameof(SecondaryCpuDriverText));
-                OnPropertyChanged(nameof(PrimaryCpuDriverToolTip));
-                OnPropertyChanged(nameof(SecondaryCpuDriverToolTip));
-                OnPropertyChanged(nameof(TopCpuProcessText));
-                OnPropertyChanged(nameof(PrimaryGpuProcessText));
-                OnPropertyChanged(nameof(PrimaryGpuProcessToolTip));
+                if (dashboardVisible)
+                {
+                    Memory = processStats.Memory;
+                    EnergyImpactTitle = processStats.EnergyImpactTitle;
+                    EnergyImpactColumnHeader = processStats.EnergyImpactColumnHeader;
+
+                    ReplaceIfChanged(CpuDriverProcesses, BuildCpuDriverList(snapshot.Timestamp), AreCpuDriverRowsEquivalent);
+                    ReplaceIfChanged(TopCpuProcesses, processStats.TopCpu, AreProcessRowsEquivalent);
+                    ReplaceIfChanged(TopMemoryProcesses, processStats.TopMemory, AreProcessRowsEquivalent);
+                    ReplaceIfChanged(TopGpuProcesses, processStats.TopGpu, AreProcessRowsEquivalent);
+                    ReplaceIfChanged(EnergyImpactProcesses, processStats.EnergyImpact, AreProcessRowsEquivalent);
+                    OnPropertyChanged(nameof(TopAppUsageEmptyText));
+                    OnPropertyChanged(nameof(TopGpuUsageEmptyText));
+                    OnPropertyChanged(nameof(CpuDriverEmptyText));
+                    OnPropertyChanged(nameof(PrimaryCpuDriverText));
+                    OnPropertyChanged(nameof(SecondaryCpuDriverText));
+                    OnPropertyChanged(nameof(PrimaryCpuDriverToolTip));
+                    OnPropertyChanged(nameof(SecondaryCpuDriverToolTip));
+                    OnPropertyChanged(nameof(TopCpuProcessText));
+                    OnPropertyChanged(nameof(PrimaryGpuProcessText));
+                    OnPropertyChanged(nameof(PrimaryGpuProcessToolTip));
+                }
             }
 
             CpuUsagePercent = sensors.CpuUsagePercent ?? snapshot.ProcessStats?.OverallCpu ?? CpuUsagePercent;
@@ -1654,8 +1711,8 @@ public sealed class MainViewModel : ObservableObject
                 CpuPackagePowerWatts = sensors.CpuPackagePowerWatts,
                 BatteryPowerWatts = Battery.ChargeRateWatts,
                 FanRpm = sensors.FanRpm.Values.FirstOrDefault(),
-                TopCpuProcessName = snapshot.ProcessStats?.TopCpu.FirstOrDefault()?.Name ?? TopCpuProcesses.FirstOrDefault()?.Name,
-                TopGpuProcessName = snapshot.ProcessStats?.TopGpu.FirstOrDefault()?.Name ?? TopGpuProcesses.FirstOrDefault()?.Name
+                TopCpuProcessName = GetFreshTopCpuProcessName(snapshot.ProcessStats),
+                TopGpuProcessName = GetFreshTopGpuProcessName(snapshot.ProcessStats)
             }, dashboardVisible);
 
             if (dashboardVisible && SelectedSectionIndex == 1)
@@ -2771,6 +2828,7 @@ public sealed class MainViewModel : ObservableObject
         IReadOnlyList<ProcessUsageInfo> TopCpu,
         IReadOnlyList<ProcessUsageInfo> TopMemory,
         IReadOnlyList<ProcessUsageInfo> TopGpu,
+        IReadOnlyList<ProcessUsageInfo> CpuDriverHistory,
         IReadOnlyList<ProcessUsageInfo> EnergyImpact,
         string EnergyImpactTitle,
         string EnergyImpactColumnHeader,

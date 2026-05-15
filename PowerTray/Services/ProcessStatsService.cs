@@ -51,7 +51,13 @@ public sealed class ProcessStatsService
 
     private string EnergyHistoryPath => Path.Combine(LogService.AppDataRoot, "energy-history.json");
 
-    public (double OverallCpuPercent, IReadOnlyList<ProcessUsageInfo> TopCpu, IReadOnlyList<ProcessUsageInfo> TopMemory, IReadOnlyList<ProcessUsageInfo> TopGpu, IReadOnlyList<ProcessUsageInfo> EnergyImpact, string EnergyImpactTitle, string EnergyImpactColumnHeader) Sample(BatteryStatus battery)
+    public void ResetProcessSampling()
+    {
+        _previousCpu.Clear();
+        _previousSample = DateTimeOffset.Now;
+    }
+
+    public (double OverallCpuPercent, IReadOnlyList<ProcessUsageInfo> TopCpu, IReadOnlyList<ProcessUsageInfo> TopMemory, IReadOnlyList<ProcessUsageInfo> TopGpu, IReadOnlyList<ProcessUsageInfo> CpuDriverHistory, IReadOnlyList<ProcessUsageInfo> EnergyImpact, string EnergyImpactTitle, string EnergyImpactColumnHeader) Sample(BatteryStatus battery)
     {
         EnsureEnergyStateLoaded();
         Process[] processes = Process.GetProcesses();
@@ -119,8 +125,12 @@ public sealed class ProcessStatsService
             .OrderByDescending(p => p.GpuPercent)
             .Take(10)
             .ToArray();
+        IReadOnlyList<ProcessUsageInfo> cpuDriverHistory = usage
+            .Where(p => p.CpuPercent > 0.05)
+            .OrderByDescending(p => p.CpuPercent)
+            .ToArray();
         IReadOnlyList<ProcessUsageInfo> energy = BuildEnergyImpactList(usage).Take(5).ToArray();
-        return (_lastOverallCpu, topCpu, topMemory, topGpu, energy, BuildEnergyImpactTitle(now), "Score");
+        return (_lastOverallCpu, topCpu, topMemory, topGpu, cpuDriverHistory, energy, BuildEnergyImpactTitle(now), "Score");
     }
 
     private Dictionary<int, GpuProcessUsage> SampleGpuUsageByPid()

@@ -26,6 +26,7 @@ public sealed class TrayIconManager : IDisposable
     private SettingsWindow? _settingsWindow;
     private DimmerWindow? _dimmerWindow;
     private WindowsThemeSettingsWindow? _windowsThemeSettingsWindow;
+    private ToolStripMenuItem? _backgroundRecordingMenuItem;
     private bool _disposed;
 
     public TrayIconManager(MainViewModel viewModel, Func<SettingsWindow> settingsWindowFactory, Func<DimmerWindow> dimmerWindowFactory, Func<WindowsThemeSettingsWindow> windowsThemeSettingsWindowFactory)
@@ -173,6 +174,12 @@ public sealed class TrayIconManager : IDisposable
     {
         var contextMenu = new ContextMenuStrip();
         contextMenu.Items.Add("Open Dashboard", null, (_, _) => ShowDashboard());
+        _backgroundRecordingMenuItem = new ToolStripMenuItem("Background recording")
+        {
+            Checked = _viewModel.IsBackgroundRecordingEnabled
+        };
+        _backgroundRecordingMenuItem.Click += (_, _) => ToggleBackgroundRecording();
+        contextMenu.Items.Add(_backgroundRecordingMenuItem);
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add("Battery Health Mode: Custom 50-80", null, (_, _) => ApplyPreset(BatteryPreset.Health));
         contextMenu.Items.Add("Balanced Mode: Custom 70-90", null, (_, _) => ApplyPreset(BatteryPreset.Balanced));
@@ -226,6 +233,11 @@ public sealed class TrayIconManager : IDisposable
             or nameof(MainViewModel.HwinfoChipText))
         {
             UpdateTrayStatus();
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.IsBackgroundRecordingEnabled) && _backgroundRecordingMenuItem is not null)
+        {
+            _backgroundRecordingMenuItem.Checked = _viewModel.IsBackgroundRecordingEnabled;
         }
     }
 
@@ -314,6 +326,12 @@ public sealed class TrayIconManager : IDisposable
     {
         Application.Current.Dispatcher.Invoke(() => _viewModel.ApplyWindowsPowerModeCommand.Execute(mode));
         _notifyIcon.ShowBalloonTip(2000, AppDisplayName, "Windows power mode updated.", ToolTipIcon.Info);
+    }
+
+    private void ToggleBackgroundRecording()
+    {
+        Application.Current.Dispatcher.Invoke(() => _viewModel.ToggleBackgroundRecordingCommand.Execute(null));
+        _notifyIcon.ShowBalloonTip(2000, AppDisplayName, _viewModel.BackgroundRecordingStatusText, ToolTipIcon.Info);
     }
 
     private static void PositionDashboardNearTray(Window window)

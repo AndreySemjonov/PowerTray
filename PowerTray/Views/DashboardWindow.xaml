@@ -58,6 +58,18 @@
                                 </ContextMenu>
                             </Button.ContextMenu>
                         </Button>
+                        <Button Content="{Binding BackgroundRecordingButtonText}" FontFamily="Segoe UI Symbol" Command="{Binding ToggleBackgroundRecordingCommand}" Width="36" MinWidth="36" ToolTip="{Binding BackgroundRecordingButtonToolTip}">
+                            <Button.Style>
+                                <Style TargetType="{x:Type Button}" BasedOn="{StaticResource TitleBarButtonStyle}">
+                                    <Setter Property="Foreground" Value="{DynamicResource MutedTextBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsBackgroundRecordingEnabled}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                         <Button Content="&#xE706;" FontFamily="Segoe MDL2 Assets" Command="{Binding OpenDimmerCommand}" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="{Binding ScreenDimmerButtonToolTip}" Visibility="{Binding ScreenDimmerButtonVisibility}" />
                         <Button Content="{Binding WindowsThemeToggleIcon}" FontFamily="Segoe UI Symbol" Command="{Binding ToggleWindowsThemeCommand}" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="{Binding WindowsThemeToggleToolTip}" Visibility="{Binding WindowsThemeToggleVisibility}" MouseRightButtonUp="WindowsThemeButton_MouseRightButtonUp" />
                         <Button Content="&#xE713;" FontFamily="Segoe MDL2 Assets" Command="{Binding OpenSettingsCommand}" Style="{StaticResource TitleBarButtonStyle}" Width="36" MinWidth="36" ToolTip="Settings" />
