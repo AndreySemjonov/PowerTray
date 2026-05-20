@@ -14,21 +14,14 @@ public sealed class ScreenDimmerService : IDisposable
     private const double MaximumDimLevel = 90;
     private const double DimStep = 5;
     private const int BrightnessMinimumThreshold = 10;
-    private const int WhKeyboardLl = 13;
-    private const int WmKeyDown = 0x0100;
-    private const int WmSysKeyDown = 0x0104;
     private const int WmInput = 0x00FF;
     private const int WmHotKey = 0x0312;
-    private const int VkBrightnessDown = 0xAE;
-    private const int VkBrightnessUp = 0xAF;
     private const int VkDown = 0x28;
     private const int VkUp = 0x26;
     private const int VkF7 = 0x76;
     private const int VkF8 = 0x77;
     private const int ModAlt = 0x0001;
     private const int ModControl = 0x0002;
-    private const int HotKeyBrightnessDown = 5101;
-    private const int HotKeyBrightnessUp = 5102;
     private const int HotKeyDimmerDown = 5103;
     private const int HotKeyDimmerUp = 5104;
     private const int HotKeyDimmerF7Down = 5105;
@@ -52,8 +45,6 @@ public sealed class ScreenDimmerService : IDisposable
     private readonly SettingsService _settingsService;
     private readonly List<DimmerOverlayWindow> _overlays = [];
     private readonly DispatcherTimer _topmostTimer;
-    private LowLevelKeyboardProc? _keyboardProc;
-    private nint _keyboardHook;
     private HwndSource? _rawInputSource;
     private bool _rawInputRegistered;
     private bool _disposed;
@@ -127,7 +118,6 @@ public sealed class ScreenDimmerService : IDisposable
         _disposed = true;
         SystemEvents.DisplaySettingsChanged -= SystemEvents_DisplaySettingsChanged;
         _topmostTimer.Stop();
-        UninstallKeyboardHook();
         DisposeRawInputSource();
         CloseOverlays();
     }
@@ -230,41 +220,12 @@ public sealed class ScreenDimmerService : IDisposable
     {
         if (IsFeatureEnabled && ExtendBrightnessKeys)
         {
-            InstallKeyboardHook();
             EnsureRawInputSource();
         }
         else
         {
-            UninstallKeyboardHook();
             DisposeRawInputSource();
         }
-    }
-
-    private void InstallKeyboardHook()
-    {
-        if (_keyboardHook != 0)
-        {
-            return;
-        }
-
-        _keyboardProc = KeyboardHookCallback;
-        _keyboardHook = SetWindowsHookEx(WhKeyboardLl, _keyboardProc, GetModuleHandle(null), 0);
-        if (_keyboardHook == 0)
-        {
-            LogService.Error(new InvalidOperationException($"SetWindowsHookEx failed: {Marshal.GetLastWin32Error()}"), "Failed to install screen dimmer brightness-key hook.");
-        }
-    }
-
-    private void UninstallKeyboardHook()
-    {
-        if (_keyboardHook == 0)
-        {
-            return;
-        }
-
-        UnhookWindowsHookEx(_keyboardHook);
-        _keyboardHook = 0;
-        _keyboardProc = null;
     }
 
     private void EnsureRawInputSource()
@@ -324,8 +285,6 @@ public sealed class ScreenDimmerService : IDisposable
 
     private static void RegisterBrightnessHotKeys(nint handle)
     {
-        RegisterBrightnessHotKey(handle, HotKeyBrightnessDown, 0, VkBrightnessDown, "Brightness down");
-        RegisterBrightnessHotKey(handle, HotKeyBrightnessUp, 0, VkBrightnessUp, "Brightness up");
         RegisterBrightnessHotKey(handle, HotKeyDimmerDown, ModAlt | ModControl, VkDown, "Ctrl+Alt+Down");
         RegisterBrightnessHotKey(handle, HotKeyDimmerUp, ModAlt | ModControl, VkUp, "Ctrl+Alt+Up");
         RegisterBrightnessHotKey(handle, HotKeyDimmerF7Down, ModControl, VkF7, "Ctrl+F7");
@@ -342,8 +301,6 @@ public sealed class ScreenDimmerService : IDisposable
 
     private static void UnregisterBrightnessHotKeys(nint handle)
     {
-        UnregisterHotKey(handle, HotKeyBrightnessDown);
-        UnregisterHotKey(handle, HotKeyBrightnessUp);
         UnregisterHotKey(handle, HotKeyDimmerDown);
         UnregisterHotKey(handle, HotKeyDimmerUp);
         UnregisterHotKey(handle, HotKeyDimmerF7Down);
@@ -367,15 +324,7 @@ public sealed class ScreenDimmerService : IDisposable
         else if (msg == WmHotKey)
         {
             int hotKeyId = wParam.ToInt32();
-            if (hotKeyId == HotKeyBrightnessDown && HandleBrightnessDown())
-            {
-                handled = true;
-            }
-            else if (hotKeyId == HotKeyBrightnessUp && HandleBrightnessUp())
-            {
-                handled = true;
-            }
-            else if ((hotKeyId is HotKeyDimmerDown or HotKeyDimmerF7Down) && DimDown())
+            if ((hotKeyId is HotKeyDimmerDown or HotKeyDimmerF7Down) && DimDown())
             {
                 handled = true;
             }
@@ -416,25 +365,6 @@ public sealed class ScreenDimmerService : IDisposable
         }
 
         return null;
-    }
-
-    private nint KeyboardHookCallback(int code, nint wParam, nint lParam)
-    {
-        if (code >= 0 && (wParam == WmKeyDown || wParam == WmSysKeyDown))
-        {
-            int vkCode = Marshal.ReadInt32(lParam);
-            if (vkCode == VkBrightnessDown && HandleBrightnessDown())
-            {
-                return 1;
-            }
-
-            if (vkCode == VkBrightnessUp && HandleBrightnessUp())
-            {
-                return 1;
-            }
-        }
-
-        return CallNextHookEx(_keyboardHook, code, wParam, lParam);
     }
 
     private bool HandleBrightnessDown()
@@ -552,8 +482,6 @@ public sealed class ScreenDimmerService : IDisposable
             new(System.Windows.Media.Color.FromArgb((byte)Math.Clamp(opacity * 255, 0, 230), 0, 0, 0));
     }
 
-    private delegate nint LowLevelKeyboardProc(int code, nint wParam, nint lParam);
-
     [StructLayout(LayoutKind.Sequential)]
     private struct RawInputDevice
     {
@@ -571,18 +499,6 @@ public sealed class ScreenDimmerService : IDisposable
         public nint Device;
         public nint WParam;
     }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern nint SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, nint hMod, uint dwThreadId);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool UnhookWindowsHookEx(nint hhk);
-
-    [DllImport("user32.dll")]
-    private static extern nint CallNextHookEx(nint hhk, int nCode, nint wParam, nint lParam);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern nint GetModuleHandle(string? lpModuleName);
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern int GetWindowLong(nint hWnd, int nIndex);
