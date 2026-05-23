@@ -112,8 +112,8 @@
                     </Button.Style>
                     <Button.ContextMenu>
                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                            <MenuItem Header="Battery Health: Custom 50-80" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
-                            <MenuItem Header="Balanced: Custom 70-90" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Balanced" />
+                            <MenuItem Header="{Binding HealthBatteryPresetMenuText}" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
+                            <MenuItem Header="{Binding BalancedBatteryPresetMenuText}" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Balanced" />
                             <MenuItem Header="Charge to Full: Standard" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Standard" />
                             <MenuItem Header="Primarily AC Use" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="PrimarilyAcUse" />
                             <MenuItem Header="Adaptive" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Adaptive" />
@@ -262,8 +262,8 @@
                             </StackPanel>
                             <Button.ContextMenu>
                                 <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                    <MenuItem Header="Battery Health: Custom 50-80" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
-                                    <MenuItem Header="Balanced: Custom 70-90" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Balanced" />
+                                    <MenuItem Header="{Binding HealthBatteryPresetMenuText}" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Health" />
+                                    <MenuItem Header="{Binding BalancedBatteryPresetMenuText}" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Balanced" />
                                     <MenuItem Header="Charge to Full: Standard" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Standard" />
                                     <MenuItem Header="Primarily AC Use" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="PrimarilyAcUse" />
                                     <MenuItem Header="Adaptive" Command="{Binding ApplyBatteryPresetCommand}" CommandParameter="Adaptive" />

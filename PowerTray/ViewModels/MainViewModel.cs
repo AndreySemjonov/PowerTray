@@ -837,6 +837,8 @@ public sealed class MainViewModel : ObservableObject
     public string PowerEfficiencyMenuText => FormatPowerModeMenuText(WindowsPowerMode.BestPowerEfficiency);
     public string BalancedPowerModeMenuText => FormatPowerModeMenuText(WindowsPowerMode.Balanced);
     public string PerformancePowerModeMenuText => FormatPowerModeMenuText(WindowsPowerMode.BestPerformance);
+    public string HealthBatteryPresetMenuText => $"Battery Health: Custom {_settingsService.Current.HealthStart}-{_settingsService.Current.HealthStop}";
+    public string BalancedBatteryPresetMenuText => $"Balanced: Custom {_settingsService.Current.BalancedStart}-{_settingsService.Current.BalancedStop}";
     public string DellThermalProfileText => FormatDellThermalProfile(DellThermalSetting);
     public string DellThermalProfileToolTip => DellThermalSetting;
     public string OptimizedThermalProfileMenuText => FormatDellThermalProfileMenuText(DellThermalProfile.Optimized);
@@ -1075,6 +1077,9 @@ public sealed class MainViewModel : ObservableObject
         NotifyScreenDimmerChanged();
         NotifyWindowsThemeToggleChanged();
         OnPropertyChanged(nameof(IsDellChargeModeAvailable));
+        NotifyBatteryPresetMenuTextChanged();
+        OnPropertyChanged(nameof(FriendlyChargeMode));
+        OnPropertyChanged(nameof(ModeChipText));
         NotifyDellThermalSettingsChanged();
         NotifyDashboardSectionVisibilityChanged();
         OnPropertyChanged(nameof(CctkStatusText));
@@ -2647,6 +2652,12 @@ public sealed class MainViewModel : ObservableObject
         NotifyDashboardWindowSizeChanged();
     }
 
+    private void NotifyBatteryPresetMenuTextChanged()
+    {
+        OnPropertyChanged(nameof(HealthBatteryPresetMenuText));
+        OnPropertyChanged(nameof(BalancedBatteryPresetMenuText));
+    }
+
     private void NotifyDashboardWindowSizeChanged()
     {
         OnPropertyChanged(nameof(IsAnyDashboardDetailVisible));
@@ -2722,16 +2733,22 @@ public sealed class MainViewModel : ObservableObject
             : $"{parts[2]} | {parts[3]}";
     }
 
-    private static string FormatFriendlyChargeMode(string raw)
+    private string FormatFriendlyChargeMode(string raw)
     {
-        if (raw.Contains("Custom:50-80", StringComparison.OrdinalIgnoreCase))
+        if (TryParseCustomChargeRange(raw, out int start, out int stop))
         {
-            return "Mode: Battery Health (50-80)";
-        }
+            string range = $"{start}-{stop}";
+            if (start == _settingsService.Current.HealthStart && stop == _settingsService.Current.HealthStop)
+            {
+                return $"Mode: Battery Health ({range})";
+            }
 
-        if (raw.Contains("Custom:70-90", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Mode: Balanced (70-90)";
+            if (start == _settingsService.Current.BalancedStart && stop == _settingsService.Current.BalancedStop)
+            {
+                return $"Mode: Balanced ({range})";
+            }
+
+            return $"Mode: Dell custom ({range})";
         }
 
         if (raw.Contains("Standard", StringComparison.OrdinalIgnoreCase))
@@ -2755,6 +2772,29 @@ public sealed class MainViewModel : ObservableObject
         }
 
         return "Mode: Dell custom";
+    }
+
+    private static bool TryParseCustomChargeRange(string raw, out int start, out int stop)
+    {
+        start = 0;
+        stop = 0;
+        int customIndex = raw.IndexOf("Custom:", StringComparison.OrdinalIgnoreCase);
+        if (customIndex < 0)
+        {
+            return false;
+        }
+
+        int rangeStart = customIndex + "Custom:".Length;
+        int rangeEnd = rangeStart;
+        while (rangeEnd < raw.Length && (char.IsDigit(raw[rangeEnd]) || raw[rangeEnd] == '-'))
+        {
+            rangeEnd++;
+        }
+
+        string[] parts = raw[rangeStart..rangeEnd].Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length == 2 &&
+            int.TryParse(parts[0], out start) &&
+            int.TryParse(parts[1], out stop);
     }
 
     private string FormatPresetChargeSetting(BatteryPreset preset) => preset switch

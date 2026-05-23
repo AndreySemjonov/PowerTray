@@ -27,6 +27,8 @@ public sealed class TrayIconManager : IDisposable
     private DimmerWindow? _dimmerWindow;
     private WindowsThemeSettingsWindow? _windowsThemeSettingsWindow;
     private ToolStripMenuItem? _backgroundRecordingMenuItem;
+    private ToolStripMenuItem? _healthPresetMenuItem;
+    private ToolStripMenuItem? _balancedPresetMenuItem;
     private bool _disposed;
 
     public TrayIconManager(MainViewModel viewModel, Func<SettingsWindow> settingsWindowFactory, Func<DimmerWindow> dimmerWindowFactory, Func<WindowsThemeSettingsWindow> windowsThemeSettingsWindowFactory)
@@ -181,8 +183,10 @@ public sealed class TrayIconManager : IDisposable
         _backgroundRecordingMenuItem.Click += (_, _) => ToggleBackgroundRecording();
         contextMenu.Items.Add(_backgroundRecordingMenuItem);
         contextMenu.Items.Add(new ToolStripSeparator());
-        contextMenu.Items.Add("Battery Health Mode: Custom 50-80", null, (_, _) => ApplyPreset(BatteryPreset.Health));
-        contextMenu.Items.Add("Balanced Mode: Custom 70-90", null, (_, _) => ApplyPreset(BatteryPreset.Balanced));
+        _healthPresetMenuItem = new ToolStripMenuItem(_viewModel.HealthBatteryPresetMenuText, null, (_, _) => ApplyPreset(BatteryPreset.Health));
+        _balancedPresetMenuItem = new ToolStripMenuItem(_viewModel.BalancedBatteryPresetMenuText, null, (_, _) => ApplyPreset(BatteryPreset.Balanced));
+        contextMenu.Items.Add(_healthPresetMenuItem);
+        contextMenu.Items.Add(_balancedPresetMenuItem);
         contextMenu.Items.Add("Charge to Full: Standard", null, (_, _) => ApplyPreset(BatteryPreset.Standard));
         contextMenu.Items.Add("Primarily AC Use", null, (_, _) => ApplyPreset(BatteryPreset.PrimarilyAcUse));
         contextMenu.Items.Add("Adaptive", null, (_, _) => ApplyPreset(BatteryPreset.Adaptive));
@@ -238,6 +242,16 @@ public sealed class TrayIconManager : IDisposable
         if (e.PropertyName == nameof(MainViewModel.IsBackgroundRecordingEnabled) && _backgroundRecordingMenuItem is not null)
         {
             _backgroundRecordingMenuItem.Checked = _viewModel.IsBackgroundRecordingEnabled;
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.HealthBatteryPresetMenuText) && _healthPresetMenuItem is not null)
+        {
+            _healthPresetMenuItem.Text = _viewModel.HealthBatteryPresetMenuText;
+        }
+
+        if (e.PropertyName == nameof(MainViewModel.BalancedBatteryPresetMenuText) && _balancedPresetMenuItem is not null)
+        {
+            _balancedPresetMenuItem.Text = _viewModel.BalancedBatteryPresetMenuText;
         }
     }
 
