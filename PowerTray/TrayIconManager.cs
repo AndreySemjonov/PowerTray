@@ -199,7 +199,7 @@ public sealed class TrayIconManager : IDisposable
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add("Show Current Dell Charge Setting", null, async (_, _) => await _viewModel.RefreshDellChargeAsync());
         contextMenu.Items.Add("Screen Dimmer", null, (_, _) => ShowDimmer());
-        contextMenu.Items.Add("Windows Theme", null, (_, _) => ShowWindowsThemeSettings());
+        contextMenu.Items.Add("Wi-Fi Profiles", null, (_, _) => ShowWindowsThemeSettings());
         contextMenu.Items.Add("Settings", null, (_, _) => ShowSettings());
         contextMenu.Items.Add(new ToolStripSeparator());
         contextMenu.Items.Add("Exit", null, (_, _) => ExitApplication());

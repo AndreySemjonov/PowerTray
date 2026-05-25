@@ -1,9 +1,9 @@
 <Window x:Class="PowerTray.Views.WindowsThemeSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Windows Theme Settings"
-        Width="520"
-        Height="460"
+        Title="Wi-Fi Profiles"
+        Width="1180"
+        Height="720"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         WindowStyle="None"
@@ -29,7 +29,7 @@
                     CornerRadius="10,10,0,0"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <DockPanel LastChildFill="False">
-                    <TextBlock Text="Windows Theme"
+                    <TextBlock Text="Wi-Fi Profiles"
                                DockPanel.Dock="Left"
                                VerticalAlignment="Center"
                                Margin="16,0,0,0"
@@ -55,11 +55,11 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel>
-                    <TextBlock Text="Light / Dark"
+                    <TextBlock Text="Wi-Fi Profiles"
                                Foreground="{DynamicResource AccentBrush}"
                                FontSize="18"
                                FontWeight="SemiBold" />
-                    <TextBlock Text="Automate Windows theme from the current Wi-Fi network."
+                    <TextBlock Text="Apply theme, Windows power plan, and Dell thermal profile from the current Wi-Fi network."
                                Foreground="{DynamicResource MutedTextBrush}"
                                FontSize="11"
                                Margin="0,1,0,0" />
@@ -98,6 +98,8 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="8" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="10" />
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="8" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
@@ -122,30 +124,133 @@
 
                             <Grid Grid.Row="2">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="126" />
-                                    <ColumnDefinition Width="8" />
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="170" />
                                     <ColumnDefinition Width="112" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="Add current network as"
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="6" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="Action"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11" />
+                                <TextBlock Grid.Column="1"
+                                           Text="Theme"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11" />
+                                <TextBlock Grid.Column="2"
+                                           Text="Plugged in power"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11" />
+                                <TextBlock Grid.Column="3"
+                                           Text="Plugged in Dell thermal"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11" />
+                                <TextBlock Grid.Column="4"
+                                           Text="On battery power"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11" />
+                                <TextBlock Grid.Column="5"
+                                           Text="On battery Dell thermal"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11" />
+
+                                <TextBlock Grid.Row="2"
+                                           Text="Add / update"
                                            Foreground="{DynamicResource MutedTextBrush}"
                                            VerticalAlignment="Center" />
-                                <ComboBox Grid.Column="1"
+                                <ComboBox Grid.Row="2"
+                                          Grid.Column="1"
                                           ItemsSource="{Binding ThemeModes}"
                                           DisplayMemberPath="DisplayName"
                                           SelectedValuePath="Value"
                                           SelectedValue="{Binding NewRuleTheme}" />
-                                <Button Grid.Column="3"
+                                <ComboBox Grid.Row="2"
+                                          Grid.Column="2"
+                                          Margin="8,0,0,0"
+                                          ItemsSource="{Binding PowerModes}"
+                                          DisplayMemberPath="DisplayName"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{Binding NewRulePluggedInPowerMode}" />
+                                <ComboBox Grid.Row="2"
+                                          Grid.Column="3"
+                                          Margin="8,0,0,0"
+                                          ItemsSource="{Binding DellThermalActions}"
+                                          DisplayMemberPath="DisplayName"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{Binding NewRulePluggedInDellThermalAction}" />
+                                <ComboBox Grid.Row="2"
+                                          Grid.Column="4"
+                                          Margin="8,0,0,0"
+                                          ItemsSource="{Binding PowerModes}"
+                                          DisplayMemberPath="DisplayName"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{Binding NewRuleBatteryPowerMode}" />
+                                <ComboBox Grid.Row="2"
+                                          Grid.Column="5"
+                                          Margin="8,0,0,0"
+                                          ItemsSource="{Binding DellThermalActions}"
+                                          DisplayMemberPath="DisplayName"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{Binding NewRuleBatteryDellThermalAction}" />
+                                <Button Grid.Row="2"
+                                        Grid.Column="6"
+                                        Margin="8,0,0,0"
                                         Content="Add / Update"
                                         Command="{Binding AddCurrentWifiRuleCommand}"
                                         Height="32" />
                             </Grid>
 
-                            <ListBox Grid.Row="4"
+                            <Grid Grid.Row="4" Margin="0,2,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="140" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="170" />
+                                    <ColumnDefinition Width="112" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Wi-Fi"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11" />
+                                <TextBlock Grid.Column="1"
+                                           Text="Theme"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11" />
+                                <TextBlock Grid.Column="2"
+                                           Text="Plugged in power"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11"
+                                           Margin="8,0,0,0" />
+                                <TextBlock Grid.Column="3"
+                                           Text="Plugged in Dell thermal"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11"
+                                           Margin="8,0,0,0" />
+                                <TextBlock Grid.Column="4"
+                                           Text="On battery power"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11"
+                                           Margin="8,0,0,0" />
+                                <TextBlock Grid.Column="5"
+                                           Text="On battery Dell thermal"
+                                           Foreground="{DynamicResource MutedTextBrush}"
+                                           FontSize="11"
+                                           Margin="8,0,0,0" />
+                            </Grid>
+
+                            <ListBox Grid.Row="6"
                                      ItemsSource="{Binding WifiRules}"
                                      BorderBrush="{DynamicResource PanelBorder}"
                                      Background="{DynamicResource InputBg}"
-                                     MinHeight="124"
+                                     MinHeight="310"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <ListBox.Resources>
@@ -158,22 +263,51 @@
                                 </ListBox.ItemContainerStyle>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Margin="4">
+                                        <Grid Margin="4,5">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="112" />
-                                                <ColumnDefinition Width="8" />
-                                                <ColumnDefinition Width="72" />
+                                                <ColumnDefinition Width="142" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="170" />
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="170" />
+                                                <ColumnDefinition Width="100" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="{Binding Ssid}"
                                                        VerticalAlignment="Center"
-                                                       FontWeight="SemiBold" />
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
                                             <ComboBox Grid.Column="1"
                                                       ItemsSource="{Binding DataContext.ThemeModes, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                       DisplayMemberPath="DisplayName"
                                                       SelectedValuePath="Value"
                                                       SelectedValue="{Binding Theme}" />
-                                            <Button Grid.Column="3"
+                                            <ComboBox Grid.Column="2"
+                                                      Margin="8,0,0,0"
+                                                      ItemsSource="{Binding DataContext.PowerModes, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                      DisplayMemberPath="DisplayName"
+                                                      SelectedValuePath="Value"
+                                                      SelectedValue="{Binding PluggedInPowerMode}" />
+                                            <ComboBox Grid.Column="3"
+                                                      Margin="8,0,0,0"
+                                                      ItemsSource="{Binding DataContext.DellThermalActions, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                      DisplayMemberPath="DisplayName"
+                                                      SelectedValuePath="Value"
+                                                      SelectedValue="{Binding PluggedInDellThermalAction}" />
+                                            <ComboBox Grid.Column="4"
+                                                      Margin="8,0,0,0"
+                                                      ItemsSource="{Binding DataContext.PowerModes, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                      DisplayMemberPath="DisplayName"
+                                                      SelectedValuePath="Value"
+                                                      SelectedValue="{Binding BatteryPowerMode}" />
+                                            <ComboBox Grid.Column="5"
+                                                      Margin="8,0,0,0"
+                                                      ItemsSource="{Binding DataContext.DellThermalActions, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                      DisplayMemberPath="DisplayName"
+                                                      SelectedValuePath="Value"
+                                                      SelectedValue="{Binding BatteryDellThermalAction}" />
+                                            <Button Grid.Column="6"
+                                                    Margin="8,0,0,0"
                                                     Content="Remove"
                                                     Command="{Binding DataContext.RemoveRuleCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                     CommandParameter="{Binding}"

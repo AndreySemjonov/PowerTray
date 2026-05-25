@@ -59,7 +59,21 @@ public enum WindowsThemeMode
 public sealed class WindowsThemeWifiRule
 {
     public string Ssid { get; set; } = string.Empty;
-    public WindowsThemeMode Theme { get; set; } = WindowsThemeMode.Dark;
+    public WindowsThemeMode? Theme { get; set; } = WindowsThemeMode.Dark;
+    public WindowsPowerMode? PluggedInPowerMode { get; set; }
+    public WindowsPowerMode? BatteryPowerMode { get; set; }
+    public WifiDellThermalAction PluggedInDellThermalAction { get; set; } = WifiDellThermalAction.DoNotChange;
+    public WifiDellThermalAction BatteryDellThermalAction { get; set; } = WifiDellThermalAction.DoNotChange;
+}
+
+public enum WifiDellThermalAction
+{
+    DoNotChange,
+    SyncWithPowerPlan,
+    Optimized,
+    Cool,
+    Quiet,
+    UltraPerformance
 }
 
 public enum DellThermalControlMode

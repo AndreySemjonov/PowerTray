@@ -31,6 +31,7 @@ public sealed class WindowsThemeAutomationService : IDisposable
     }
 
     public event EventHandler? StateChanged;
+    public event EventHandler<WifiProfileAppliedEventArgs>? WifiProfileApplied;
 
     public string CurrentWifiSsid => GetCurrentWifiSsid();
 
@@ -56,7 +57,54 @@ public sealed class WindowsThemeAutomationService : IDisposable
         _manualOverrideSsid = CurrentWifiSsid;
     }
 
-    public bool SaveCurrentWifiRule(WindowsThemeMode theme)
+    public bool SaveCurrentWifiRule(WindowsThemeMode theme) => SaveCurrentWifiThemeRule(theme);
+
+    public bool SaveCurrentWifiThemeRule(WindowsThemeMode theme) =>
+        SaveCurrentWifiRule(rule => rule.Theme = theme);
+
+    public bool SaveCurrentWifiPowerModeRule(WindowsPowerMode powerMode, bool pluggedIn) =>
+        SaveCurrentWifiRule(rule =>
+        {
+            if (pluggedIn)
+            {
+                rule.PluggedInPowerMode = powerMode;
+            }
+            else
+            {
+                rule.BatteryPowerMode = powerMode;
+            }
+        });
+
+    public bool SaveCurrentWifiDellThermalRule(DellThermalProfile profile, bool pluggedIn) =>
+        SaveCurrentWifiRule(rule =>
+        {
+            WifiDellThermalAction action = ToWifiDellThermalAction(profile);
+            if (pluggedIn)
+            {
+                rule.PluggedInDellThermalAction = action;
+            }
+            else
+            {
+                rule.BatteryDellThermalAction = action;
+            }
+        });
+
+    public bool SaveCurrentWifiProfile(
+        WindowsThemeMode? theme,
+        WindowsPowerMode? pluggedInPowerMode,
+        WindowsPowerMode? batteryPowerMode,
+        WifiDellThermalAction pluggedInDellThermalAction,
+        WifiDellThermalAction batteryDellThermalAction) =>
+        SaveCurrentWifiRule(rule =>
+        {
+            rule.Theme = theme;
+            rule.PluggedInPowerMode = pluggedInPowerMode;
+            rule.BatteryPowerMode = batteryPowerMode;
+            rule.PluggedInDellThermalAction = pluggedInDellThermalAction;
+            rule.BatteryDellThermalAction = batteryDellThermalAction;
+        });
+
+    private bool SaveCurrentWifiRule(Action<WindowsThemeWifiRule> updateRule)
     {
         string ssid = CurrentWifiSsid;
         if (string.IsNullOrWhiteSpace(ssid))
@@ -68,17 +116,15 @@ public sealed class WindowsThemeAutomationService : IDisposable
             .FirstOrDefault(rule => rule.Ssid.Equals(ssid, StringComparison.OrdinalIgnoreCase));
         if (existing is null)
         {
-            _settingsService.Current.WindowsThemeWifiRules.Add(new WindowsThemeWifiRule
+            existing = new WindowsThemeWifiRule
             {
                 Ssid = ssid,
-                Theme = theme
-            });
-        }
-        else
-        {
-            existing.Theme = theme;
+                Theme = null
+            };
+            _settingsService.Current.WindowsThemeWifiRules.Add(existing);
         }
 
+        updateRule(existing);
         _manualOverrideSsid = string.Empty;
         _settingsService.Save(_settingsService.Current);
         StateChanged?.Invoke(this, EventArgs.Empty);
@@ -171,15 +217,38 @@ public sealed class WindowsThemeAutomationService : IDisposable
             return;
         }
 
-        bool shouldUseLight = rule.Theme == WindowsThemeMode.Light;
-        if (WindowsThemeService.IsLightMode() != shouldUseLight)
+        if (rule.Theme is { } theme)
         {
-            WindowsThemeService.SetLightMode(shouldUseLight);
-            ThemeService.Apply(_settingsService.Current.Theme);
+            bool shouldUseLight = theme == WindowsThemeMode.Light;
+            if (WindowsThemeService.IsLightMode() != shouldUseLight)
+            {
+                WindowsThemeService.SetLightMode(shouldUseLight);
+                ThemeService.Apply(_settingsService.Current.Theme);
+            }
         }
 
+        WifiProfileApplied?.Invoke(this, new WifiProfileAppliedEventArgs(ssid, CloneRule(rule)));
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    private static WindowsThemeWifiRule CloneRule(WindowsThemeWifiRule rule) => new()
+    {
+        Ssid = rule.Ssid,
+        Theme = rule.Theme,
+        PluggedInPowerMode = rule.PluggedInPowerMode,
+        BatteryPowerMode = rule.BatteryPowerMode,
+        PluggedInDellThermalAction = rule.PluggedInDellThermalAction,
+        BatteryDellThermalAction = rule.BatteryDellThermalAction
+    };
+
+    private static WifiDellThermalAction ToWifiDellThermalAction(DellThermalProfile profile) => profile switch
+    {
+        DellThermalProfile.Optimized => WifiDellThermalAction.Optimized,
+        DellThermalProfile.Cool => WifiDellThermalAction.Cool,
+        DellThermalProfile.Quiet => WifiDellThermalAction.Quiet,
+        DellThermalProfile.UltraPerformance => WifiDellThermalAction.UltraPerformance,
+        _ => WifiDellThermalAction.DoNotChange
+    };
 
     private static string GetCurrentWifiSsid()
     {
@@ -225,4 +294,10 @@ public sealed class WindowsThemeAutomationService : IDisposable
 
         return string.Empty;
     }
+}
+
+public sealed class WifiProfileAppliedEventArgs(string ssid, WindowsThemeWifiRule rule) : EventArgs
+{
+    public string Ssid { get; } = ssid;
+    public WindowsThemeWifiRule Rule { get; } = rule;
 }

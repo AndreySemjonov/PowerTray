@@ -11,7 +11,11 @@ public sealed class WindowsThemeSettingsViewModel : ObservableObject
     private readonly WindowsThemeAutomationService _automationService;
     private bool _showWindowsThemeToggle;
     private WindowsThemeAutomationMode _automationMode;
-    private WindowsThemeMode _newRuleTheme = WindowsThemeMode.Dark;
+    private WindowsThemeMode? _newRuleTheme = WindowsThemeMode.Dark;
+    private WindowsPowerMode? _newRulePluggedInPowerMode;
+    private WindowsPowerMode? _newRuleBatteryPowerMode;
+    private WifiDellThermalAction _newRulePluggedInDellThermalAction = WifiDellThermalAction.DoNotChange;
+    private WifiDellThermalAction _newRuleBatteryDellThermalAction = WifiDellThermalAction.DoNotChange;
     private string _currentWifiSsid = string.Empty;
     private string _status = string.Empty;
 
@@ -42,8 +46,27 @@ public sealed class WindowsThemeSettingsViewModel : ObservableObject
 
     public IEnumerable<WindowsThemeModeOption> ThemeModes { get; } =
     [
+        new(null, "Don't change"),
         new(WindowsThemeMode.Light, "Light"),
         new(WindowsThemeMode.Dark, "Dark")
+    ];
+
+    public IEnumerable<WindowsPowerModeOption> PowerModes { get; } =
+    [
+        new(null, "Don't change"),
+        new(WindowsPowerMode.BestPowerEfficiency, WindowsPowerModeService.ToDisplayName(WindowsPowerMode.BestPowerEfficiency)),
+        new(WindowsPowerMode.Balanced, WindowsPowerModeService.ToDisplayName(WindowsPowerMode.Balanced)),
+        new(WindowsPowerMode.BestPerformance, WindowsPowerModeService.ToDisplayName(WindowsPowerMode.BestPerformance))
+    ];
+
+    public IEnumerable<WifiDellThermalActionOption> DellThermalActions { get; } =
+    [
+        new(WifiDellThermalAction.DoNotChange, "Don't change"),
+        new(WifiDellThermalAction.SyncWithPowerPlan, "Sync from power plan"),
+        new(WifiDellThermalAction.Optimized, "Optimized"),
+        new(WifiDellThermalAction.Cool, "Cool"),
+        new(WifiDellThermalAction.Quiet, "Quiet"),
+        new(WifiDellThermalAction.UltraPerformance, "Ultra Performance")
     ];
 
     public ObservableCollection<WindowsThemeWifiRuleViewModel> WifiRules { get; }
@@ -68,10 +91,34 @@ public sealed class WindowsThemeSettingsViewModel : ObservableObject
 
     public bool IsWifiAutomationEnabled => AutomationMode == WindowsThemeAutomationMode.WifiNetwork;
 
-    public WindowsThemeMode NewRuleTheme
+    public WindowsThemeMode? NewRuleTheme
     {
         get => _newRuleTheme;
         set => SetProperty(ref _newRuleTheme, value);
+    }
+
+    public WindowsPowerMode? NewRulePluggedInPowerMode
+    {
+        get => _newRulePluggedInPowerMode;
+        set => SetProperty(ref _newRulePluggedInPowerMode, value);
+    }
+
+    public WindowsPowerMode? NewRuleBatteryPowerMode
+    {
+        get => _newRuleBatteryPowerMode;
+        set => SetProperty(ref _newRuleBatteryPowerMode, value);
+    }
+
+    public WifiDellThermalAction NewRulePluggedInDellThermalAction
+    {
+        get => _newRulePluggedInDellThermalAction;
+        set => SetProperty(ref _newRulePluggedInDellThermalAction, value);
+    }
+
+    public WifiDellThermalAction NewRuleBatteryDellThermalAction
+    {
+        get => _newRuleBatteryDellThermalAction;
+        set => SetProperty(ref _newRuleBatteryDellThermalAction, value);
     }
 
     public string CurrentWifiSsid
@@ -145,11 +192,21 @@ public sealed class WindowsThemeSettingsViewModel : ObservableObject
         if (existing is not null)
         {
             existing.Theme = NewRuleTheme;
+            existing.PluggedInPowerMode = NewRulePluggedInPowerMode;
+            existing.BatteryPowerMode = NewRuleBatteryPowerMode;
+            existing.PluggedInDellThermalAction = NewRulePluggedInDellThermalAction;
+            existing.BatteryDellThermalAction = NewRuleBatteryDellThermalAction;
             Status = $"Updated rule for {ssid}.";
             return;
         }
 
-        WifiRules.Add(new WindowsThemeWifiRuleViewModel(ssid, NewRuleTheme));
+        WifiRules.Add(new WindowsThemeWifiRuleViewModel(
+            ssid,
+            NewRuleTheme,
+            NewRulePluggedInPowerMode,
+            NewRuleBatteryPowerMode,
+            NewRulePluggedInDellThermalAction,
+            NewRuleBatteryDellThermalAction));
         Status = $"Added rule for {ssid}.";
     }
 
@@ -170,7 +227,11 @@ public sealed class WindowsThemeSettingsViewModel : ObservableObject
             .Select(rule => new WindowsThemeWifiRule
             {
                 Ssid = rule.Ssid.Trim(),
-                Theme = rule.Theme
+                Theme = rule.Theme,
+                PluggedInPowerMode = rule.PluggedInPowerMode,
+                BatteryPowerMode = rule.BatteryPowerMode,
+                PluggedInDellThermalAction = rule.PluggedInDellThermalAction,
+                BatteryDellThermalAction = rule.BatteryDellThermalAction
             })
             .GroupBy(rule => rule.Ssid, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.Last())
@@ -185,14 +246,30 @@ public sealed class WindowsThemeSettingsViewModel : ObservableObject
     private IEnumerable<WindowsThemeWifiRuleViewModel> BuildRuleViewModels() =>
         _settingsService.Current.WindowsThemeWifiRules
             .Where(rule => !string.IsNullOrWhiteSpace(rule.Ssid))
-            .Select(rule => new WindowsThemeWifiRuleViewModel(rule.Ssid, rule.Theme));
+            .Select(rule => new WindowsThemeWifiRuleViewModel(
+                rule.Ssid,
+                rule.Theme,
+                rule.PluggedInPowerMode,
+                rule.BatteryPowerMode,
+                rule.PluggedInDellThermalAction,
+                rule.BatteryDellThermalAction));
 
     public sealed record WindowsThemeAutomationModeOption(WindowsThemeAutomationMode Value, string DisplayName)
     {
         public override string ToString() => DisplayName;
     }
 
-    public sealed record WindowsThemeModeOption(WindowsThemeMode Value, string DisplayName)
+    public sealed record WindowsThemeModeOption(WindowsThemeMode? Value, string DisplayName)
+    {
+        public override string ToString() => DisplayName;
+    }
+
+    public sealed record WindowsPowerModeOption(WindowsPowerMode? Value, string DisplayName)
+    {
+        public override string ToString() => DisplayName;
+    }
+
+    public sealed record WifiDellThermalActionOption(WifiDellThermalAction Value, string DisplayName)
     {
         public override string ToString() => DisplayName;
     }
@@ -200,19 +277,57 @@ public sealed class WindowsThemeSettingsViewModel : ObservableObject
 
 public sealed class WindowsThemeWifiRuleViewModel : ObservableObject
 {
-    private WindowsThemeMode _theme;
+    private WindowsThemeMode? _theme;
+    private WindowsPowerMode? _pluggedInPowerMode;
+    private WindowsPowerMode? _batteryPowerMode;
+    private WifiDellThermalAction _pluggedInDellThermalAction;
+    private WifiDellThermalAction _batteryDellThermalAction;
 
-    public WindowsThemeWifiRuleViewModel(string ssid, WindowsThemeMode theme)
+    public WindowsThemeWifiRuleViewModel(
+        string ssid,
+        WindowsThemeMode? theme,
+        WindowsPowerMode? pluggedInPowerMode,
+        WindowsPowerMode? batteryPowerMode,
+        WifiDellThermalAction pluggedInDellThermalAction,
+        WifiDellThermalAction batteryDellThermalAction)
     {
         Ssid = ssid;
         _theme = theme;
+        _pluggedInPowerMode = pluggedInPowerMode;
+        _batteryPowerMode = batteryPowerMode;
+        _pluggedInDellThermalAction = pluggedInDellThermalAction;
+        _batteryDellThermalAction = batteryDellThermalAction;
     }
 
     public string Ssid { get; }
 
-    public WindowsThemeMode Theme
+    public WindowsThemeMode? Theme
     {
         get => _theme;
         set => SetProperty(ref _theme, value);
+    }
+
+    public WindowsPowerMode? PluggedInPowerMode
+    {
+        get => _pluggedInPowerMode;
+        set => SetProperty(ref _pluggedInPowerMode, value);
+    }
+
+    public WindowsPowerMode? BatteryPowerMode
+    {
+        get => _batteryPowerMode;
+        set => SetProperty(ref _batteryPowerMode, value);
+    }
+
+    public WifiDellThermalAction PluggedInDellThermalAction
+    {
+        get => _pluggedInDellThermalAction;
+        set => SetProperty(ref _pluggedInDellThermalAction, value);
+    }
+
+    public WifiDellThermalAction BatteryDellThermalAction
+    {
+        get => _batteryDellThermalAction;
+        set => SetProperty(ref _batteryDellThermalAction, value);
     }
 }

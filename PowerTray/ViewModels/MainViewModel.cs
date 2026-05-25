@@ -46,6 +46,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly List<DateTimeOffset> _cpuDriverSampleTimes = [];
     private bool _isRefreshing;
     private bool _isSyncingDellThermalForPowerSource;
+    private bool _isApplyingWifiProfile;
     private bool _isRefreshingWindowsBatteryUsage;
     private DateTimeOffset _lastProcessRefresh = DateTimeOffset.MinValue;
     private DateTimeOffset _lastWindowsBatteryUsageRefresh = DateTimeOffset.MinValue;
@@ -116,6 +117,7 @@ public sealed class MainViewModel : ObservableObject
         _windowsThemeAutomationService = windowsThemeAutomationService;
         _screenDimmerService.StateChanged += (_, _) => NotifyScreenDimmerChanged();
         _windowsThemeAutomationService.StateChanged += (_, _) => NotifyWindowsThemeToggleChanged();
+        _windowsThemeAutomationService.WifiProfileApplied += WindowsThemeAutomationService_WifiProfileApplied;
 
         TopCpuProcesses = new ObservableCollection<ProcessUsageInfo>();
         TopMemoryProcesses = new ObservableCollection<ProcessUsageInfo>();
@@ -1394,7 +1396,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private async Task ApplyWindowsPowerModeAsync(object? parameter)
+    private async Task ApplyWindowsPowerModeAsync(object? parameter, bool saveWifiRule = true)
     {
         if (parameter is not WindowsPowerMode mode)
         {
@@ -1414,6 +1416,12 @@ public sealed class MainViewModel : ObservableObject
             StatusMessage = _windowsPowerModeService.SetConfiguredMode(pluggedIn, mode);
             RefreshWindowsPowerMode(pluggedIn);
             await SyncDellThermalProfileIfNeededAsync(mode);
+            if (saveWifiRule &&
+                _settingsService.Current.WindowsThemeAutomationMode == WindowsThemeAutomationMode.WifiNetwork &&
+                _windowsThemeAutomationService.SaveCurrentWifiPowerModeRule(mode, pluggedIn))
+            {
+                StatusMessage = $"{StatusMessage} Saved for {_windowsThemeAutomationService.CurrentWifiSsid} ({PowerModeTargetText}).";
+            }
         }
         catch (Exception ex)
         {
@@ -1422,7 +1430,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    private async Task ApplyDellThermalProfileAsync(object? parameter)
+    private async Task ApplyDellThermalProfileAsync(object? parameter, bool saveWifiRule = true)
     {
         if (!IsDellChargeModeAvailable)
         {
@@ -1459,6 +1467,91 @@ public sealed class MainViewModel : ObservableObject
             {
                 SetDellThermalSetting(CleanCctkOutput(refresh.StandardOutput), cache: true);
             }
+
+            if (saveWifiRule &&
+                _settingsService.Current.WindowsThemeAutomationMode == WindowsThemeAutomationMode.WifiNetwork &&
+                _windowsThemeAutomationService.SaveCurrentWifiDellThermalRule(profile, Battery.IsPluggedIn))
+            {
+                StatusMessage = $"{StatusMessage} Saved for {_windowsThemeAutomationService.CurrentWifiSsid} ({PowerModeTargetText}).";
+            }
+        }
+    }
+
+    private void WindowsThemeAutomationService_WifiProfileApplied(object? sender, WifiProfileAppliedEventArgs e)
+    {
+        _ = ApplyWifiProfileAsync(e);
+    }
+
+    private async Task ApplyWifiProfileAsync(WifiProfileAppliedEventArgs e)
+    {
+        if (_isApplyingWifiProfile)
+        {
+            return;
+        }
+
+        _isApplyingWifiProfile = true;
+        try
+        {
+            bool pluggedIn = Battery.IsPluggedIn;
+            WindowsPowerMode? powerMode = CurrentWindowsPowerMode ?? ReadWindowsPowerMode(pluggedIn);
+            WindowsPowerMode? profilePowerMode = pluggedIn
+                ? e.Rule.PluggedInPowerMode
+                : e.Rule.BatteryPowerMode;
+            if (profilePowerMode is { } mode)
+            {
+                await ApplyWindowsPowerModeAsync(mode, saveWifiRule: false);
+                powerMode = mode;
+            }
+
+            WifiDellThermalAction dellThermalAction = pluggedIn
+                ? e.Rule.PluggedInDellThermalAction
+                : e.Rule.BatteryDellThermalAction;
+            if (dellThermalAction != WifiDellThermalAction.DoNotChange)
+            {
+                await ApplyWifiDellThermalActionAsync(dellThermalAction, powerMode, e.Ssid);
+            }
+        }
+        catch (Exception ex)
+        {
+            LogService.Error(ex, "Failed to apply Wi-Fi profile.");
+            StatusMessage = $"Wi-Fi profile sync failed: {ex.Message}";
+        }
+        finally
+        {
+            _isApplyingWifiProfile = false;
+        }
+    }
+
+    private async Task ApplyWifiDellThermalActionAsync(WifiDellThermalAction action, WindowsPowerMode? powerMode, string ssid)
+    {
+        if (!IsDellChargeModeAvailable)
+        {
+            DellThermalSetting = "Unavailable";
+            StatusMessage = $"Wi-Fi profile {ssid}: Dell Command | Configure is not configured.";
+            return;
+        }
+
+        DellThermalProfile? profile = action == WifiDellThermalAction.SyncWithPowerPlan
+            ? powerMode is { } mode
+                ? GetDellThermalProfileForWindowsPowerMode(_settingsService.Current, mode)
+                : null
+            : ToDellThermalProfile(action);
+        if (profile is not { } targetProfile)
+        {
+            StatusMessage = $"Wi-Fi profile {ssid}: Windows power mode is unavailable for Dell thermal sync.";
+            return;
+        }
+
+        CommandResult result = await _cctkService.ApplyThermalProfileAsync(targetProfile, allowElevation: false);
+        string profileName = ToDellThermalDisplayName(targetProfile);
+        if (result.Success)
+        {
+            SetDellThermalSetting($"ThermalManagement={profileName}", cache: true);
+            StatusMessage = $"Wi-Fi profile {ssid}: Dell thermal {profileName}.";
+        }
+        else
+        {
+            StatusMessage = $"Wi-Fi profile {ssid}: Dell thermal sync failed: {result.Message}";
         }
     }
 
@@ -1494,6 +1587,11 @@ public sealed class MainViewModel : ObservableObject
         if (!shouldApplyInitialManualProfile && (previousPluggedIn is null || previousPluggedIn == pluggedIn))
         {
             return;
+        }
+
+        if (previousPluggedIn is not null && previousPluggedIn != pluggedIn)
+        {
+            _windowsThemeAutomationService.ApplySettings();
         }
 
         _ = SyncDellThermalForPowerSourceChangeAsync(pluggedIn, mode);
@@ -2689,7 +2787,7 @@ public sealed class MainViewModel : ObservableObject
         bool nextUseLightMode = !WindowsThemeService.IsLightMode();
         WindowsThemeService.SetLightMode(nextUseLightMode);
         bool savedWifiRule = _settingsService.Current.WindowsThemeAutomationMode == WindowsThemeAutomationMode.WifiNetwork &&
-            _windowsThemeAutomationService.SaveCurrentWifiRule(nextUseLightMode ? WindowsThemeMode.Light : WindowsThemeMode.Dark);
+            _windowsThemeAutomationService.SaveCurrentWifiThemeRule(nextUseLightMode ? WindowsThemeMode.Light : WindowsThemeMode.Dark);
         if (!savedWifiRule)
         {
             _windowsThemeAutomationService.MarkManualOverrideUntilNetworkChanges();
@@ -2699,7 +2797,7 @@ public sealed class MainViewModel : ObservableObject
         NotifyWindowsThemeToggleChanged();
         string modeText = nextUseLightMode ? "light" : "dark";
         StatusMessage = savedWifiRule
-            ? $"Windows theme set to {modeText} mode and saved for this Wi-Fi."
+            ? $"Windows theme set to {modeText} mode and saved for {_windowsThemeAutomationService.CurrentWifiSsid}."
             : $"Windows theme set to {modeText} mode.";
     }
 
@@ -2870,6 +2968,15 @@ public sealed class MainViewModel : ObservableObject
         DellThermalProfile.Quiet => "Quiet",
         DellThermalProfile.UltraPerformance => "Ultra Performance",
         _ => "Unknown"
+    };
+
+    private static DellThermalProfile? ToDellThermalProfile(WifiDellThermalAction action) => action switch
+    {
+        WifiDellThermalAction.Optimized => DellThermalProfile.Optimized,
+        WifiDellThermalAction.Cool => DellThermalProfile.Cool,
+        WifiDellThermalAction.Quiet => DellThermalProfile.Quiet,
+        WifiDellThermalAction.UltraPerformance => DellThermalProfile.UltraPerformance,
+        _ => null
     };
 
     private static string FormatCapacity(int? milliWattHours)
