@@ -258,6 +258,7 @@ public sealed class MainViewModel : ObservableObject
                 RefreshGraphBindingsFromSamples();
             }
 
+            ResetBatteryUsageDateOnDashboardOpen();
             _processStatsService.ResetProcessSampling();
             _ = RefreshAsync();
             if (SelectedSectionIndex == 1 && ShowBatteryUsageSection)
@@ -1903,6 +1904,17 @@ public sealed class MainViewModel : ObservableObject
     {
         SelectedBatteryUsageDate = DateTime.Today;
         await RefreshSelectedBatteryUsageSnapshotAsync();
+    }
+
+    private void ResetBatteryUsageDateOnDashboardOpen()
+    {
+        if (SelectedBatteryUsageDate == DateTime.Today)
+        {
+            return;
+        }
+
+        SelectedBatteryUsageDate = DateTime.Today;
+        IsBatteryUsageDetailsVisible = false;
     }
 
     private async Task RefreshSelectedBatteryUsageSnapshotAsync()
