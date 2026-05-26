@@ -171,15 +171,6 @@ public partial class DashboardWindow : Window
         OpenContextMenu(element);
     }
 
-    private void WindowsThemeButton_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        e.Handled = true;
-        if (_viewModel.OpenWindowsThemeSettingsCommand.CanExecute(null))
-        {
-            _viewModel.OpenWindowsThemeSettingsCommand.Execute(null);
-        }
-    }
-
     private void OpenContextMenu(FrameworkElement owner)
     {
         if (owner.ContextMenu is null)
