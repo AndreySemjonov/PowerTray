@@ -10,5 +10,6 @@ public sealed class BatteryUsageSnapshot
     public string EstimatedDrainText { get; init; } = "0.0 mWh";
     public string SleepDrainText { get; init; } = "Sleep: none";
     public string ChargeBehaviorText { get; init; } = "Usage: collecting";
+    public string SinceFullChargeText { get; init; } = "Since full: not available";
     public IReadOnlyList<BatteryUsageBucket> Buckets { get; init; } = [];
 }

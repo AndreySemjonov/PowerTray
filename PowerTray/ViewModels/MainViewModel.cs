@@ -42,6 +42,7 @@ public sealed class MainViewModel : ObservableObject
     private readonly WindowsThemeAutomationService _windowsThemeAutomationService;
     private readonly DispatcherTimer _timer = new();
     private readonly List<SensorSample> _samples = [];
+    private readonly List<BatteryAverageSample> _batteryAverageSamples = [];
     private readonly List<CpuDriverSample> _cpuDriverSamples = [];
     private readonly List<DateTimeOffset> _cpuDriverSampleTimes = [];
     private bool _isRefreshing;
@@ -313,6 +314,8 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(BatteryFlowChipText));
                 OnPropertyChanged(nameof(PowerSaveChipText));
                 OnPropertyChanged(nameof(BatteryTimeText));
+                OnPropertyChanged(nameof(BatteryUsageRemainingText));
+                OnPropertyChanged(nameof(BatteryUsageRuntimeSummaryText));
                 OnPropertyChanged(nameof(BatteryPowerText));
                 NotifyTopCardsChanged();
                 OnPropertyChanged(nameof(BatteryHealthText));
@@ -451,6 +454,8 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
                 OnPropertyChanged(nameof(BatteryFlowChipText));
                 OnPropertyChanged(nameof(BatteryTimeText));
+                OnPropertyChanged(nameof(BatteryUsageRemainingText));
+                OnPropertyChanged(nameof(BatteryUsageRuntimeSummaryText));
             }
         }
     }
@@ -671,6 +676,9 @@ public sealed class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(BatteryUsageEstimatedDrainText));
                 OnPropertyChanged(nameof(BatteryUsageSleepDrainText));
                 OnPropertyChanged(nameof(BatteryUsageChargeBehaviorText));
+                OnPropertyChanged(nameof(BatteryUsageSinceFullChargeText));
+                OnPropertyChanged(nameof(BatteryUsageRemainingText));
+                OnPropertyChanged(nameof(BatteryUsageRuntimeSummaryText));
                 OnPropertyChanged(nameof(BatteryUsageBuckets));
                 OnPropertyChanged(nameof(BatteryUsageDateText));
             }
@@ -692,6 +700,8 @@ public sealed class MainViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(BatteryUsageDateText));
                 OnPropertyChanged(nameof(CanShowNextBatteryUsageDay));
+                OnPropertyChanged(nameof(BatteryUsageRemainingText));
+                OnPropertyChanged(nameof(BatteryUsageRuntimeSummaryText));
             }
         }
     }
@@ -857,6 +867,11 @@ public sealed class MainViewModel : ObservableObject
     public string BatteryUsageEstimatedDrainText => BatteryUsage.EstimatedDrainText;
     public string BatteryUsageSleepDrainText => BatteryUsage.SleepDrainText;
     public string BatteryUsageChargeBehaviorText => BatteryUsage.ChargeBehaviorText;
+    public string BatteryUsageSinceFullChargeText => BatteryUsage.SinceFullChargeText;
+    public string BatteryUsageRemainingText => SelectedBatteryUsageDate == DateTime.Today
+        ? $"Remaining: {BatteryTimeText.Replace(" remaining", "", StringComparison.Ordinal)}"
+        : "Remaining: current day only";
+    public string BatteryUsageRuntimeSummaryText => $"{BatteryUsageSinceFullChargeText} | {BatteryUsageRemainingText}";
     public IReadOnlyList<BatteryUsageBucket> BatteryUsageBuckets => BatteryUsage.Buckets;
     public string BatteryWattsGraphSummaryTop => SplitGraphSummary(BatteryWattsGraphSummary, 0);
     public string BatteryWattsGraphSummaryBottom => SplitGraphSummary(BatteryWattsGraphSummary, 1);
@@ -1699,6 +1714,12 @@ public sealed class MainViewModel : ObservableObject
             DateTime selectedDate = SelectedBatteryUsageDate;
             DateTimeOffset now = DateTimeOffset.Now;
             bool dashboardVisible = IsDashboardVisible;
+            if (!dashboardVisible && !IsBackgroundRecordingEnabled)
+            {
+                await RefreshHiddenBatteryTrackingAsync(now);
+                return;
+            }
+
             bool recordActivity = dashboardVisible || IsBackgroundRecordingEnabled;
             bool trackBatteryUsage = ShowBatteryUsageSection;
             TimeSpan processRefreshInterval = GetProcessRefreshInterval();
@@ -1859,6 +1880,33 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    private async Task RefreshHiddenBatteryTrackingAsync(DateTimeOffset timestamp)
+    {
+        DateTime selectedDate = DateTime.Today;
+        bool trackBatteryUsage = ShowBatteryUsageSection;
+        BatteryHealthInfo cachedHealth = Battery.BatteryHealth;
+        HiddenBatteryTrackingSnapshot snapshot = await Task.Run(() =>
+        {
+            BatteryStatus battery = _batteryService.GetStatus(cachedBatteryHealth: cachedHealth);
+            WindowsPowerMode? powerMode = ReadWindowsPowerMode(battery.IsPluggedIn);
+            BatteryUsageSnapshot? usage = trackBatteryUsage
+                ? _batteryUsageService.Record(battery, selectedDate, powerMode)
+                : null;
+
+            return new HiddenBatteryTrackingSnapshot(battery, powerMode, usage);
+        });
+
+        Battery = snapshot.Battery;
+        BatteryPowerWatts = snapshot.Battery.ChargeRateWatts;
+        CurrentWindowsPowerMode = snapshot.PowerMode;
+        AddBatteryAverageSample(timestamp, snapshot.Battery.ChargeRateWatts);
+        SyncDellThermalForPowerSourceChangeIfNeeded(snapshot.Battery.IsPluggedIn, snapshot.PowerMode);
+        if (snapshot.BatteryUsage is not null && SelectedBatteryUsageDate == selectedDate)
+        {
+            BatteryUsage = snapshot.BatteryUsage;
+        }
+    }
+
     private void AddSample(SensorSample sample, bool updateVisibleGraphs)
     {
         _clearSamplesOnNextDashboardOpen = false;
@@ -1866,13 +1914,7 @@ public sealed class MainViewModel : ObservableObject
         DateTimeOffset cutoff = DateTimeOffset.Now.AddMinutes(-10);
         _samples.RemoveAll(s => s.Timestamp < cutoff);
 
-        _averageBatteryDischargeWatts = CalculateAverageBatteryDischargeWatts(_samples);
-        _averageBatteryTimeRemaining = CalculateAverageBatteryTimeRemaining(Battery, _averageBatteryDischargeWatts);
-        NotifyTopCardsChanged();
-        OnPropertyChanged(nameof(BatteryDrainSummaryText));
-        OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
-        OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
-        OnPropertyChanged(nameof(BatteryTimeText));
+        AddBatteryAverageSample(sample.Timestamp, sample.BatteryPowerWatts);
 
         if (!updateVisibleGraphs)
         {
@@ -1883,13 +1925,34 @@ public sealed class MainViewModel : ObservableObject
         RefreshGraphBindingsFromSamples();
     }
 
+    private void AddBatteryAverageSample(DateTimeOffset timestamp, double? batteryPowerWatts)
+    {
+        _batteryAverageSamples.Add(new BatteryAverageSample(timestamp, batteryPowerWatts));
+        DateTimeOffset cutoff = DateTimeOffset.Now.AddMinutes(-10);
+        _batteryAverageSamples.RemoveAll(s => s.Timestamp < cutoff);
+
+        RefreshBatteryAverageFromSamples();
+    }
+
+    private void RefreshBatteryAverageFromSamples()
+    {
+        _averageBatteryDischargeWatts = CalculateAverageBatteryDischargeWatts(_batteryAverageSamples);
+        _averageBatteryTimeRemaining = CalculateAverageBatteryTimeRemaining(Battery, _averageBatteryDischargeWatts);
+        NotifyTopCardsChanged();
+        OnPropertyChanged(nameof(BatteryDrainSummaryText));
+        OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
+        OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
+        OnPropertyChanged(nameof(BatteryTimeText));
+        OnPropertyChanged(nameof(BatteryUsageRemainingText));
+        OnPropertyChanged(nameof(BatteryUsageRuntimeSummaryText));
+    }
+
     private void ClearSampleHistory()
     {
         _clearSamplesOnNextDashboardOpen = false;
         _deferredGraphRefresh = false;
         _samples.Clear();
-        _averageBatteryDischargeWatts = null;
-        _averageBatteryTimeRemaining = null;
+        RefreshBatteryAverageFromSamples();
         CpuGraphValues = [];
         GpuGraphValues = [];
         TemperatureGraphValues = [];
@@ -1906,11 +1969,6 @@ public sealed class MainViewModel : ObservableObject
         BatteryWattsGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
         CpuPowerGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
         TemperatureGraphSummary = "Cur -- | Avg -- | Min -- | Max --";
-        NotifyTopCardsChanged();
-        OnPropertyChanged(nameof(BatteryDrainSummaryText));
-        OnPropertyChanged(nameof(BatteryDrainSummaryTopText));
-        OnPropertyChanged(nameof(BatteryDrainSummaryBottomText));
-        OnPropertyChanged(nameof(BatteryTimeText));
         OnPropertyChanged(nameof(BatteryDrainEventsEmptyText));
         NotifyUsageDetailMetricsChanged();
         NotifyBatteryWattsDetailMetricsChanged();
@@ -2324,8 +2382,17 @@ public sealed class MainViewModel : ObservableObject
 
     private static double? CalculateAverageBatteryDischargeWatts(IReadOnlyList<SensorSample> samples)
     {
-        double[] dischargeWatts = samples
-            .Select(s => s.BatteryPowerWatts)
+        return CalculateAverageBatteryDischargeWatts(samples.Select(s => s.BatteryPowerWatts));
+    }
+
+    private static double? CalculateAverageBatteryDischargeWatts(IReadOnlyList<BatteryAverageSample> samples)
+    {
+        return CalculateAverageBatteryDischargeWatts(samples.Select(s => s.BatteryPowerWatts));
+    }
+
+    private static double? CalculateAverageBatteryDischargeWatts(IEnumerable<double?> batteryPowerWatts)
+    {
+        double[] dischargeWatts = batteryPowerWatts
             .Where(watts => watts is < -0.5)
             .Select(watts => Math.Abs(watts!.Value))
             .ToArray();
@@ -3015,6 +3082,13 @@ public sealed class MainViewModel : ObservableObject
         bool ProcessSampled);
 
     private sealed record CpuDriverSample(DateTimeOffset Timestamp, string Name, double CpuPercent);
+
+    private sealed record BatteryAverageSample(DateTimeOffset Timestamp, double? BatteryPowerWatts);
+
+    private sealed record HiddenBatteryTrackingSnapshot(
+        BatteryStatus Battery,
+        WindowsPowerMode? PowerMode,
+        BatteryUsageSnapshot? BatteryUsage);
 
     private sealed record CpuDriverTickKey(DateTimeOffset Timestamp, string Name);
 

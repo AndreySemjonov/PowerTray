@@ -8,7 +8,7 @@ namespace PowerTray.Services;
 
 public sealed class BatteryService
 {
-    public BatteryStatus GetStatus(double? sensorBatteryWatts = null)
+    public BatteryStatus GetStatus(double? sensorBatteryWatts = null, BatteryHealthInfo? cachedBatteryHealth = null)
     {
         if (!GetSystemPowerStatus(out SystemPowerStatus status))
         {
@@ -18,7 +18,7 @@ public sealed class BatteryService
                 IsPluggedIn = false,
                 ChargeRateWatts = sensorBatteryWatts,
                 HealthStatus = "Unavailable",
-                BatteryHealth = TryGetBatteryHealthInfo()
+                BatteryHealth = cachedBatteryHealth ?? TryGetBatteryHealthInfo()
             };
         }
 
@@ -40,7 +40,7 @@ public sealed class BatteryService
                 255 => "Unknown",
                 _ => null
             },
-            BatteryHealth = TryGetBatteryHealthInfo()
+            BatteryHealth = cachedBatteryHealth ?? TryGetBatteryHealthInfo()
         };
     }
 

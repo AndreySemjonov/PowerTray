@@ -9,6 +9,7 @@ public sealed class BatteryUsageService
 {
     private const int RetentionDays = 7;
     private const int BucketCount = 96;
+    private const int FullChargePercentThreshold = 99;
     private const double ChargeInferenceMinimumPercent = 1;
     private const double SleepDrainMaximumPercent = 3;
     private const double SleepDrainMaximumPercentPerHour = 2;
@@ -147,6 +148,7 @@ public sealed class BatteryUsageService
             EstimatedDrainText = FormatMilliWattHours(EstimateDrainMilliWattHours()),
             SleepDrainText = BuildSleepDrainText(buckets),
             ChargeBehaviorText = BuildChargeBehaviorText(buckets),
+            SinceFullChargeText = BuildSinceFullChargeText(selectedDate, now),
             Buckets = buckets
         };
     }
@@ -460,6 +462,68 @@ public sealed class BatteryUsageService
         {
             parts.Add($"{label} {FormatDuration(duration)}");
         }
+    }
+
+    private string BuildSinceFullChargeText(DateTime selectedDate, DateTimeOffset now)
+    {
+        DateTime day = DateTime.SpecifyKind(selectedDate.Date, DateTimeKind.Unspecified);
+        DateTimeOffset dayStart = new(day, TimeZoneInfo.Local.GetUtcOffset(day));
+        DateTimeOffset effectiveEnd = selectedDate.Date == DateTime.Today
+            ? now
+            : dayStart.AddDays(1);
+
+        BatteryUsageSample[] samples = _state.Samples
+            .Where(sample => sample.Timestamp <= effectiveEnd)
+            .OrderBy(sample => sample.Timestamp)
+            .ToArray();
+        int fullChargeIndex = Array.FindLastIndex(
+            samples,
+            sample => sample.BatteryPercent >= FullChargePercentThreshold && sample.IsPluggedIn);
+        if (fullChargeIndex < 0)
+        {
+            fullChargeIndex = Array.FindLastIndex(
+                samples,
+                sample => sample.BatteryPercent >= FullChargePercentThreshold);
+        }
+
+        if (fullChargeIndex < 0)
+        {
+            return "Since full: not available";
+        }
+
+        DateTimeOffset fullChargeTime = samples[fullChargeIndex].Timestamp;
+        TimeSpan onBattery = SumOnBatteryDuration(samples, fullChargeIndex, effectiveEnd);
+        string suffix = fullChargeTime.Date == effectiveEnd.Date
+            ? fullChargeTime.ToString("HH:mm")
+            : fullChargeTime.ToString("MMM d HH:mm");
+        return $"Since full: {FormatDuration(onBattery)} on battery (from {suffix})";
+    }
+
+    private static TimeSpan SumOnBatteryDuration(IReadOnlyList<BatteryUsageSample> samples, int startIndex, DateTimeOffset effectiveEnd)
+    {
+        long ticks = 0;
+        for (int i = startIndex + 1; i < samples.Count; i++)
+        {
+            DateTimeOffset intervalStart = samples[i - 1].Timestamp;
+            DateTimeOffset intervalEnd = samples[i].Timestamp;
+            if (intervalEnd <= intervalStart)
+            {
+                continue;
+            }
+
+            if (!samples[i - 1].IsPluggedIn)
+            {
+                ticks += Math.Min(intervalEnd.Ticks, effectiveEnd.Ticks) - intervalStart.Ticks;
+            }
+        }
+
+        BatteryUsageSample? last = samples.Count > startIndex ? samples[^1] : null;
+        if (last is not null && !last.IsPluggedIn && effectiveEnd > last.Timestamp && effectiveEnd.Date == DateTime.Today)
+        {
+            ticks += effectiveEnd.Ticks - last.Timestamp.Ticks;
+        }
+
+        return TimeSpan.FromTicks(Math.Max(0, ticks));
     }
 
     private static TimeSpan SumDuration(IReadOnlyList<BatteryUsageBucket> buckets, Func<BatteryUsageBucket, bool> predicate)

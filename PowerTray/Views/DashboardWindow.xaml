@@ -504,8 +504,8 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="34" />
-                            <RowDefinition Height="170" />
-                            <RowDefinition Height="30" />
+                            <RowDefinition Height="162" />
+                            <RowDefinition Height="50" />
                         </Grid.RowDefinitions>
 
                         <Grid>
@@ -524,18 +524,20 @@
                         <controls:BatteryUsageCombinedControl Grid.Row="1"
                                                               Buckets="{Binding BatteryUsageBuckets}"
                                                               SelectionCommand="{Binding SelectBatteryUsageRangeCommand}"
-                                                              Height="170"
+                                                              Height="162"
                                                               VerticalAlignment="Top"
                                                               Margin="0,0,0,0"
                                                               Cursor="Hand" />
 
                         <Grid Grid.Row="2" Margin="0,-2,0,0">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="17" />
-                                <RowDefinition Height="17" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="16" />
+                                <RowDefinition Height="16" />
                             </Grid.RowDefinitions>
                             <TextBlock Text="{Binding BatteryUsageSleepDrainText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
                             <TextBlock Grid.Row="1" Text="{Binding BatteryUsageChargeBehaviorText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Text="{Binding BatteryUsageRuntimeSummaryText}" Foreground="{DynamicResource MutedTextBrush}" FontSize="11" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
                         </Grid>
                     </Grid>
                 </Border>
