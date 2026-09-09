@@ -1431,9 +1431,12 @@ public sealed class MainViewModel : ObservableObject
             StatusMessage = _windowsPowerModeService.SetConfiguredMode(pluggedIn, mode);
             RefreshWindowsPowerMode(pluggedIn);
             await SyncDellThermalProfileIfNeededAsync(mode);
+            WifiDellThermalAction? syncedThermalAction = _settingsService.Current.DellThermalControlMode == DellThermalControlMode.SyncWithWindowsPowerPlan
+                ? WifiDellThermalAction.SyncWithPowerPlan
+                : null;
             if (saveWifiRule &&
                 _settingsService.Current.WindowsThemeAutomationMode == WindowsThemeAutomationMode.WifiNetwork &&
-                _windowsThemeAutomationService.SaveCurrentWifiPowerModeRule(mode, pluggedIn))
+                _windowsThemeAutomationService.SaveCurrentWifiPowerModeRule(mode, pluggedIn, syncedThermalAction))
             {
                 StatusMessage = $"{StatusMessage} Saved for {_windowsThemeAutomationService.CurrentWifiSsid} ({PowerModeTargetText}).";
             }
@@ -1507,8 +1510,13 @@ public sealed class MainViewModel : ObservableObject
         _isApplyingWifiProfile = true;
         try
         {
-            bool pluggedIn = Battery.IsPluggedIn;
-            WindowsPowerMode? powerMode = CurrentWindowsPowerMode ?? ReadWindowsPowerMode(pluggedIn);
+            BatteryStatus battery = await Task.Run(() => _batteryService.GetStatus(cachedBatteryHealth: Battery.BatteryHealth));
+            Battery = battery;
+            BatteryPowerWatts = battery.ChargeRateWatts;
+
+            bool pluggedIn = battery.IsPluggedIn;
+            WindowsPowerMode? powerMode = ReadWindowsPowerMode(pluggedIn);
+            CurrentWindowsPowerMode = powerMode;
             WindowsPowerMode? profilePowerMode = pluggedIn
                 ? e.Rule.PluggedInPowerMode
                 : e.Rule.BatteryPowerMode;

@@ -75,6 +75,27 @@ public sealed class WindowsThemeAutomationService : IDisposable
             }
         });
 
+    public bool SaveCurrentWifiPowerModeRule(WindowsPowerMode powerMode, bool pluggedIn, WifiDellThermalAction? dellThermalAction) =>
+        SaveCurrentWifiRule(rule =>
+        {
+            if (pluggedIn)
+            {
+                rule.PluggedInPowerMode = powerMode;
+                if (dellThermalAction is { } action)
+                {
+                    rule.PluggedInDellThermalAction = action;
+                }
+            }
+            else
+            {
+                rule.BatteryPowerMode = powerMode;
+                if (dellThermalAction is { } action)
+                {
+                    rule.BatteryDellThermalAction = action;
+                }
+            }
+        });
+
     public bool SaveCurrentWifiDellThermalRule(DellThermalProfile profile, bool pluggedIn) =>
         SaveCurrentWifiRule(rule =>
         {
