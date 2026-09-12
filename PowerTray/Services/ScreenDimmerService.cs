@@ -37,8 +37,6 @@ public sealed class ScreenDimmerService : IDisposable
     private const int WsExToolWindow = 0x00000080;
     private const int WsExNoActivate = 0x08000000;
     private static readonly nint HwndTopmost = new(-1);
-    private const uint SwpNoSize = 0x0001;
-    private const uint SwpNoMove = 0x0002;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpShowWindow = 0x0040;
 
@@ -155,6 +153,7 @@ public sealed class ScreenDimmerService : IDisposable
         {
             for (int i = 0; i < _overlays.Count; i++)
             {
+                _overlays[i].UpdateBounds(screens[i].Bounds);
                 _overlays[i].UpdateDimLevel(overlayLevel / 100d);
             }
 
@@ -436,8 +435,11 @@ public sealed class ScreenDimmerService : IDisposable
 
     private sealed class DimmerOverlayWindow : Window
     {
+        private System.Drawing.Rectangle _bounds;
+
         public DimmerOverlayWindow(WinForms.Screen screen, double opacity)
         {
+            _bounds = screen.Bounds;
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
             ResizeMode = ResizeMode.NoResize;
@@ -447,21 +449,26 @@ public sealed class ScreenDimmerService : IDisposable
             Focusable = false;
             IsHitTestVisible = false;
             Background = CreateBrush(opacity);
-            Left = screen.Bounds.Left;
-            Top = screen.Bounds.Top;
-            Width = screen.Bounds.Width;
-            Height = screen.Bounds.Height;
+            // WPF geometry uses device-independent units. The monitor rectangle
+            // belongs to Win32, so apply it to the HWND after Show creates it.
+            Width = 1;
+            Height = 1;
             SourceInitialized += OnSourceInitialized;
         }
 
         public void UpdateDimLevel(double opacity) => Background = CreateBrush(opacity);
+
+        public void UpdateBounds(System.Drawing.Rectangle bounds) => _bounds = bounds;
 
         public void ReassertTopmost()
         {
             nint handle = new WindowInteropHelper(this).Handle;
             if (handle != 0)
             {
-                SetWindowPos(handle, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpShowWindow);
+                // Reapply geometry as well as z-order: WPF/Windows may resize a
+                // window after a DPI change even when no monitor was added/removed.
+                SetWindowPos(handle, HwndTopmost, _bounds.Left, _bounds.Top,
+                    _bounds.Width, _bounds.Height, SwpNoActivate | SwpShowWindow);
             }
         }
 
@@ -469,6 +476,20 @@ public sealed class ScreenDimmerService : IDisposable
         {
             base.OnActivated(e);
             Topmost = true;
+        }
+
+        protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+        {
+            base.OnDpiChanged(oldDpi, newDpi);
+            // Let WPF finish applying its suggested DPI size before restoring the
+            // monitor rectangle. That size is suitable for app windows, not overlays.
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+            {
+                if (IsVisible)
+                {
+                    ReassertTopmost();
+                }
+            }));
         }
 
         private void OnSourceInitialized(object? sender, EventArgs e)
